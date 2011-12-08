@@ -1,4 +1,4 @@
-module HsColour where
+module Markup.HsColour where
 
 import           Control.Concurrent      (forkIO)
 import           Control.Concurrent.MVar (newEmptyMVar, readMVar, putMVar)

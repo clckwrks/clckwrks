@@ -32,8 +32,8 @@ Library
                    ClckwrksMonad
                    ClckwrksServer
                    FormPart
-                   HsColour
-                   Markdown
+                   Markup.HsColour
+                   Markup.Markdown
                    Menu.Acid
                    Menu.API
                    Menu.Edit

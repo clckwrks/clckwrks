@@ -1,4 +1,4 @@
-module Markdown where
+module Markup.Markdown where
 
 import           Control.Concurrent      (forkIO)
 import           Control.Concurrent.MVar (newEmptyMVar, readMVar, putMVar)

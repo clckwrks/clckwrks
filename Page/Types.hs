@@ -9,8 +9,8 @@ import Data.IxSet
 import Data.SafeCopy
 import Data.Text
 import Data.Time
-import HsColour (hscolour)
-import Markdown (markdown)
+import Markup.HsColour (hscolour)
+import Markup.Markdown (markdown)
 import Web.Routes
 
 instance PathInfo PageId where
