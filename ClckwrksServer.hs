@@ -11,8 +11,8 @@ import Data.String          (fromString)
 import Happstack.Auth
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import System.FilePath     ((</>), makeRelative, splitDirectories)
-import System.Plugins.Auto (PluginHandle, PluginConf(..), defaultPluginConf, initPlugins)
-import System.Plugins.Auto.Reloader (func)
+-- import System.Plugins.Auto (PluginHandle, PluginConf(..), defaultPluginConf, initPlugins)
+-- import System.Plugins.Auto.Reloader (func)
 import ProfileData.Route    (routeProfileData)
 import ProfileData.URL      (ProfileDataURL(..))
 import Web.Routes.Happstack (implSite)
@@ -25,22 +25,13 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckJQueryUIPath :: FilePath
     , clckJSTreePath   :: FilePath
     , clckJSON2Path    :: FilePath
+    , clckPageHandler  :: Clck ClckURL Response
     }
     
-defaultClckwrksConfig :: ClckwrksConfig ClckURL
-defaultClckwrksConfig = ClckwrksConfig
-      { clckHostname     = "localhost"
-      , clckPort         = 8000 
-      , clckURL          = id
-      , clckJQueryPath   = "/usr/share/javascript/jquery/"
-      , clckJQueryUIPath = "/usr/share/javascript/jquery-ui/"
-      , clckJSTreePath   = "../jstree/"
-      , clckJSON2Path    = "../json2/"
-      }
         
-withClckwrks ::  (PluginHandle -> ClckState -> IO b) -> IO b
+withClckwrks ::  (ClckState -> IO b) -> IO b
 withClckwrks action =
-    do ph <- initPlugins
+    do -- ph <- initPlugins  let c = defaultClckwrksConfig  { clckURL = C }
        withAcid Nothing $ \acid ->
            do let clckState = ClckState { acidState       = acid 
                                         , currentPage     = PageId 0
@@ -48,12 +39,12 @@ withClckwrks action =
                                         , componentPrefix = Prefix (fromString "clckwrks")
                                         , uniqueId        = 0
                                         }
-              action ph clckState
+              action clckState
   
 simpleClckwrks :: ClckwrksConfig u -> IO ()
 simpleClckwrks cc =
-  withClckwrks $ \ph clckState ->
-    simpleHTTP (nullConf { port = clckPort cc }) (handlers ph clckState)
+  withClckwrks $ \clckState ->
+    simpleHTTP (nullConf { port = clckPort cc }) (handlers (clckPageHandler cc) clckState)
   where
     handlers ph clckState =
        msum $ 
@@ -71,18 +62,13 @@ jsHandlers c =
        , dir "json2"       $ serveDirectory DisableBrowsing [] (clckJSON2Path c)
        ]
 
-routeClck :: PluginHandle -> ClckURL -> Clck ClckURL Response
-routeClck ph url =
+routeClck :: Clck ClckURL Response -> ClckURL -> Clck ClckURL Response
+routeClck pageHandler url =
     do setUnique 0
        case url of
          (ViewPage pid) ->
-             do setCurrentPage pid
-                fp <- themePath <$> get
-                let pc = (defaultPluginConf { pcGHCArgs = [ "-i" ++ fp] 
---                                            , pcWhenWatched = \fp -> print fp
---                                            , pcWhenChanged = \fp -> print fp
-                                            })
-                withSymbol ph "PageMapper.hs" "pageMapper" pc page
+           do setCurrentPage pid
+              pageHandler
          (ThemeData fp')  ->
              do fp <- themePath <$> get
                 let fp'' = makeRelative "/" fp'
@@ -98,18 +84,8 @@ routeClck ph url =
                 u <- showURL $ Profile CreateNewProfileData
                 nestURL Auth $ handleAuthProfile acidAuth acidProfile template Nothing Nothing u apURL
 
-clckSite :: PluginHandle -> ClckState -> Site ClckURL (ServerPart Response)
+clckSite :: Clck ClckURL Response -> ClckState -> Site ClckURL (ServerPart Response)
 clckSite ph cmsState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'
     where
       route' f u =
           mapServerPartT (\m -> evalStateT m cmsState) $ unRouteT (unClck $ routeClck ph u) f
-
-withSymbol :: (MonadIO m) => PluginHandle -> FilePath -> String -> PluginConf -> (a -> m b) -> m b
-withSymbol ph fp sym pc f =
-    do (errs, r) <- liftIO $ func ph fp sym pc
-       case r of
-         Nothing  -> error (unlines errs)
-         (Just a) -> f a
-
-page :: XMLGenT (Clck url) XML -> Clck url Response
-page (XMLGenT part) = toResponse <$> part
