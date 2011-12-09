@@ -46,12 +46,13 @@ simpleClckwrks cc =
     simpleHTTP (nullConf { port = clckPort cc }) (handlers (clckPageHandler cc) clckState)
   where
     handlers ph clckState =
-       msum $ 
-         [ jsHandlers cc
-         , dir "favicon.ico" $ notFound (toResponse ())
-         , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
-         , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite ph clckState)
-         ]
+       do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
+          msum $ 
+            [ jsHandlers cc
+            , dir "favicon.ico" $ notFound (toResponse ())
+            , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
+            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite ph clckState)
+            ]
               
 jsHandlers :: ClckwrksConfig u -> ServerPart Response
 jsHandlers c =

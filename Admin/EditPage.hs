@@ -35,7 +35,7 @@ pageFormlet page =
     (fieldset $
        ol $ (,,) <$> (li $ inputCheckBox hsColour <++ label "Highlight Haskell code with HsColour")
                  <*> ((li $ label "title:") ++> (li $ inputText (Just (pageTitle page)) `setAttrs` ("size" := "80")))
-                 <*> ((li $ label "body:") ++> (li $ inputTextArea (Just 80) (Just 50) (Just (markup (pageSrc page)))))
+                 <*> ((li $ label "body:") ++> (li $ inputTextArea (Just 80) (Just 25) (Just (markup (pageSrc page)))))
                  <*  submit "update")
     `transform` (transformEitherM toPage)
     where
