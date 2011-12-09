@@ -11,8 +11,6 @@ import Data.String          (fromString)
 import Happstack.Auth
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import System.FilePath     ((</>), makeRelative, splitDirectories)
--- import System.Plugins.Auto (PluginHandle, PluginConf(..), defaultPluginConf, initPlugins)
--- import System.Plugins.Auto.Reloader (func)
 import ProfileData.Route    (routeProfileData)
 import ProfileData.URL      (ProfileDataURL(..))
 import Web.Routes.Happstack (implSite)
@@ -25,17 +23,18 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckJQueryUIPath :: FilePath
     , clckJSTreePath   :: FilePath
     , clckJSON2Path    :: FilePath
+    , clckThemeDir     :: FilePath
+    , clckStaticDir    :: FilePath
     , clckPageHandler  :: Clck ClckURL Response
     }
     
         
-withClckwrks ::  (ClckState -> IO b) -> IO b
-withClckwrks action =
-    do -- ph <- initPlugins  let c = defaultClckwrksConfig  { clckURL = C }
-       withAcid Nothing $ \acid ->
+withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
+withClckwrks cc action =
+    do withAcid Nothing $ \acid ->
            do let clckState = ClckState { acidState       = acid 
                                         , currentPage     = PageId 0
-                                        , themePath       = "../clckwrks-theme-basic/"
+                                        , themePath       = clckThemeDir cc
                                         , componentPrefix = Prefix (fromString "clckwrks")
                                         , uniqueId        = 0
                                         }
@@ -43,14 +42,14 @@ withClckwrks action =
   
 simpleClckwrks :: ClckwrksConfig u -> IO ()
 simpleClckwrks cc =
-  withClckwrks $ \clckState ->
+  withClckwrks cc $ \clckState ->
     simpleHTTP (nullConf { port = clckPort cc }) (handlers (clckPageHandler cc) clckState)
   where
     handlers ph clckState =
        msum $ 
          [ jsHandlers cc
          , dir "favicon.ico" $ notFound (toResponse ())
-         , dir "static"      $ serveDirectory DisableBrowsing [] "../static"
+         , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
          , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite ph clckState)
          ]
               
