@@ -12,6 +12,7 @@ data AdminURL
     | EditPage PageId
     | NewPage
     | EditMenu
+    | MenuPOST
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 $(derivePathInfo ''AdminURL)

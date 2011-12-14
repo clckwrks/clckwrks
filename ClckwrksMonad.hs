@@ -25,6 +25,7 @@ import Data.Acid                     (AcidState, EventState, EventResult, QueryE
 import Data.Acid.Advanced            (query', update')
 import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.Map            as Map
+import qualified Data.Text           as Text
 import qualified Data.Vector         as Vector
 import Page.Acid
 import Page.Types                    (Markup(..))
@@ -74,7 +75,9 @@ instance ToJExpr Value where
     toJExpr (Bool True)   = ValExpr $ JVar    $ StrI "true"
     toJExpr (Bool False)  = ValExpr $ JVar    $ StrI "false"
     toJExpr Null          = ValExpr $ JVar    $ StrI "null"
-
+    
+instance ToJExpr Text.Text where    
+  toJExpr t = ValExpr $ JStr $ T.unpack t
 
 nestURL :: (url1 -> url2) -> Clck url1 a -> Clck url2 a
 nestURL f (Clck r) = Clck $ R.nestURL f r

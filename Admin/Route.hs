@@ -7,6 +7,7 @@ import Admin.NewPage
 import Clckwrks
 import Menu.Acid
 import Menu.Edit
+import Menu.Types
 
 routeAdmin :: AdminURL -> Clck ClckURL Response
 routeAdmin url =
@@ -16,4 +17,6 @@ routeAdmin url =
       NewPage        -> nestURL Admin $ newPage
       EditMenu       -> 
           do menu <- query AskMenu
-             editMenu menu
+             editMenu (menu :: Menu ClckURL)
+      MenuPOST       -> menuPost
+

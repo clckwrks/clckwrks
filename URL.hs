@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
 module URL 
      ( ClckURL(..)
+     , AdminURL(..)
      , AuthURL(..)
      , ProfileURL(..)
      , AuthProfileURL(..)
