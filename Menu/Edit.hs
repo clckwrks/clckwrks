@@ -206,25 +206,56 @@ menuTreeToJSTree (Node item children) =
            , fromString "children" .=
                map menuTreeToJSTree children
            ]
+
 newtype MenuUpdate = MenuUpdate ([Tree MenuUpdateItem]) deriving (Show)
-newtype MenuUpdateItem = MenuUpdateItem (String, Maybe Int) deriving (Show)
+newtype MenuUpdateItem = MenuUpdateItem (String, Maybe MenuName, Maybe Integer) deriving (Show)
 
 instance FromJSON MenuUpdate where
   parseJSON (Array a) = MenuUpdate <$> mapM parseJSON (Vector.toList a)
   
 instance FromJSON (Tree MenuUpdateItem) where
   parseJSON (Object o) = 
-    do ttl  <- o    .: (fromString "data")
-       meta <- o    .: (fromString "metadata")
+    do ttl      <- o .: (fromString "data")
+       meta     <- o .: (fromString "metadata")
        pid      <- optional $ meta .: (fromString "pid")
+       menuName <- do mmno <- optional $ meta .: (fromString "menuName")
+                      case mmno of
+                        Nothing -> return Nothing
+                        (Just mno) ->
+                            do prefix <- mno .: fromString "prefix"
+                               tag    <- mno .: fromString "tag"
+                               unique <- mno .: fromString "unique"
+                               return (Just $ MenuName (Prefix prefix) tag unique)
        children <- (o .: (fromString "children")) <|> pure Vector.empty
-       return (Node (MenuUpdateItem (ttl, pid)) (Vector.toList children))
-       
+       return (Node (MenuUpdateItem (ttl, menuName, pid)) (Vector.toList children))
 
 menuPost :: Clck ClckURL Response
 menuPost =
   do t <- lookBS "tree"
-     liftIO $ print (parse value t)
+--     liftIO $ print (parse value t)
      let mu = decode t :: Maybe MenuUpdate
-     liftIO $ print mu
-     ok $ toResponse ()
+     case mu of
+       Nothing -> 
+           internalServerError $ toResponse "menuPost: failed to decode JSON data"
+       (Just u) ->
+           do update (SetMenu (updateToMenu u))
+              ok $ toResponse ()
+
+updateToMenu :: MenuUpdate -> Menu ClckURL
+updateToMenu (MenuUpdate t) =
+    Menu $ map convertItem t
+    where
+      convertItem :: Tree MenuUpdateItem -> Tree (MenuItem ClckURL)
+      convertItem (Node (MenuUpdateItem (ttl, mmn, mPageId)) children) = 
+          let menuName = case mmn of
+                           Just mn -> mn
+                           Nothing -> MenuName (Prefix (fromString "clckwrks")) (fromString "tag") 1
+              menuItem = MenuItem { menuName  = menuName
+                                  , menuTitle = Text.pack ttl
+                                  , menuLink = 
+                                      case mPageId of
+                                        Nothing -> LinkMenu
+                                        (Just pid) -> LinkURL (ViewPage (PageId pid))
+                                  }
+          in Node menuItem (map convertItem children)
+

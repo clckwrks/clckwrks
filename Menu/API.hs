@@ -9,6 +9,7 @@ import Menu.Types
 import Menu.Acid
 import Types
 import URL
+import Web.Routes
 
 mkMenuName :: Text -> Clck url MenuName
 mkMenuName name =
@@ -27,15 +28,18 @@ getMenu =
 menuForestHTML :: Forest (MenuItem url) -> GenXML (Clck url)
 menuForestHTML [] = return $ cdata ""
 menuForestHTML forest =
-    <ol class="menu">
+    <ul class="page-menu">
      <% mapM menuTreeHTML forest %>
-    </ol>
+    </ul>
 
 menuTreeHTML :: Tree (MenuItem url) -> GenXML (Clck url)
 menuTreeHTML (Node menuItem subMenus) =
-    <li>
-     <a><% menuTitle menuItem %></a>
-     <% menuForestHTML subMenus %>
-    </li>
+    case menuLink menuItem of
+      (LinkURL url) ->
+          do u <- showURL url
+             <li>
+              <a href=u><% menuTitle menuItem %></a>
+              <% menuForestHTML subMenus %>
+              </li>
 
              

@@ -36,4 +36,9 @@ addItem item =
        put $ ms { menu = menu' }
        return menu'
 
-$(makeAcidic ''MenuState ['askMenu, 'addItem])
+setMenu :: Menu url -> Update (MenuState url) ()
+setMenu newMenu =
+    do ms <- get
+       put $ ms { menu = newMenu }
+
+$(makeAcidic ''MenuState ['askMenu, 'addItem, 'setMenu])

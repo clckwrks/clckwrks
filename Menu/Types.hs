@@ -82,7 +82,7 @@ $(deriveSafeCopy 1 'base ''MenuName)
 data MenuLink url
     = LinkText Text
     | LinkURL url
-    | LinkMenu (Menu url)
+    | LinkMenu -- (Menu url)
     deriving (Eq, Read, Show, Data, Typeable)
 
 data MenuItem url = MenuItem 
@@ -91,7 +91,6 @@ data MenuItem url = MenuItem
     , menuLink  :: MenuLink url
     }
     deriving (Eq, Read, Show, Data, Typeable)
-
 
 data Menu url
     = Menu { menuItems :: Forest (MenuItem url)
