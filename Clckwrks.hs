@@ -1,7 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies #-}
 module Clckwrks
     ( module Acid
-    , module Admin.URL
     , module ClckwrksMonad
     , module Control.Applicative
     , module Control.Monad
