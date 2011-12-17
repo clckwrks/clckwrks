@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RecordWildCards, ScopedTypeVariables #-}
 module ClckwrksMonad
-    ( Clck(..)
+    ( Clck
+    , ClckT(..)
     , ClckState(..)
     , Content(..)
     , markupToContent
@@ -61,8 +62,10 @@ data ClckState
                 , uniqueId        :: Integer
                 }
 
-newtype Clck url a = Clck { unClck :: RouteT url (ServerPartT (StateT ClckState IO)) a }
+newtype ClckT url m a = ClckT { unClck :: RouteT url (ServerPartT (StateT ClckState m)) a }
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, Happstack, ServerMonad, HasRqData, FilterMonad Response, WebMonad Response, MonadState ClckState)
+
+type Clck url = ClckT url IO
 
 instance IntegerSupply (Clck url) where
     nextInteger = getUnique
@@ -79,12 +82,12 @@ instance ToJExpr Value where
 instance ToJExpr Text.Text where    
   toJExpr t = ValExpr $ JStr $ T.unpack t
 
-nestURL :: (url1 -> url2) -> Clck url1 a -> Clck url2 a
-nestURL f (Clck r) = Clck $ R.nestURL f r
+nestURL :: (url1 -> url2) -> ClckT url1 m a -> ClckT url2 m a
+nestURL f (ClckT r) = ClckT $ R.nestURL f r
 
-instance MonadRoute (Clck url) where
-    type URL (Clck url) = url
-    askRouteFn = Clck $ askRouteFn
+instance (Monad m) => MonadRoute (ClckT url m) where
+    type URL (ClckT url m) = url
+    askRouteFn = ClckT $ askRouteFn
 
 query :: forall event m. (QueryEvent event, GetAcidState (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
 query event =
@@ -117,10 +120,10 @@ getUnique =
 
 -- * XMLGen / XMLGenerator instances for Clck
 
-instance HSX.XMLGen (Clck url) where
-    type HSX.XML (Clck url) = XML
-    newtype HSX.Child (Clck url) = ClckChild { unClckChild :: XML }
-    newtype HSX.Attribute (Clck url) = FAttr { unFAttr :: Attribute }
+instance (Functor m, Monad m) => HSX.XMLGen (ClckT url m) where
+    type HSX.XML (ClckT url m) = XML
+    newtype HSX.Child (ClckT url m) = ClckChild { unClckChild :: XML }
+    newtype HSX.Attribute (ClckT url m) = FAttr { unFAttr :: Attribute }
     genElement n attrs children =
         do attribs <- map unFAttr <$> asAttr attrs
            childer <- flattenCDATA . map (unClckChild) <$> asChild children
@@ -146,10 +149,10 @@ flattenCDATA cxml =
                            (CDATA e1 s1, CDATA e2 s2) | e1 == e2 -> flP (CDATA e1 (s1++s2) : xs) bs
                            _ -> flP (y:xs) (x:bs)
 
-instance IsAttrValue (Clck url) T.Text where
+instance (Functor m, Monad m) => IsAttrValue (ClckT url m) T.Text where
     toAttrValue = toAttrValue . T.unpack
 
-instance IsAttrValue (Clck url) TL.Text where
+instance (Functor m, Monad m) => IsAttrValue (ClckT url m) TL.Text where
     toAttrValue = toAttrValue . TL.unpack
 {-
 instance EmbedAsChild Clck (Block t) where
@@ -167,23 +170,23 @@ instance IsAttrValue Clck (Block t) where
 instance (IsName n) => HSX.EmbedAsAttr Clck (Attr n (HJScript (Exp a))) where
     asAttr (n := script) = return . (:[]) . FAttr $ MkAttr (toName n, attrVal $ show $ evaluateHJScript script)
 -}
-instance HSX.EmbedAsAttr (Clck url) Attribute where
+instance (Functor m, Monad m) => HSX.EmbedAsAttr (ClckT url m) Attribute where
     asAttr = return . (:[]) . FAttr 
 
-instance (IsName n) => HSX.EmbedAsAttr (Clck url) (Attr n String) where
+instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n String) where
     asAttr (n := str)  = asAttr $ MkAttr (toName n, pAttrVal str)
 
-instance (IsName n) => HSX.EmbedAsAttr (Clck url) (Attr n Char) where
+instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Char) where
     asAttr (n := c)  = asAttr (n := [c])
 
-instance (IsName n) => HSX.EmbedAsAttr (Clck url) (Attr n Bool) where
+instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Bool) where
     asAttr (n := True)  = asAttr $ MkAttr (toName n, pAttrVal "true")
     asAttr (n := False) = asAttr $ MkAttr (toName n, pAttrVal "false")
 
-instance (IsName n) => HSX.EmbedAsAttr (Clck url) (Attr n Int) where
+instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Int) where
     asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal (show i))
 
-instance (IsName n) => HSX.EmbedAsAttr (Clck url) (Attr n Integer) where
+instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Integer) where
     asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal (show i))
 
 instance (IsName n) => HSX.EmbedAsAttr (Clck ClckURL) (Attr n ClckURL) where
@@ -204,42 +207,42 @@ instance HSX.EmbedAsAttr Clck (Attr String AuthURL) where
            asAttr $ MkAttr (toName n, pAttrVal url)
 -}
 
-instance (IsName n) => (EmbedAsAttr (Clck url) (Attr n TL.Text)) where
+instance (Functor m, Monad m, IsName n) => (EmbedAsAttr (ClckT url m) (Attr n TL.Text)) where
     asAttr (n := a) = asAttr $ MkAttr (toName n, pAttrVal $ TL.unpack a)
 
-instance (IsName n) => (EmbedAsAttr (Clck url) (Attr n T.Text)) where
+instance (Functor m, Monad m, IsName n) => (EmbedAsAttr (ClckT url m) (Attr n T.Text)) where
     asAttr (n := a) = asAttr $ MkAttr (toName n, pAttrVal $ T.unpack a)
 
-instance EmbedAsChild (Clck url) Char where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Char where
     asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . (:[])
 
-instance EmbedAsChild (Clck url) String where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) String where
     asChild = XMLGenT . return . (:[]) . ClckChild . pcdata
 
-instance EmbedAsChild (Clck url) Int where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Int where
     asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
 
-instance EmbedAsChild (Clck url) Integer where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Integer where
     asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
 
-instance EmbedAsChild (Clck url) Double where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Double where
     asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
 
-instance EmbedAsChild (Clck url) Float where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Float where
     asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
 
-instance EmbedAsChild (Clck url) TL.Text where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) TL.Text where
     asChild = asChild . TL.unpack
 
-instance EmbedAsChild (Clck url) T.Text where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) T.Text where
     asChild = asChild . T.unpack
 
-instance (EmbedAsChild (Clck url1) a, url1 ~ url2) => EmbedAsChild (Clck url1) (Clck url2 a) where
+instance (EmbedAsChild (ClckT url1 m) a, url1 ~ url2) => EmbedAsChild (ClckT url1 m) (ClckT url2 m a) where
     asChild c = 
         do a <- XMLGenT c
            asChild a
 
-instance (EmbedAsChild (Clck url) a) => EmbedAsChild (Clck url) (IO a) where
+instance (Functor m, MonadIO m, EmbedAsChild (ClckT url m) a) => EmbedAsChild (ClckT url m) (IO a) where
     asChild c = 
         do a <- XMLGenT (liftIO c)
            asChild a
@@ -248,43 +251,43 @@ instance (EmbedAsChild (Clck url) a) => EmbedAsChild (Clck url) (IO a) where
 instance EmbedAsChild Clck TextHtml where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . T.unpack . unTextHtml
 -}
-instance EmbedAsChild (Clck url) XML where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) XML where
     asChild = XMLGenT . return . (:[]) . ClckChild
 
-instance EmbedAsChild (Clck url) Html where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
 
-instance EmbedAsChild (Clck url) Markup where
+instance (Functor m, MonadIO m) => EmbedAsChild (ClckT url m) Markup where
     asChild mrkup = asChild =<< markupToContent mrkup
 
-instance EmbedAsChild (Clck url) () where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
     asChild () = return []
 
-instance EmbedAsChild (Clck url) UTCTime where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) UTCTime where
     asChild = asChild . formatTime defaultTimeLocale "%a, %F @ %r"
 
-instance AppendChild (Clck url) XML where
+instance (Functor m, Monad m) => AppendChild (ClckT url m) XML where
  appAll xml children = do
         chs <- children
         case xml of
          CDATA _ _       -> return xml
          Element n as cs -> return $ Element n as (cs ++ (map unClckChild chs))
 
-instance SetAttr (Clck url) XML where
+instance (Functor m, Monad m) => SetAttr (ClckT url m) XML where
  setAll xml hats = do
         attrs <- hats
         case xml of
          CDATA _ _       -> return xml
          Element n as cs -> return $ Element n (foldr (:) as (map unFAttr attrs)) cs
 
-instance XMLGenerator (Clck url)
+instance (Functor m, Monad m) => XMLGenerator (ClckT url m)
 
 data Content 
     = TrustedHtml T.Text
     | PlainText   T.Text
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 
-instance EmbedAsChild (Clck url) Content where
+instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
 

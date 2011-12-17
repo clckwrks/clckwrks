@@ -5,9 +5,11 @@ module Admin.Template where
 import Clckwrks
 
 template :: 
-    ( EmbedAsChild (Clck url) headers
-    , EmbedAsChild (Clck url) body
-    ) => String -> headers -> body -> Clck url Response
+    ( Functor m
+    , Monad m
+    , EmbedAsChild (ClckT url m) headers
+    , EmbedAsChild (ClckT url m) body
+    ) => String -> headers -> body -> ClckT url m Response
 template title headers body =
    toResponse <$> (unXMLGenT $
     <html>

@@ -7,8 +7,6 @@ import ClckwrksMonad
 import Control.Applicative ((<$>), (<|>), optional, pure)
 import Control.Monad.Trans (liftIO)
 import Data.Aeson
-import Data.Aeson.Parser (value)
-import Data.Attoparsec.ByteString.Lazy (parse)
 import Data.String
 import Data.Tree
 import           Data.Text (Text)
@@ -232,7 +230,6 @@ instance FromJSON (Tree MenuUpdateItem) where
 menuPost :: Clck ClckURL Response
 menuPost =
   do t <- lookBS "tree"
---     liftIO $ print (parse value t)
      let mu = decode t :: Maybe MenuUpdate
      case mu of
        Nothing -> 
