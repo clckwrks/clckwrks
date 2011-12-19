@@ -28,7 +28,7 @@ import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.Map            as Map
 import qualified Data.Text           as Text
 import qualified Data.Vector         as Vector
-import Page.Acid
+
 import Page.Types                    (Markup(..))
 import Data.ByteString.Lazy          as LB (ByteString)
 import Data.ByteString.Lazy.UTF8     as LB (toString)
@@ -39,6 +39,9 @@ import qualified Data.Text.Lazy      as TL
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
 import Language.Javascript.JMacro    
+import Menu.Acid                     (MenuState)
+import Page.Acid                     (PageState, PageId, runPreProcessors)
+import ProfileData.Acid              (ProfileDataState)
 import HSP hiding (Request, escape)
 import HSP.ServerPartT
 import qualified HSX.XMLGenerator as HSX
@@ -89,15 +92,28 @@ instance (Monad m) => MonadRoute (ClckT url m) where
     type URL (ClckT url m) = url
     askRouteFn = ClckT $ askRouteFn
 
-query :: forall event m. (QueryEvent event, GetAcidState (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
+query :: forall event m. (QueryEvent event, GetAcidState m (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
 query event =
-    do as <- (getAcidState . acidState) <$> get
+    do as <- getAcidState -- (getAcidState . acidState) <$> get
        query' (as :: AcidState (EventState event)) event
 
-update :: forall event m. (UpdateEvent event, GetAcidState (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
+update :: forall event m. (UpdateEvent event, GetAcidState m (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
 update event =
-    do as <- (getAcidState . acidState) <$> get
+    do as <- getAcidState -- (getAcidState . acidState) <$> get
        update' (as :: AcidState (EventState event)) event
+
+instance (GetAcidState m st) => GetAcidState (XMLGenT m) st where
+    getAcidState = XMLGenT getAcidState
+
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) (MenuState ClckURL) where
+    getAcidState = (acidMenu . acidState) <$> get
+
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) PageState where
+    getAcidState = (acidPage . acidState) <$> get
+
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
+    getAcidState = (acidProfileData . acidState) <$> get
+
 
 -- | update the 'currentPage' field of 'ClckState'
 setCurrentPage :: PageId -> Clck url ()

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 module Acid where
 
 import Control.Exception           (bracket)
@@ -21,24 +21,8 @@ data Acid = Acid
     , acidMenu        :: AcidState (MenuState ClckURL)
     }
 
-class GetAcidState st where
-    getAcidState :: Acid -> AcidState st
-
-instance GetAcidState AuthState where
-    getAcidState = acidAuth
-
-instance GetAcidState ProfileState where
-    getAcidState = acidProfile
-
-instance GetAcidState ProfileDataState where
-    getAcidState = acidProfileData
-
-instance GetAcidState PageState where
-    getAcidState = acidPage
-
-instance GetAcidState (MenuState ClckURL) where
-    getAcidState = acidMenu
-
+class GetAcidState m st where
+    getAcidState :: m (AcidState st)
 
 withAcid :: Maybe FilePath -> (Acid -> IO a) -> IO a
 withAcid mBasePath f =
