@@ -1,11 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
-module Admin.URL where
+module Clckwrks.Admin.URL where
 
-import Data.Data
-import Data.SafeCopy
-import Page.Types
-import Web.Routes
-import Web.Routes.TH
+import Clckwrks.Page.Types (PageId(..))
+import Data.Data           (Data, Typeable)
+import Data.SafeCopy       (base, deriveSafeCopy)
+import Web.Routes.TH       (derivePathInfo)
 
 data AdminURL
     = Console

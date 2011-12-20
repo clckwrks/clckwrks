@@ -1,11 +1,11 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Admin.Console where
+module Clckwrks.Admin.Console where
 
-import Admin.URL
-import Admin.Template
-import Clckwrks
-import Data.Text (Text)
-import Page.Acid (PagesSummary(..))
+import Clckwrks                (AdminURL(..), Clck, ClckURL(..), PageId(..), Response, query)
+import Clckwrks.Admin.Template (template)
+import Clckwrks.Page.Acid      (PagesSummary(..))
+import Data.Text               (Text)
+import HSP
 
 consolePage :: Clck AdminURL Response
 consolePage =

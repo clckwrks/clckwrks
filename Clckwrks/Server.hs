@@ -1,19 +1,18 @@
 {-# LANGUAGE RecordWildCards #-}
-module ClckwrksServer where
-
-import Admin.Route          (routeAdmin)
-import Admin.Template       (template)
-import Control.Monad.State  (get, evalStateT)
+module Clckwrks.Server where
 
 import Clckwrks
-import qualified Data.Text as Text
-import Data.String          (fromString)
-import Happstack.Auth
+import Clckwrks.Admin.Route       (routeAdmin)
+import Clckwrks.Admin.Template    (template)
+import Clckwrks.ProfileData.Route (routeProfileData)
+import Clckwrks.ProfileData.URL   (ProfileDataURL(..))
+import Control.Monad.State        (get, evalStateT)
+import qualified Data.Text        as Text
+import Data.String                (fromString)
+import Happstack.Auth             (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
-import System.FilePath     ((</>), makeRelative, splitDirectories)
-import ProfileData.Route    (routeProfileData)
-import ProfileData.URL      (ProfileDataURL(..))
-import Web.Routes.Happstack (implSite)
+import System.FilePath            ((</>), makeRelative, splitDirectories)
+import Web.Routes.Happstack       (implSite)
 
 data ClckwrksConfig url = ClckwrksConfig
     { clckHostname     :: String

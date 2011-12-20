@@ -1,28 +1,28 @@
 {-# LANGUAGE FlexibleInstances, QuasiQuotes #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Menu.Edit where
+module Clckwrks.Menu.Edit where
 
-import Admin.Template
-import ClckwrksMonad
-import Control.Applicative ((<$>), (<|>), optional, pure)
-import Control.Monad.Trans (liftIO)
-import Data.Aeson
-import Data.String
-import Data.Tree
-import           Data.Text (Text)
-import qualified Data.Text as Text
+import Clckwrks.Admin.Template (template)
+import Clckwrks.Menu.Types     (Menu(..), MenuItem(..), MenuLink(..), MenuName(..))
+import Clckwrks.Menu.Acid      (SetMenu(..))
+import Clckwrks.Monad          (Clck, query, update)
+import Clckwrks.Page.Acid      (PageId(..), PagesSummary(..))
+import Clckwrks.Types          (Prefix(..))
+import Clckwrks.URL            (ClckURL(..), AdminURL(..))
+import Control.Applicative     ((<$>), (<|>), optional, pure)
+import Control.Monad.Trans     (liftIO)
+import Data.Aeson              (FromJSON(..), ToJSON(..), Value(..), (.:), (.=), decode, object)
+import Data.String             (fromString)
+import Data.Tree               (Tree(..))
+import           Data.Text     (Text)
+import qualified Data.Text     as Text
 import qualified Data.Text.Lazy.IO as LazyText
-import qualified Data.Vector as Vector
-import Happstack.Server
+import qualified Data.Vector   as Vector
+import Happstack.Server        (Response, internalServerError, lookBS, ok, toResponse)
 import HSP
 import Language.Javascript.JMacro
-import Menu.API
-import Menu.Types
-import Menu.Acid
-import Page.Acid
-import Types
-import Web.Routes
-import URL
+import Web.Routes              (showURL)
+
 
 -- MenURL ?
 

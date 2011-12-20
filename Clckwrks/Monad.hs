@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RecordWildCards, ScopedTypeVariables #-}
-module ClckwrksMonad
+module Clckwrks.Monad
     ( Clck
     , ClckT(..)
     , ClckState(..)
@@ -14,48 +14,46 @@ module ClckwrksMonad
     , nestURL
     ) where
 
-import Acid
-import Admin.URL (AdminURL(..))
-import Control.Applicative
-import Control.Monad
-import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Trans
-import Data.Aeson
+import Clckwrks.Admin.URL            (AdminURL(..))
+import Clckwrks.Acid                 (Acid(..), GetAcidState(..))
+import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
+import Clckwrks.Menu.Acid            (MenuState)
+import Clckwrks.Page.Acid            (PageState, PageId)
+import Clckwrks.ProfileData.Acid     (ProfileDataState)
+import Clckwrks.Types                (Prefix)
+import Clckwrks.URL                  (ClckURL(..))
+import Control.Applicative           (Alternative, Applicative, (<$>))
+import Control.Monad                 (MonadPlus)
+import Control.Monad.State           (MonadState, StateT, get, modify, put)
+import Control.Monad.Trans           (MonadIO(liftIO))
+import Data.Aeson                    (Value(..))
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
 import Data.Acid.Advanced            (query', update')
 import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.Map            as Map
 import qualified Data.Text           as Text
 import qualified Data.Vector         as Vector
-
-import Page.Types                    (Markup(..))
 import Data.ByteString.Lazy          as LB (ByteString)
 import Data.ByteString.Lazy.UTF8     as LB (toString)
-import Data.Data
+import Data.Data                     (Data, Typeable)
 import Data.SafeCopy                 (SafeCopy(..))
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
-import Language.Javascript.JMacro    
-import Menu.Acid                     (MenuState)
-import Page.Acid                     (PageState, PageId, runPreProcessors)
-import ProfileData.Acid              (ProfileDataState)
-import HSP hiding (Request, escape)
-import HSP.ServerPartT
-import qualified HSX.XMLGenerator as HSX
-import Happstack.Server
+import HSP                           hiding (Request, escape)
+import HSP.ServerPartT               ()
+import qualified HSX.XMLGenerator    as HSX
+import Happstack.Server              (Happstack, ServerMonad, FilterMonad, WebMonad, Response, HasRqData, ServerPartT)
 import HSX.JMacro                    (IntegerSupply(..))
+import Language.Javascript.JMacro    
 import System.Locale                 (defaultTimeLocale)
-import Text.Blaze (Html)
-import Text.Blaze.Renderer.String (renderHtml)
-import Types
-import URL                           (ClckURL(..))
-import Web.Routes         hiding (nestURL)
-import qualified Web.Routes as R
-import Web.Routes.Happstack
-import Web.Routes.XMLGenT ()
+import Text.Blaze                    (Html)
+import Text.Blaze.Renderer.String    (renderHtml)
+import Web.Routes                    hiding (nestURL)
+import qualified Web.Routes          as R
+import Web.Routes.Happstack          () -- imported so that instances are scope even though we do not use them here
+import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
 
 data ClckState 
     = ClckState { acidState       :: Acid 

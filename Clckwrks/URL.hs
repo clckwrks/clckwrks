@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
-module URL 
+module Clckwrks.URL 
      ( ClckURL(..)
      , AdminURL(..)
      , AuthURL(..)
@@ -8,17 +8,16 @@ module URL
      , ProfileDataURL(..)
      ) where
 
-import Control.Applicative ((<$>))
-import Data.Data       (Data, Typeable)
-import Data.SafeCopy   (SafeCopy(..), base, deriveSafeCopy)
-import Page.Acid       (PageId(..))
-import Admin.URL       (AdminURL(..))
-import Happstack.Auth  (AuthURL(..), ProfileURL(..), AuthProfileURL(..))
-import Happstack.Auth.Core.AuthURL
-import ProfileData.URL (ProfileDataURL(..))
-import Web.Routes
-import Web.Routes.TH
+import Clckwrks.Admin.URL          (AdminURL(..))
+import Clckwrks.Page.Acid          (PageId(..))
+import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
+import Control.Applicative         ((<$>))
+import Data.Data                   (Data, Typeable)
+import Data.SafeCopy               (SafeCopy(..), base, deriveSafeCopy)
+import Happstack.Auth              (AuthURL(..), ProfileURL(..), AuthProfileURL(..))
+import Happstack.Auth.Core.AuthURL (OpenIdURL, AuthMode, OpenIdProvider)
 
+import Web.Routes.TH               (derivePathInfo)
 
 data ClckURL
     = ViewPage PageId
@@ -28,6 +27,7 @@ data ClckURL
     | Auth AuthProfileURL
       deriving (Eq, Ord, Data, Typeable, Read, Show)
 
+-- TODO: move upstream
 $(deriveSafeCopy 1 'base ''AuthURL)
 $(deriveSafeCopy 1 'base ''ProfileURL)
 $(deriveSafeCopy 1 'base ''AuthProfileURL)

@@ -21,33 +21,33 @@ Cabal-version:       >=1.2
 
 
 Library
-  Exposed-modules: Acid
-                   Admin.Template
-                   Admin.URL
-                   Admin.Console
-                   Admin.Route
-                   Admin.NewPage 
-                   Admin.EditPage
-                   Clckwrks
-                   ClckwrksMonad
-                   ClckwrksServer
-                   FormPart
-                   Markup.HsColour
-                   Markup.Markdown
-                   Menu.Acid
-                   Menu.API
-                   Menu.Edit
-                   Menu.Types
-                   Page.Types
-                   Page.Acid
-                   Page.API
-                   ProfileData.URL
-                   ProfileData.Route
-                   ProfileData.Types
-                   ProfileData.Acid
-                   ProfileData.API
-                   Types
-                   URL
+  Exposed-modules: Clckwrks
+                   Clckwrks.Acid
+                   Clckwrks.Admin.Template
+                   Clckwrks.Admin.URL
+                   Clckwrks.Admin.Console
+                   Clckwrks.Admin.Route
+                   Clckwrks.Admin.NewPage 
+                   Clckwrks.Admin.EditPage
+                   Clckwrks.Monad
+                   Clckwrks.Server
+                   Clckwrks.FormPart
+                   Clckwrks.Markup.HsColour
+                   Clckwrks.Markup.Markdown
+                   Clckwrks.Menu.Acid
+                   Clckwrks.Menu.API
+                   Clckwrks.Menu.Edit
+                   Clckwrks.Menu.Types
+                   Clckwrks.Page.Types
+                   Clckwrks.Page.Acid
+                   Clckwrks.Page.API
+                   Clckwrks.ProfileData.URL
+                   Clckwrks.ProfileData.Route
+                   Clckwrks.ProfileData.Types
+                   Clckwrks.ProfileData.Acid
+                   Clckwrks.ProfileData.API
+                   Clckwrks.Types
+                   Clckwrks.URL
   
   Packages needed in order to build this package.
   Build-depends:

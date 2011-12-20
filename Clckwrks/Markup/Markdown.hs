@@ -1,4 +1,4 @@
-module Markup.HsColour where
+module Clckwrks.Markup.Markdown where
 
 import           Control.Concurrent      (forkIO)
 import           Control.Concurrent.MVar (newEmptyMVar, readMVar, putMVar)
@@ -14,15 +14,15 @@ import           System.Process          (waitForProcess, runInteractiveProcess)
 -- | run the text through the 'markdown' executable and, if
 -- successful, run the output through xss-sanitize / sanitizeBalance
 -- to prevent injection attacks.
-hscolour :: (MonadIO m) =>
+markdown :: (MonadIO m) =>
             Maybe [String] -- ^ override command-line flags
          -> Text -- ^ markdown text
          -> m (Either Text Text) -- ^ Left error, Right html
-hscolour mArgs txt = liftIO $
+markdown mArgs txt = liftIO $
     do let args = case mArgs of
-                    Nothing -> ["-lit","-partial","-css"]
+                    Nothing -> ["--html4tags"]
                     (Just a) -> a
-       (inh, outh, errh, ph) <- runInteractiveProcess "HsColour" args Nothing Nothing
+       (inh, outh, errh, ph) <- runInteractiveProcess "markdown" args Nothing Nothing
        _ <- forkIO $ do T.hPutStr inh txt 
                         hClose inh
        mvOut <- newEmptyMVar

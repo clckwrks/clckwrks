@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Page.API 
+module Clckwrks.Page.API 
     ( PageId(..)
     , getPage
     , getPageId
@@ -12,17 +12,18 @@ module Page.API
     , extractExcerpt
     ) where
 
-import Acid
+import Clckwrks.Acid
+import Clckwrks.Monad
+import Clckwrks.Page.Acid
+import Clckwrks.URL
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Trans (MonadIO)
-import ClckwrksMonad
+
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Happstack.Server
 import HSP hiding (escape)
-import Page.Acid
-import URL
 import Text.HTML.TagSoup
 
 getPage :: Clck url Page

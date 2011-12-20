@@ -1,15 +1,15 @@
 {-# LANGUAGE RecordWildCards #-}
-module ProfileData.API
+module Clckwrks.ProfileData.API
     ( getProfileData
     , whoami
     )  where
 
-import Acid(Acid(..))
-import Control.Applicative ((<$>))
-import Control.Monad.State (get)
-import ClckwrksMonad
-import ProfileData.Acid
-import ProfileData.Types
+import Clckwrks.Acid  (Acid(..))
+import Clckwrks.Monad
+import Clckwrks.ProfileData.Acid
+import Clckwrks.ProfileData.Types
+import Control.Applicative        ((<$>))
+import Control.Monad.State        (get)
 import Happstack.Auth
 
 getProfileData :: UserId -> Clck url (Maybe ProfileData)

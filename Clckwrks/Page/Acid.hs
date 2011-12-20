@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies, RecordWildCards, OverloadedStrings #-}
-module Page.Acid 
-    ( module Page.Types
+module Clckwrks.Page.Acid 
+    ( module Clckwrks.Page.Types
       -- * state
     , PageState
     , initialPageState
@@ -11,18 +11,18 @@ module Page.Acid
     , UpdatePage(..)
     ) where
 
-import Control.Applicative ((<$>))
+import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), Page(..), Pages(..))
+import Control.Applicative  ((<$>))
 import Control.Monad.Reader (ask)
-import Control.Monad.State (get, put)
-import Control.Monad.Trans (liftIO)
-import Data.Acid (AcidState, Query, Update, makeAcidic)
-import Data.Data (Data, Typeable)
-import Data.IxSet (Indexable, IxSet, (@=), empty, fromList, getOne, ixSet, ixFun, insert, toList, updateIx)
-import Data.SafeCopy
-import Data.Text (Text)
-import Data.Time.Clock (getCurrentTime)
-import qualified Data.Text as Text
-import Page.Types
+import Control.Monad.State  (get, put)
+import Control.Monad.Trans  (liftIO)
+import Data.Acid            (AcidState, Query, Update, makeAcidic)
+import Data.Data            (Data, Typeable)
+import Data.IxSet           (Indexable, IxSet, (@=), empty, fromList, getOne, ixSet, ixFun, insert, toList, updateIx)
+import Data.SafeCopy        (base, deriveSafeCopy)
+import Data.Text            (Text)
+import Data.Time.Clock      (getCurrentTime)
+import qualified Data.Text  as Text
 
 data PageState  = PageState 
     { nextPageId :: PageId

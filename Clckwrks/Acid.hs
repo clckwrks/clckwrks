@@ -1,17 +1,17 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
-module Acid where
+module Clckwrks.Acid where
 
+import Clckwrks.Menu.Acid          (MenuState       , initialMenuState)
+import Clckwrks.Page.Acid          (PageState       , initialPageState)
+import Clckwrks.ProfileData.Acid   (ProfileDataState, initialProfileDataState)
+import Clckwrks.URL                (ClckURL)
 import Control.Exception           (bracket)
 import Data.Acid                   (AcidState)
 import Data.Acid.Local             (openLocalStateFrom, createCheckpointAndClose)
 import Data.Maybe                  (fromMaybe)
-import Menu.Acid                   (MenuState       , initialMenuState)
-import Page.Acid                   (PageState       , initialPageState)
-import ProfileData.Acid            (ProfileDataState, initialProfileDataState)
 import Happstack.Auth.Core.Auth    (AuthState       , initialAuthState)
 import Happstack.Auth.Core.Profile (ProfileState    , initialProfileState)
 import System.FilePath             ((</>))
-import URL
 
 data Acid = Acid
     { acidAuth        :: AcidState AuthState

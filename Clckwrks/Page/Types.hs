@@ -1,17 +1,17 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
-module Page.Types where
+module Clckwrks.Page.Types where
 
-import Control.Applicative ((<$>))
-import Control.Monad.Trans (MonadIO(liftIO))
-import Data.Aeson
-import Data.Data
-import Data.IxSet
-import Data.SafeCopy
-import Data.Text
-import Data.Time
-import Markup.HsColour (hscolour)
-import Markup.Markdown (markdown)
-import Web.Routes
+import Clckwrks.Markup.HsColour (hscolour)
+import Clckwrks.Markup.Markdown (markdown)
+import Control.Applicative      ((<$>))
+import Control.Monad.Trans      (MonadIO(liftIO))
+import Data.Aeson               (ToJSON(..), FromJSON(..))
+import Data.Data                (Data, Typeable)
+import Data.IxSet               (Indexable(..), IxSet, ixFun, ixSet)
+import Data.SafeCopy            (base, deriveSafeCopy)
+import Data.Text                (Text)
+import Data.Time                (UTCTime)
+import Web.Routes               (PathInfo(..))
 
 instance PathInfo PageId where
     toPathSegments (PageId i) = toPathSegments i

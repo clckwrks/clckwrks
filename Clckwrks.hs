@@ -1,7 +1,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies #-}
 module Clckwrks
-    ( module Acid
-    , module ClckwrksMonad
+    ( module Clckwrks.Acid
+    , module Clckwrks.Menu.API
+    , module Clckwrks.Monad
+    , module Clckwrks.Page.API
+    , module Clckwrks.ProfileData.API
+    , module Clckwrks.Types
+    , module Clckwrks.URL
     , module Control.Applicative
     , module Control.Monad
     , module Control.Monad.Trans
@@ -10,18 +15,18 @@ module Clckwrks
     , module HSP.ServerPartT
     , module Happstack.Server
     , module Language.Javascript.JMacro
-    , module Menu.API
-    , module Page.API
-    , module ProfileData.API
     , module Web.Routes
     , module Web.Routes.Happstack
-    , module Types
-    , module URL
     ) where
 
-import Acid
-import Admin.URL
-import ClckwrksMonad
+import Clckwrks.Acid
+import Clckwrks.Admin.URL
+import Clckwrks.Menu.API
+import Clckwrks.Monad
+import Clckwrks.Page.API
+import Clckwrks.ProfileData.API
+import Clckwrks.Types
+import Clckwrks.URL
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
@@ -31,11 +36,6 @@ import Happstack.Server.HSP.HTML
 import HSP hiding (Request, escape)
 import HSP.ServerPartT
 import Language.Javascript.JMacro (JExpr(..), JMacro(..), JStat(..), JType(..), JVal(..), Ident(..), toJExpr, jmacro, jmacroE)
-import Menu.API
-import Page.API
-import ProfileData.API
 import Web.Routes hiding (nestURL)
 import Web.Routes.XMLGenT ()
 import Web.Routes.Happstack (seeOtherURL)
-import Types
-import URL

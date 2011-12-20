@@ -1,15 +1,14 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Menu.API where
+module Clckwrks.Menu.API where
 
-import ClckwrksMonad
-import Data.Text (Text)
-import Data.Tree
-import HSP hiding (escape)
-import Menu.Types
-import Menu.Acid
-import Types
-import URL
-import Web.Routes
+import Clckwrks.Menu.Types (Menu(..), MenuItem(..), MenuName(..), MenuLink(..))
+import Clckwrks.Menu.Acid  (AskMenu(..))
+import Clckwrks.Monad      (Clck, getPrefix, getUnique, query)
+import Clckwrks.URL        (ClckURL)
+import Data.Text           (Text)
+import Data.Tree           (Forest, Tree(..))
+import HSP                 hiding (escape)
+import Web.Routes          (showURL)
 
 mkMenuName :: Text -> Clck url MenuName
 mkMenuName name =

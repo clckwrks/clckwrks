@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies, RecordWildCards #-}
-module Menu.Acid
+module Clckwrks.Menu.Acid
     where
 
+import Clckwrks.Menu.Types
 import Control.Applicative ((<$>))
 import Control.Monad.Reader (ask)
 import Control.Monad.State (get, put)
@@ -13,7 +14,7 @@ import Data.SafeCopy
 import Data.Text (Text)
 import Data.Tree (Tree(..))
 import qualified Data.Text as Text
-import Menu.Types
+
 
 data MenuState url  = MenuState 
     { menu      :: Menu url

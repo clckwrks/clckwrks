@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell, RecordWildCards, TypeFamilies #-}
-module ProfileData.Acid
+module Clckwrks.ProfileData.Acid
     ( ProfileDataState(..)
     , initialProfileDataState
     , SetProfileData(..)
@@ -7,14 +7,14 @@ module ProfileData.Acid
     , NewProfileData(..)
     ) where
 
-import Control.Monad.Reader
-import Control.Monad.State
-import Data.Acid
-import Data.Data
-import Data.IxSet
-import Data.SafeCopy
-import Happstack.Auth (UserId(..))
-import ProfileData.Types
+import Clckwrks.ProfileData.Types (ProfileData(..))
+import Control.Monad.Reader       (ask)
+import Control.Monad.State        (get, put)
+import Data.Acid                  (Update, Query, makeAcidic)
+import Data.Data                  (Data, Typeable)
+import Data.IxSet                 (IxSet, (@=), empty, getOne, updateIx)
+import Data.SafeCopy              (base, deriveSafeCopy)
+import Happstack.Auth             (UserId(..))
 
 data ProfileDataState = ProfileDataState
     { profileData :: IxSet ProfileData

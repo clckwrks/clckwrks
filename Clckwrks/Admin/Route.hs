@@ -1,13 +1,13 @@
-module Admin.Route where
+module Clckwrks.Admin.Route where
 
-import Admin.Console 
-import Admin.URL
-import Admin.EditPage
-import Admin.NewPage
 import Clckwrks
-import Menu.Acid
-import Menu.Edit
-import Menu.Types
+import Clckwrks.Admin.Console 
+import Clckwrks.Admin.URL
+import Clckwrks.Admin.EditPage
+import Clckwrks.Admin.NewPage
+import Clckwrks.Menu.Acid
+import Clckwrks.Menu.Edit
+import Clckwrks.Menu.Types
 
 routeAdmin :: AdminURL -> Clck ClckURL Response
 routeAdmin url =

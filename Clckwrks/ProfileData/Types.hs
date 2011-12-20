@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
-module ProfileData.Types 
+module Clckwrks.ProfileData.Types 
      ( ProfileData(..)
      , Role(..)
      , emptyProfileData

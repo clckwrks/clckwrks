@@ -1,17 +1,16 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Admin.EditPage where
+module Clckwrks.Admin.EditPage where
 
-import Admin.URL
-import Admin.Template
 import Control.Applicative ((<$>), (<*>), (<*))
 import Clckwrks
-import Data.Text (Text)
-import Data.Time.Clock (getCurrentTime)
-import FormPart (FormDF, fieldset, ol, li, inputTextArea, multiFormPart)
-import Page.Acid
-import Text.Digestive
-import Text.Digestive.HSP.Html4 hiding (inputTextArea)
+import Clckwrks.Admin.Template (template)
+import Clckwrks.FormPart       (FormDF, fieldset, ol, li, inputTextArea, multiFormPart)
+import Clckwrks.Page.Acid      (Markup(..), Page(..), PublishStatus(..), PreProcessor(..), PageById(..), UpdatePage(..))
+import Data.Text               (Text)
+import Data.Time.Clock         (getCurrentTime)
+import Text.Digestive          ((<++), (++>), transform, transformEitherM)
+import Text.Digestive.HSP.Html4 (inputCheckBox, inputText, label, setAttrs, submit)
 
 editPage :: ClckURL -> PageId -> Clck ClckURL Response
 editPage here pid =

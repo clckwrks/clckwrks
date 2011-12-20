@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -Wall -Wwarn -F -pgmFtrhsx #-}
-module FormPart
+module Clckwrks.FormPart
     ( FormDF
     , formPart
     , multiFormPart

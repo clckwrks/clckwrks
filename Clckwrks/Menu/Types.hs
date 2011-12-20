@@ -1,19 +1,14 @@
 {-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, TemplateHaskell #-}
-module Menu.Types where
+module Clckwrks.Menu.Types where
 
--- import ClckwrksMonad (Clck, Prefix(..), getPrefix, getUnique)
+import Clckwrks.Types      (Prefix)
 import Control.Applicative ((<$>))
 import Control.Monad.Trans (MonadIO(liftIO))
-import Data.Aeson
-import Data.Data
-import Data.IxSet
-import Data.SafeCopy
-import Data.String
-import Data.Text (Text)
-import Data.Tree
-import Data.Monoid
-import Web.Routes
-import Types
+import Data.Data           (Data, Typeable)
+import Data.SafeCopy       (base, deriveSafeCopy)
+import Data.Text           (Text)
+import Data.Tree           (Forest)
+import Data.Monoid         (Monoid(..))
 
 {-
 

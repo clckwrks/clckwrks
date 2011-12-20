@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Admin.Template where
+module Clckwrks.Admin.Template where
 
 import Clckwrks
 

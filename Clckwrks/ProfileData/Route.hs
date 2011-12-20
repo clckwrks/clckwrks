@@ -1,13 +1,13 @@
 {-# LANGUAGE RecordWildCards #-}
-module ProfileData.Route where
+module Clckwrks.ProfileData.Route where
 
-import Control.Monad.State (get)
 import Clckwrks
+import Clckwrks.ProfileData.Acid
+import Clckwrks.ProfileData.URL   (ProfileDataURL(..))
+import Clckwrks.ProfileData.Types
+import Control.Monad.State (get)
 import Data.Set (singleton)
 import Happstack.Auth 
-import ProfileData.Acid
-import ProfileData.URL (ProfileDataURL(..))
-import ProfileData.Types
 
 routeProfileData :: ProfileDataURL -> Clck ProfileDataURL Response
 routeProfileData url =
