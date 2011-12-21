@@ -83,8 +83,11 @@ routeClck pageHandler url =
                 u <- showURL $ Profile CreateNewProfileData
                 nestURL Auth $ handleAuthProfile acidAuth acidProfile template Nothing Nothing u apURL
 
+routeClck' :: Clck ClckURL Response -> ClckState -> ClckURL -> RouteT ClckURL (ServerPartT IO) Response
+routeClck' pageHandler clckState url =
+    mapRouteT (mapServerPartT (\m -> evalStateT m clckState)) $ (unClck $ routeClck pageHandler url)
+
 clckSite :: Clck ClckURL Response -> ClckState -> Site ClckURL (ServerPart Response)
-clckSite ph cmsState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'
+clckSite ph clckState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'
     where
-      route' f u =
-          mapServerPartT (\m -> evalStateT m cmsState) $ unRouteT (unClck $ routeClck ph u) f
+      route' f u = unRouteT (routeClck' ph clckState u) f

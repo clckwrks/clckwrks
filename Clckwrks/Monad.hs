@@ -2,6 +2,7 @@
 module Clckwrks.Monad
     ( Clck
     , ClckT(..)
+    , mapClckT
     , ClckState(..)
     , Content(..)
     , markupToContent
@@ -24,7 +25,7 @@ import Clckwrks.Types                (Prefix)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>))
 import Control.Monad                 (MonadPlus)
-import Control.Monad.State           (MonadState, StateT, get, modify, put)
+import Control.Monad.State           (MonadState, StateT, get, mapStateT, modify, put)
 import Control.Monad.Trans           (MonadIO(liftIO))
 import Data.Aeson                    (Value(..))
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
@@ -44,7 +45,8 @@ import Data.Time.Format              (formatTime)
 import HSP                           hiding (Request, escape)
 import HSP.ServerPartT               ()
 import qualified HSX.XMLGenerator    as HSX
-import Happstack.Server              (Happstack, ServerMonad, FilterMonad, WebMonad, Response, HasRqData, ServerPartT)
+import Happstack.Server              (Happstack, ServerMonad, FilterMonad, WebMonad, Response, HasRqData, ServerPartT, UnWebT, mapServerPartT)
+import Happstack.Server.Internal.Monads (FilterFun)
 import HSX.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro    
 import System.Locale                 (defaultTimeLocale)
@@ -65,6 +67,11 @@ data ClckState
 
 newtype ClckT url m a = ClckT { unClck :: RouteT url (ServerPartT (StateT ClckState m)) a }
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, Happstack, ServerMonad, HasRqData, FilterMonad Response, WebMonad Response, MonadState ClckState)
+
+mapClckT :: (m (Maybe (Either Response a, FilterFun Response), ClckState) -> n (Maybe (Either Response b, FilterFun Response), ClckState))
+         -> ClckT url m a
+         -> ClckT url n b
+mapClckT f (ClckT r) = ClckT $ mapRouteT (mapServerPartT (mapStateT f)) r
 
 type Clck url = ClckT url IO
 
