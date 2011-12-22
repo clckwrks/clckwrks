@@ -29,6 +29,7 @@ Library
                    Clckwrks.Admin.Route
                    Clckwrks.Admin.NewPage 
                    Clckwrks.Admin.EditPage
+                   Clckwrks.IOThread
                    Clckwrks.Monad
                    Clckwrks.Server
                    Clckwrks.FormPart
