@@ -99,12 +99,12 @@ instance (Monad m) => MonadRoute (ClckT url m) where
 
 query :: forall event m. (QueryEvent event, GetAcidState m (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
 query event =
-    do as <- getAcidState -- (getAcidState . acidState) <$> get
+    do as <- getAcidState
        query' (as :: AcidState (EventState event)) event
 
 update :: forall event m. (UpdateEvent event, GetAcidState m (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
 update event =
-    do as <- getAcidState -- (getAcidState . acidState) <$> get
+    do as <- getAcidState
        update' (as :: AcidState (EventState event)) event
 
 instance (GetAcidState m st) => GetAcidState (XMLGenT m) st where
