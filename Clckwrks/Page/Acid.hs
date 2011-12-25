@@ -26,7 +26,8 @@ import qualified Data.Text  as Text
 
 data PageState  = PageState 
     { nextPageId :: PageId
-    , pages      :: Pages 
+    , pages      :: IxSet Page
+    , posts      :: IxSet Page
     }
     deriving (Eq, Read, Show, Data, Typeable)
 $(deriveSafeCopy 1 'base ''PageState)
@@ -44,6 +45,7 @@ initialPageState =
                                         , pageStatus    = Published
                                         } 
                                  ]
+              , posts = fromList []
               }
 
 pageById :: PageId -> Query PageState (Maybe Page)
@@ -77,13 +79,31 @@ newPage =
                        , pageDate    = Nothing
                        , pageStatus  = Draft
                        }
-       put $ PageState { nextPageId = PageId $ succ $ unPageId nextPageId
-                       , pages = insert page pages
+       put $ ps { nextPageId = PageId $ succ $ unPageId nextPageId
+                , pages = insert page pages
+                }
+       return page
+
+newPost :: Update PageState Page
+newPost =
+    do ps@PageState{..} <- get
+       let page = Page { pageId      = nextPageId
+                       , pageTitle   = "Untitled"
+                       , pageSrc     = Markup { preProcessors = [ Markdown ]
+                                              , markup        = Text.empty
+                                              }
+                       , pageExcerpt = Nothing
+                       , pageDate    = Nothing
+                       , pageStatus  = Draft
                        }
+       put $ ps { nextPageId = PageId $ succ $ unPageId nextPageId
+                , pages = insert page pages
+                }
        return page
 
 $(makeAcidic ''PageState 
   [ 'newPage
+  , 'newPost
   , 'pageById
   , 'pagesSummary
   , 'updatePage
