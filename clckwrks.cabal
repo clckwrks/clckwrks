@@ -54,6 +54,7 @@ Library
   Build-depends:
      acid-state == 0.6.*,
      aeson == 0.4.*,
+     attoparsec == 0.10.*,
      base < 4.4,
      blaze-html == 0.4.*,
      bytestring == 0.9.*,
@@ -75,6 +76,7 @@ Library
      process == 1.0.*,
 --     plugins-auto == 0.0.1.1,
      safecopy == 0.6.*,
+     stm     == 2.2.*,
      tagsoup == 0.12.*,
      text == 0.11.*,
      time == 1.2.*,

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RecordWildCards, ScopedTypeVariables #-}
+{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RecordWildCards, ScopedTypeVariables, OverloadedStrings #-}
 module Clckwrks.Monad
     ( Clck
     , ClckT(..)
@@ -23,23 +23,29 @@ import Clckwrks.Page.Acid            (PageState, PageId)
 import Clckwrks.ProfileData.Acid     (ProfileDataState)
 import Clckwrks.Types                (Prefix)
 import Clckwrks.URL                  (ClckURL(..))
-import Control.Applicative           (Alternative, Applicative, (<$>))
+import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
 import Control.Monad                 (MonadPlus)
 import Control.Monad.State           (MonadState, StateT, get, mapStateT, modify, put)
 import Control.Monad.Trans           (MonadIO(liftIO))
+import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
 import Data.Aeson                    (Value(..))
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
 import Data.Acid.Advanced            (query', update')
+import Data.Attoparsec.Text          (Parser, parseOnly, char, try, takeWhile, takeWhile1)
 import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.Map            as Map
+import Data.Monoid                   (mappend, mconcat)
 import qualified Data.Text           as Text
 import qualified Data.Vector         as Vector
 import Data.ByteString.Lazy          as LB (ByteString)
 import Data.ByteString.Lazy.UTF8     as LB (toString)
 import Data.Data                     (Data, Typeable)
+import Data.Map                      (Map)
 import Data.SafeCopy                 (SafeCopy(..))
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
+import           Data.Text.Lazy.Builder (Builder)
+import qualified Data.Text.Lazy.Builder as B
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
 import HSP                           hiding (Request, escape)
@@ -49,20 +55,22 @@ import Happstack.Server              (Happstack, ServerMonad, FilterMonad, WebMo
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSX.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro    
+import Prelude                       hiding (takeWhile)
 import System.Locale                 (defaultTimeLocale)
 import Text.Blaze                    (Html)
 import Text.Blaze.Renderer.String    (renderHtml)
-import Web.Routes                    hiding (nestURL)
+import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT, mapRouteT, showURL)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          () -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
 
 data ClckState 
-    = ClckState { acidState       :: Acid 
-                , currentPage     :: PageId
-                , themePath       :: FilePath
-                , componentPrefix :: Prefix
-                , uniqueId        :: Integer
+    = ClckState { acidState        :: Acid 
+                , currentPage      :: PageId
+                , themePath        :: FilePath
+                , componentPrefix  :: Prefix
+                , uniqueId         :: TVar Integer -- only unique for this request
+                , preProcessorCmds :: Map T.Text (ClckState -> T.Text -> IO Builder)
                 }
 
 newtype ClckT url m a = ClckT { unClck :: RouteT url (ServerPartT (StateT ClckState m)) a }
@@ -130,14 +138,15 @@ getPrefix = componentPrefix <$> get
 
 setUnique :: Integer -> Clck url ()
 setUnique i =
-    modify $ \s -> s { uniqueId = i }
+    do u <- uniqueId <$> get
+       liftIO $ atomically $ writeTVar u i
 
 getUnique :: Clck url Integer
 getUnique = 
-    do s <- get
-       let u = uniqueId s
-       put $ s { uniqueId = succ u }
-       return u
+    do u <- uniqueId <$> get
+       liftIO $ atomically $ do i <- readTVar u
+                                writeTVar u (succ i)
+                                return i
 
 -- * XMLGen / XMLGenerator instances for Clck
 
@@ -279,7 +288,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
 
 instance (Functor m, MonadIO m) => EmbedAsChild (ClckT url m) Markup where
-    asChild mrkup = asChild =<< markupToContent mrkup
+    asChild mrkup = asChild =<< (XMLGenT $ markupToContent mrkup)
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
     asChild () = return []
@@ -312,10 +321,58 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
 
-markupToContent :: (MonadIO m) => Markup -> m Content
+markupToContent :: (MonadIO m, MonadState ClckState m) => Markup -> m Content
 markupToContent Markup{..} =
-    do e <- runPreProcessors preProcessors markup
+    do clckState@ClckState{..} <- get
+       markup' <- liftIO $ process preProcessorCmds clckState markup
+       e <- runPreProcessors preProcessors markup'
        case e of
          (Left err)   -> return (PlainText err)
          (Right html) -> return (TrustedHtml html)
 
+
+-- * Preprocess
+
+data Segment
+    = TextBlock T.Text
+    | Command T.Text T.Text
+      deriving (Show)
+
+segment :: Parser Segment
+segment =
+    tryCommand <|>
+    do t <- takeWhile1 (/= '{')
+       return (TextBlock t)
+
+tryCommand :: Parser Segment
+tryCommand =
+    try $ do char '{'
+             cmd <- takeWhile1 (\c -> notElem c "|}")
+             char '|'
+             arg <- takeWhile (/= '}')
+             char '}'
+             return (Command cmd arg)
+
+segments :: Parser [Segment]
+segments = many segment
+
+processSegment :: (MonadIO m) => Map T.Text (ClckState -> T.Text -> m Builder) -> ClckState -> Segment -> m Builder
+processSegment _ _ (TextBlock txt) = return $ B.fromText txt
+processSegment handlers clckState (Command name txt) =
+    case Map.lookup name handlers of 
+      Nothing -> return $ "<span class='preprocessor-error'>Invalid processor name: " `mappend` 
+                             (B.fromText name) `mappend` 
+                          "</span>"
+      (Just cmd) ->
+          cmd clckState txt
+
+processSegments :: (Functor m, MonadIO m) => Map T.Text (ClckState -> T.Text -> m Builder) -> ClckState -> [Segment] -> m Builder
+processSegments handlers clckState segments = 
+    mconcat <$> mapM (processSegment handlers clckState) segments
+
+process :: (Functor m, MonadIO m) => Map T.Text (ClckState -> T.Text -> m Builder) -> ClckState -> T.Text -> m T.Text
+process handlers clckState txt = 
+    case parseOnly segments txt of
+      Left e -> error e
+      Right segs -> 
+          (TL.toStrict . B.toLazyText) <$> processSegments handlers clckState segs

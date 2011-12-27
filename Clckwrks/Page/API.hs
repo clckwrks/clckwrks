@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 module Clckwrks.Page.API 
     ( PageId(..)
@@ -66,7 +66,8 @@ getPageSummary pid =
          (Just pge) -> 
              extractExcerpt pge
 
-extractExcerpt :: (MonadIO m) => Page -> m Content
+-- TODO: strip out images
+extractExcerpt :: (MonadState ClckState m, MonadIO m) => Page -> m Content
 extractExcerpt Page{..} =
              case pageExcerpt of
                (Just excerpt) ->

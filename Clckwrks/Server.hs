@@ -6,7 +6,9 @@ import Clckwrks.Admin.Route       (routeAdmin)
 import Clckwrks.Admin.Template    (template)
 import Clckwrks.ProfileData.Route (routeProfileData)
 import Clckwrks.ProfileData.URL   (ProfileDataURL(..))
+import Control.Concurrent.STM     (atomically, newTVar)
 import Control.Monad.State        (get, evalStateT)
+import qualified Data.Map         as Map
 import qualified Data.Text        as Text
 import Data.String                (fromString)
 import Happstack.Auth             (handleAuthProfile)
@@ -31,11 +33,13 @@ data ClckwrksConfig url = ClckwrksConfig
 withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
     do withAcid Nothing $ \acid ->
-           do let clckState = ClckState { acidState       = acid 
-                                        , currentPage     = PageId 0
-                                        , themePath       = clckThemeDir cc
-                                        , componentPrefix = Prefix (fromString "clckwrks")
-                                        , uniqueId        = 0
+           do u <- atomically $ newTVar 0
+              let clckState = ClckState { acidState        = acid 
+                                        , currentPage      = PageId 0
+                                        , themePath        = clckThemeDir cc
+                                        , componentPrefix  = Prefix (fromString "clckwrks")
+                                        , uniqueId         = u
+                                        , preProcessorCmds = Map.empty
                                         }
               action clckState
   
