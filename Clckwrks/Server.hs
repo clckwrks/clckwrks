@@ -89,7 +89,7 @@ routeClck pageHandler url =
 
 routeClck' :: Clck ClckURL Response -> ClckState -> ClckURL -> RouteT ClckURL (ServerPartT IO) Response
 routeClck' pageHandler clckState url =
-    mapRouteT (mapServerPartT (\m -> evalStateT m clckState)) $ (unClck $ routeClck pageHandler url)
+    mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck pageHandler url) 
 
 clckSite :: Clck ClckURL Response -> ClckState -> Site ClckURL (ServerPart Response)
 clckSite ph clckState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'

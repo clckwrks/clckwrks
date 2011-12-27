@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RecordWildCards, ScopedTypeVariables, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings #-}
 module Clckwrks.Monad
     ( Clck
     , ClckT(..)
@@ -13,7 +13,8 @@ module Clckwrks.Monad
     , query
     , update
     , nestURL
-    ) where
+    )
+where
 
 import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), GetAcidState(..))
@@ -26,7 +27,8 @@ import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
 import Control.Monad                 (MonadPlus)
 import Control.Monad.State           (MonadState, StateT, get, mapStateT, modify, put)
-import Control.Monad.Trans           (MonadIO(liftIO))
+import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
+import Control.Monad.Trans           (MonadIO(liftIO), lift)
 import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
 import Data.Aeson                    (Value(..))
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
@@ -51,7 +53,7 @@ import Data.Time.Format              (formatTime)
 import HSP                           hiding (Request, escape)
 import HSP.ServerPartT               ()
 import qualified HSX.XMLGenerator    as HSX
-import Happstack.Server              (Happstack, ServerMonad, FilterMonad, WebMonad, Response, HasRqData, ServerPartT, UnWebT, mapServerPartT)
+import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT)
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSX.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro    
@@ -73,15 +75,79 @@ data ClckState
                 , preProcessorCmds :: Map T.Text (ClckState -> T.Text -> IO Builder)
                 }
 
-newtype ClckT url m a = ClckT { unClck :: RouteT url (ServerPartT (StateT ClckState m)) a }
-    deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, Happstack, ServerMonad, HasRqData, FilterMonad Response, WebMonad Response, MonadState ClckState)
+-- TODO: move into happstack-server
+instance (ServerMonad m) => ServerMonad (StateT s m) where
+    askRq   = lift askRq
+    localRq f = mapStateT (localRq f)
 
-mapClckT :: (m (Maybe (Either Response a, FilterFun Response), ClckState) -> n (Maybe (Either Response b, FilterFun Response), ClckState))
+instance (Monad m, HasRqData m) => HasRqData (StateT s m) where
+    askRqEnv = lift askRqEnv
+    localRqEnv f = mapStateT (localRqEnv f)
+    rqDataError e = lift (rqDataError e)
+
+instance (FilterMonad r m) => FilterMonad r (StateT s m) where
+    setFilter f = lift $ setFilter f
+    composeFilter = lift . composeFilter
+    getFilter   m = mapStateT (\m' -> 
+                                   do ((b,s), f) <- getFilter m'
+                                      return ((b, f) ,s)) m
+
+instance (WebMonad a m) => WebMonad a (StateT s m) where
+    finishWith = lift . finishWith
+
+instance (Happstack m) => Happstack (StateT s m)
+
+
+instance (ServerMonad m) => ServerMonad (ReaderT s m) where
+    askRq   = lift askRq
+    localRq f = mapReaderT (localRq f)
+
+instance (Monad m, HasRqData m) => HasRqData (ReaderT s m) where
+    askRqEnv = lift askRqEnv
+    localRqEnv f = mapReaderT (localRqEnv f)
+    rqDataError e = lift (rqDataError e)
+
+instance (FilterMonad r m) => FilterMonad r (ReaderT s m) where
+    setFilter f = lift $ setFilter f
+    composeFilter = lift . composeFilter
+    getFilter     = mapReaderT getFilter
+
+instance (WebMonad a m) => WebMonad a (ReaderT s m) where
+    finishWith = lift . finishWith
+
+instance (Happstack m) => Happstack (ReaderT s m)
+
+newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
+    deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
+
+instance (Happstack m) => Happstack (ClckT url m)
+
+-- | update the 'currentPage' field of 'ClckState'
+setCurrentPage :: PageId -> Clck url ()
+setCurrentPage pid =
+    modify $ \s -> s { currentPage = pid }
+
+getPrefix :: Clck url Prefix
+getPrefix = componentPrefix <$> get
+
+setUnique :: Integer -> Clck url ()
+setUnique i =
+    do u <- uniqueId <$> get
+       liftIO $ atomically $ writeTVar u i
+
+getUnique :: Clck url Integer
+getUnique = 
+    do u <- uniqueId <$> get
+       liftIO $ atomically $ do i <- readTVar u
+                                writeTVar u (succ i)
+                                return i
+
+mapClckT :: (m (a, ClckState) -> n (b, ClckState))
          -> ClckT url m a
          -> ClckT url n b
-mapClckT f (ClckT r) = ClckT $ mapRouteT (mapServerPartT (mapStateT f)) r
+mapClckT f (ClckT r) = ClckT $ mapRouteT (mapStateT f) r
 
-type Clck url = ClckT url IO
+type Clck url = ClckT url (ServerPartT IO)
 
 instance IntegerSupply (Clck url) where
     nextInteger = getUnique
@@ -94,7 +160,7 @@ instance ToJExpr Value where
     toJExpr (Bool True)   = ValExpr $ JVar    $ StrI "true"
     toJExpr (Bool False)  = ValExpr $ JVar    $ StrI "false"
     toJExpr Null          = ValExpr $ JVar    $ StrI "null"
-    
+
 instance ToJExpr Text.Text where    
   toJExpr t = ValExpr $ JStr $ T.unpack t
 
@@ -126,27 +192,6 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) PageState where
 
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
-
-
--- | update the 'currentPage' field of 'ClckState'
-setCurrentPage :: PageId -> Clck url ()
-setCurrentPage pid =
-    modify $ \s -> s { currentPage = pid }
-
-getPrefix :: Clck url Prefix
-getPrefix = componentPrefix <$> get
-
-setUnique :: Integer -> Clck url ()
-setUnique i =
-    do u <- uniqueId <$> get
-       liftIO $ atomically $ writeTVar u i
-
-getUnique :: Clck url Integer
-getUnique = 
-    do u <- uniqueId <$> get
-       liftIO $ atomically $ do i <- readTVar u
-                                writeTVar u (succ i)
-                                return i
 
 -- * XMLGen / XMLGenerator instances for Clck
 
