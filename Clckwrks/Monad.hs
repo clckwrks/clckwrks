@@ -1,11 +1,13 @@
-{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RankNTypes, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings #-}
 module Clckwrks.Monad
     ( Clck
     , ClckT(..)
+    , runClckT
     , mapClckT
     , ClckState(..)
     , Content(..)
     , markupToContent
+    , addPreProcessor
     , setCurrentPage
     , getPrefix
     , getUnique
@@ -26,7 +28,7 @@ import Clckwrks.Types                (Prefix)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
 import Control.Monad                 (MonadPlus)
-import Control.Monad.State           (MonadState, StateT, get, mapStateT, modify, put)
+import Control.Monad.State           (MonadState, StateT, evalStateT, get, mapStateT, modify, put)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
 import Control.Monad.Trans           (MonadIO(liftIO), lift)
 import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
@@ -61,7 +63,7 @@ import Prelude                       hiding (takeWhile)
 import System.Locale                 (defaultTimeLocale)
 import Text.Blaze                    (Html)
 import Text.Blaze.Renderer.String    (renderHtml)
-import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT, mapRouteT, showURL)
+import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(unRouteT), mapRouteT, showURL)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          () -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
@@ -72,7 +74,7 @@ data ClckState
                 , themePath        :: FilePath
                 , componentPrefix  :: Prefix
                 , uniqueId         :: TVar Integer -- only unique for this request
-                , preProcessorCmds :: Map T.Text (ClckState -> T.Text -> IO Builder)
+                , preProcessorCmds :: forall m url. (Functor m, MonadIO m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 }
 
 -- TODO: move into happstack-server
@@ -122,6 +124,9 @@ newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
 
 instance (Happstack m) => Happstack (ClckT url m)
 
+runClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m a
+runClckT showFn clckState m = evalStateT (unRouteT (unClckT m) showFn) clckState
+
 -- | update the 'currentPage' field of 'ClckState'
 setCurrentPage :: PageId -> Clck url ()
 setCurrentPage pid =
@@ -141,6 +146,11 @@ getUnique =
        liftIO $ atomically $ do i <- readTVar u
                                 writeTVar u (succ i)
                                 return i
+
+addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m) => T.Text -> ClckT url m Builder) -> ClckT u n ()
+addPreProcessor name action =
+    modify $ \cs ->
+        cs { preProcessorCmds = Map.insert name action (preProcessorCmds cs) }
 
 mapClckT :: (m (a, ClckState) -> n (b, ClckState))
          -> ClckT url m a
@@ -366,15 +376,14 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
 
-markupToContent :: (MonadIO m, MonadState ClckState m) => Markup -> m Content
+markupToContent :: (Functor m, MonadIO m) => Markup -> ClckT url m Content
 markupToContent Markup{..} =
-    do clckState@ClckState{..} <- get
-       markup' <- liftIO $ process preProcessorCmds clckState markup
-       e <- runPreProcessors preProcessors markup'
+    do clckState <- get 
+       markup' <- process (preProcessorCmds clckState) markup
+       e <- liftIO $ runPreProcessors preProcessors markup'
        case e of
          (Left err)   -> return (PlainText err)
          (Right html) -> return (TrustedHtml html)
-
 
 -- * Preprocess
 
@@ -401,23 +410,23 @@ tryCommand =
 segments :: Parser [Segment]
 segments = many segment
 
-processSegment :: (MonadIO m) => Map T.Text (ClckState -> T.Text -> m Builder) -> ClckState -> Segment -> m Builder
-processSegment _ _ (TextBlock txt) = return $ B.fromText txt
-processSegment handlers clckState (Command name txt) =
+processSegment :: (MonadIO m) => Map T.Text (T.Text -> m Builder) -> Segment -> m Builder
+processSegment _ (TextBlock txt) = return $ B.fromText txt
+processSegment handlers (Command name txt) =
     case Map.lookup name handlers of 
       Nothing -> return $ "<span class='preprocessor-error'>Invalid processor name: " `mappend` 
                              (B.fromText name) `mappend` 
                           "</span>"
       (Just cmd) ->
-          cmd clckState txt
+          cmd txt
 
-processSegments :: (Functor m, MonadIO m) => Map T.Text (ClckState -> T.Text -> m Builder) -> ClckState -> [Segment] -> m Builder
-processSegments handlers clckState segments = 
-    mconcat <$> mapM (processSegment handlers clckState) segments
+processSegments :: (Functor m, MonadIO m) => Map T.Text (T.Text -> m Builder) -> [Segment] -> m Builder
+processSegments handlers segments = 
+    mconcat <$> mapM (processSegment handlers) segments
 
-process :: (Functor m, MonadIO m) => Map T.Text (ClckState -> T.Text -> m Builder) -> ClckState -> T.Text -> m T.Text
-process handlers clckState txt = 
+process :: (Functor m, MonadIO m) => Map T.Text (T.Text -> m Builder) -> T.Text -> m T.Text
+process handlers txt =
     case parseOnly segments txt of
       Left e -> error e
       Right segs -> 
-          (TL.toStrict . B.toLazyText) <$> processSegments handlers clckState segs
+          (TL.toStrict . B.toLazyText) <$> processSegments handlers segs

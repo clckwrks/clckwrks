@@ -57,7 +57,7 @@ simpleClckwrks cc =
             , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite ph clckState)
             ]
               
-jsHandlers :: ClckwrksConfig u -> ServerPart Response
+jsHandlers :: (Happstack m) => ClckwrksConfig u -> m Response
 jsHandlers c =
   msum [ dir "jquery"      $ serveDirectory DisableBrowsing [] (clckJQueryPath c)
        , dir "jquery-ui"   $ serveDirectory DisableBrowsing [] (clckJQueryUIPath c)

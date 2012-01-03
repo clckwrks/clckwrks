@@ -67,7 +67,7 @@ getPageSummary pid =
              extractExcerpt pge
 
 -- TODO: strip out images
-extractExcerpt :: (MonadState ClckState m, MonadIO m) => Page -> m Content
+extractExcerpt :: (MonadIO m, Functor m) => Page -> ClckT url m Content
 extractExcerpt Page{..} =
              case pageExcerpt of
                (Just excerpt) ->
