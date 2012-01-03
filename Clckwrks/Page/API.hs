@@ -66,7 +66,6 @@ getPageSummary pid =
          (Just pge) -> 
              extractExcerpt pge
 
--- TODO: strip out images
 extractExcerpt :: (MonadIO m, Functor m) => Page -> ClckT url m Content
 extractExcerpt Page{..} =
              case pageExcerpt of
@@ -80,7 +79,7 @@ extractExcerpt Page{..} =
                                 paragraphs = sections (~== "<p>") tags
                                 paragraph = case paragraphs of
                                               [] -> Text.pack "no summary available."
-                                              (p:ps) -> renderTags $ takeThrough (not . isTagCloseName (Text.pack "p")) p
+                                              (p:ps) -> renderTags $ takeThrough (not . isTagCloseName (Text.pack "p")) $ filter (not . isTagOpenName (Text.pack "img")) p
                             in return (TrustedHtml paragraph)
                         (PlainText text) ->
                                return (PlainText text)
