@@ -24,7 +24,9 @@ template title headers body =
      </head>
      <body>
       <% sidebar %>
-      <% body %>
+      <div id="admin-body">
+       <% body %>
+      </div>
      </body>
     </html>)
 
