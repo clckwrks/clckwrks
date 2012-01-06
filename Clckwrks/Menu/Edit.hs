@@ -10,7 +10,6 @@ import Clckwrks.Page.Acid      (PageId(..), PagesSummary(..))
 import Clckwrks.Types          (Prefix(..))
 import Clckwrks.URL            (ClckURL(..), AdminURL(..))
 import Control.Applicative     ((<$>), (<|>), optional, pure)
-import Control.Monad.Trans     (liftIO)
 import Data.Aeson              (FromJSON(..), ToJSON(..), Value(..), (.:), (.=), decode, object)
 import Data.String             (fromString)
 import Data.Tree               (Tree(..))
@@ -21,12 +20,12 @@ import qualified Data.Vector   as Vector
 import Happstack.Server        (Response, internalServerError, lookBS, ok, toResponse)
 import HSP
 import Language.Javascript.JMacro
-import Web.Routes              (showURL)
+import Web.Routes              (PathInfo, showURL, toPathInfo, fromPathInfo)
 
 
 -- MenURL ?
 
-editMenu :: Menu url -> Clck ClckURL Response
+editMenu :: (PathInfo url) => Menu url -> Clck ClckURL Response
 editMenu menu =
     do summaries <- query PagesSummary
        template "edit menu" (headers summaries) $
@@ -35,7 +34,7 @@ editMenu menu =
           <select id="page-list"></select><br />
           <button id="add-sub-menu">Add Sub-Menu</button><br />
           <button id="remove-item">Remove</button><br />
-          <button id="serialize">Serialize</button><br />
+          <button id="saveChanges">Save Changes</button><br />
           <div id="menu">
           </div>
          </%>
@@ -54,7 +53,7 @@ editMenu menu =
                                  $.jstree._focused().deselect_all(); 
                          } 
                         });
-                        `(serialize menuUpdate)`;
+                        `(saveChanges menuUpdate)`;
                         `(addPageMenu summaries)`;
                         `(addSubMenu)`;
                         `(removeItem)`;
@@ -130,10 +129,10 @@ menuEvents =
      });
     |]
 -}
-serialize :: Text -> JStat
-serialize menuUpdateURL =
+saveChanges :: Text -> JStat
+saveChanges menuUpdateURL =
     [$jmacro|
-     $("#serialize").click(function () {
+     $("#saveChanges").click(function () {
        var tree = $("#menu").jstree("get_json", -1);          
        var json = JSON.stringify(tree);
        console.log(json);
@@ -141,7 +140,7 @@ serialize menuUpdateURL =
      });
     |]
 
-jstree :: Menu url -> Value
+jstree :: (PathInfo url) => Menu url -> Value
 jstree menu =
     object [ fromString "types" .=
                object [ fromString "types" .=
@@ -185,12 +184,12 @@ rootNode children =
                 ]
             ]
 
-menuToJSTree :: Menu url -> Value
+menuToJSTree :: (PathInfo url) => Menu url -> Value
 menuToJSTree (Menu items) =
     object  [ fromString "data" .= (toJSON $ map menuTreeToJSTree items) 
             ]
 
-menuTreeToJSTree :: Tree (MenuItem url) -> Value
+menuTreeToJSTree :: (PathInfo url) => Tree (MenuItem url) -> Value
 menuTreeToJSTree (Node item children) =
     object [ fromString "data" .= 
                object [ fromString "title" .= menuTitle item ]
@@ -200,22 +199,48 @@ menuTreeToJSTree (Node item children) =
                                  , fromString "tag"    .= menuTag (menuName item)
                                  , fromString "unique" .= menuUnique (menuName item)
                                  ]
+                      , fromString "link" .=
+                                   case (menuLink item) of
+                                     (LinkText txt) ->
+                                         object [ fromString "linkType" .= "text"
+                                                , fromString "linkDest"  .= txt
+                                                ]
+                                     (LinkURL url) ->
+                                         object [ fromString "linkType" .= "url"
+                                                , fromString "linkDest" .= toPathInfo url
+                                                ]
+                                   
                       ]
            , fromString "children" .=
                map menuTreeToJSTree children
            ]
 
-newtype MenuUpdate = MenuUpdate ([Tree MenuUpdateItem]) deriving (Show)
-newtype MenuUpdateItem = MenuUpdateItem (String, Maybe MenuName, Maybe Integer) deriving (Show)
+newtype MenuUpdate url = MenuUpdate ([Tree (MenuUpdateItem url)]) deriving (Show)
+newtype MenuUpdateItem url = MenuUpdateItem (String, Maybe MenuName, Maybe Integer, Maybe (MenuLink url)) deriving (Show)
 
-instance FromJSON MenuUpdate where
+instance (PathInfo url) => FromJSON (MenuUpdate url) where
   parseJSON (Array a) = MenuUpdate <$> mapM parseJSON (Vector.toList a)
   
-instance FromJSON (Tree MenuUpdateItem) where
+instance (PathInfo url) => FromJSON (Tree (MenuUpdateItem url)) where
   parseJSON (Object o) = 
     do ttl      <- o .: (fromString "data")
        meta     <- o .: (fromString "metadata")
        pid      <- optional $ meta .: (fromString "pid")
+       link     <- do mLinkObj <- optional $ meta .: (fromString "link")
+                      case mLinkObj of
+                        Nothing ->  return Nothing
+                        (Just linkObj) -> 
+                            do linkType <- linkObj .: (fromString "linkType")
+                               case () of
+                                 () | linkType == "text" ->
+                                       do linkDest <- linkObj .: (fromString "linkDest")
+                                          return (Just $ LinkText linkDest)
+                                    | linkType == "url" ->
+                                        do linkDest <- linkObj .: (fromString "linkDest")
+                                           case fromPathInfo linkDest of
+                                             (Left _) -> return Nothing
+                                             (Right u) -> return (Just $ LinkURL u)
+                                 
        menuName <- do mmno <- optional $ meta .: (fromString "menuName")
                       case mmno of
                         Nothing -> return Nothing
@@ -225,12 +250,12 @@ instance FromJSON (Tree MenuUpdateItem) where
                                unique <- mno .: fromString "unique"
                                return (Just $ MenuName (Prefix prefix) tag unique)
        children <- (o .: (fromString "children")) <|> pure Vector.empty
-       return (Node (MenuUpdateItem (ttl, menuName, pid)) (Vector.toList children))
+       return (Node (MenuUpdateItem (ttl, menuName, pid, link)) (Vector.toList children))
 
 menuPost :: Clck ClckURL Response
 menuPost =
   do t <- lookBS "tree"
-     let mu = decode t :: Maybe MenuUpdate
+     let mu = decode t :: Maybe (MenuUpdate ClckURL)
      case mu of
        Nothing -> 
            internalServerError $ toResponse "menuPost: failed to decode JSON data"
@@ -238,12 +263,12 @@ menuPost =
            do update (SetMenu (updateToMenu u))
               ok $ toResponse ()
 
-updateToMenu :: MenuUpdate -> Menu ClckURL
+updateToMenu :: (MenuUpdate ClckURL) -> Menu ClckURL
 updateToMenu (MenuUpdate t) =
     Menu $ map convertItem t
     where
-      convertItem :: Tree MenuUpdateItem -> Tree (MenuItem ClckURL)
-      convertItem (Node (MenuUpdateItem (ttl, mmn, mPageId)) children) = 
+      convertItem :: Tree (MenuUpdateItem ClckURL) -> Tree (MenuItem ClckURL)
+      convertItem (Node (MenuUpdateItem (ttl, mmn, mPageId, mLink)) children) = 
           let menuName = case mmn of
                            Just mn -> mn
                            Nothing -> MenuName (Prefix (fromString "clckwrks")) (fromString "tag") 1
@@ -251,8 +276,11 @@ updateToMenu (MenuUpdate t) =
                                   , menuTitle = Text.pack ttl
                                   , menuLink = 
                                       case mPageId of
-                                        Nothing -> LinkMenu
                                         (Just pid) -> LinkURL (ViewPage (PageId pid))
+                                        Nothing ->
+                                            case mLink of
+                                              Nothing -> LinkText Text.empty -- FIXME: this is really an error..
+                                              (Just link) -> link
                                   }
           in Node menuItem (map convertItem children)
 
