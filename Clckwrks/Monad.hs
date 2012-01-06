@@ -2,12 +2,15 @@
 module Clckwrks.Monad
     ( Clck
     , ClckT(..)
+    , evalClckT
+    , execClckT
     , runClckT
     , mapClckT
     , ClckState(..)
     , Content(..)
     , markupToContent
     , addPreProcessor
+    , addAdminMenu
     , setCurrentPage
     , getPrefix
     , getUnique
@@ -28,7 +31,7 @@ import Clckwrks.Types                (Prefix)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
 import Control.Monad                 (MonadPlus)
-import Control.Monad.State           (MonadState, StateT, evalStateT, get, mapStateT, modify, put)
+import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT, get, mapStateT, modify, put, runStateT)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
 import Control.Monad.Trans           (MonadIO(liftIO), lift)
 import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
@@ -37,6 +40,7 @@ import Data.Acid                     (AcidState, EventState, EventResult, QueryE
 import Data.Acid.Advanced            (query', update')
 import Data.Attoparsec.Text          (Parser, parseOnly, char, try, takeWhile, takeWhile1)
 import qualified Data.HashMap.Lazy   as HashMap
+import qualified Data.List           as List
 import qualified Data.Map            as Map
 import Data.Monoid                   (mappend, mconcat)
 import qualified Data.Text           as Text
@@ -75,6 +79,7 @@ data ClckState
                 , componentPrefix  :: Prefix
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , preProcessorCmds :: forall m url. (Functor m, MonadIO m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
+                , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 }
 
 -- TODO: move into happstack-server
@@ -124,8 +129,15 @@ newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
 
 instance (Happstack m) => Happstack (ClckT url m)
 
-runClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m a
-runClckT showFn clckState m = evalStateT (unRouteT (unClckT m) showFn) clckState
+evalClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m a
+evalClckT showFn clckState m = evalStateT (unRouteT (unClckT m) showFn) clckState
+
+execClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m ClckState
+execClckT showFn clckState m = execStateT (unRouteT (unClckT m) showFn) clckState
+
+
+runClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m (a, ClckState)
+runClckT showFn clckState m = runStateT (unRouteT (unClckT m) showFn) clckState
 
 -- | update the 'currentPage' field of 'ClckState'
 setCurrentPage :: PageId -> Clck url ()
@@ -151,6 +163,13 @@ addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m) 
 addPreProcessor name action =
     modify $ \cs ->
         cs { preProcessorCmds = Map.insert name action (preProcessorCmds cs) }
+
+addAdminMenu :: (Monad m) => T.Text -> [(T.Text, T.Text)] -> ClckT url m ()
+addAdminMenu category entries =
+    modify $ \cs ->
+        let oldMenus = adminMenus cs
+            newMenus = Map.toAscList $ Map.insertWith List.union category entries $ Map.fromList oldMenus
+        in cs { adminMenus = newMenus }
 
 mapClckT :: (m (a, ClckState) -> n (b, ClckState))
          -> ClckT url m a

@@ -40,6 +40,7 @@ withClckwrks cc action =
                                         , componentPrefix  = Prefix (fromString "clckwrks")
                                         , uniqueId         = u
                                         , preProcessorCmds = Map.empty
+                                        , adminMenus       = []
                                         }
               action clckState
   
