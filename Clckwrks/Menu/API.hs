@@ -40,5 +40,7 @@ menuTreeHTML (Node menuItem subMenus) =
               <a href=u><% menuTitle menuItem %></a>
               <% menuForestHTML subMenus %>
               </li>
+      LinkMenu ->  -- FIXME: add real support for sub menus
+          <li>sub-menu (fixme)</li>
 
              
