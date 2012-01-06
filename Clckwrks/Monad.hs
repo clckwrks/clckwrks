@@ -206,13 +206,13 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState whe
 -- * XMLGen / XMLGenerator instances for Clck
 
 instance (Functor m, Monad m) => HSX.XMLGen (ClckT url m) where
-    type HSX.XML (ClckT url m) = XML
-    newtype HSX.Child (ClckT url m) = ClckChild { unClckChild :: XML }
-    newtype HSX.Attribute (ClckT url m) = FAttr { unFAttr :: Attribute }
+    type XML (ClckT url m) = XML
+    newtype Child (ClckT url m) = ClckChild { unClckChild :: XML }
+    newtype Attribute (ClckT url m) = FAttr { unFAttr :: Attribute }
     genElement n attrs children =
         do attribs <- map unFAttr <$> asAttr attrs
            childer <- flattenCDATA . map (unClckChild) <$> asChild children
-           HSX.XMLGenT $ return (Element
+           XMLGenT $ return (Element
                               (toName n)
                               attribs
                               childer
