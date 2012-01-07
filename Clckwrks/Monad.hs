@@ -164,8 +164,8 @@ addPreProcessor name action =
     modify $ \cs ->
         cs { preProcessorCmds = Map.insert name action (preProcessorCmds cs) }
 
-addAdminMenu :: (Monad m) => T.Text -> [(T.Text, T.Text)] -> ClckT url m ()
-addAdminMenu category entries =
+addAdminMenu :: (Monad m) => (T.Text, [(T.Text, T.Text)]) -> ClckT url m ()
+addAdminMenu (category, entries) =
     modify $ \cs ->
         let oldMenus = adminMenus cs
             newMenus = Map.toAscList $ Map.insertWith List.union category entries $ Map.fromList oldMenus

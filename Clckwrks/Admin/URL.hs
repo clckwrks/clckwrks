@@ -9,6 +9,7 @@ import Web.Routes.TH       (derivePathInfo)
 data AdminURL
     = Console
     | EditPage PageId
+    | Pages
     | NewPage
     | EditMenu
     | MenuPOST
