@@ -14,6 +14,7 @@ import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
 import Control.Applicative         ((<$>))
 import Data.Data                   (Data, Typeable)
 import Data.SafeCopy               (SafeCopy(..), base, deriveSafeCopy)
+import Data.Text                   (Text)
 import Happstack.Auth              (AuthURL(..), ProfileURL(..), AuthProfileURL(..))
 import Happstack.Auth.Core.AuthURL (OpenIdURL, AuthMode, OpenIdProvider)
 
@@ -22,6 +23,7 @@ import Web.Routes.TH               (derivePathInfo)
 data ClckURL
     = ViewPage PageId
     | ThemeData FilePath
+    | PluginData Text FilePath
     | Admin AdminURL
     | Profile ProfileDataURL
     | Auth AuthProfileURL

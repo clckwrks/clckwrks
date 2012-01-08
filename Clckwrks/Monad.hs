@@ -11,6 +11,7 @@ module Clckwrks.Monad
     , markupToContent
     , addPreProcessor
     , addAdminMenu
+    , addPluginPath
     , setCurrentPage
     , getPrefix
     , getUnique
@@ -76,6 +77,7 @@ data ClckState
     = ClckState { acidState        :: Acid 
                 , currentPage      :: PageId
                 , themePath        :: FilePath
+                , pluginPath       :: Map T.Text FilePath
                 , componentPrefix  :: Prefix
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , preProcessorCmds :: forall m url. (Functor m, MonadIO m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
@@ -170,6 +172,11 @@ addAdminMenu (category, entries) =
         let oldMenus = adminMenus cs
             newMenus = Map.toAscList $ Map.insertWith List.union category entries $ Map.fromList oldMenus
         in cs { adminMenus = newMenus }
+
+addPluginPath :: (Monad m) => T.Text -> FilePath -> ClckT url m ()
+addPluginPath plugin fp =
+    modify $ \cs  ->
+        cs { pluginPath = Map.insert plugin fp (pluginPath cs) }
 
 mapClckT :: (m (a, ClckState) -> n (b, ClckState))
          -> ClckT url m a

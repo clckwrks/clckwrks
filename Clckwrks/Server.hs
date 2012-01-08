@@ -8,7 +8,9 @@ import Clckwrks.ProfileData.Route (routeProfileData)
 import Clckwrks.ProfileData.URL   (ProfileDataURL(..))
 import Control.Concurrent.STM     (atomically, newTVar)
 import Control.Monad.State        (get, evalStateT)
+import           Data.Map         (Map)
 import qualified Data.Map         as Map
+import           Data.Text        (Text)
 import qualified Data.Text        as Text
 import Data.String                (fromString)
 import Happstack.Auth             (handleAuthProfile)
@@ -25,10 +27,10 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckJSTreePath   :: FilePath
     , clckJSON2Path    :: FilePath
     , clckThemeDir     :: FilePath
+    , clckPluginDir    :: [(Text, FilePath)]
     , clckStaticDir    :: FilePath
     , clckPageHandler  :: Clck ClckURL Response
     }
-    
         
 withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
@@ -37,6 +39,7 @@ withClckwrks cc action =
               let clckState = ClckState { acidState        = acid 
                                         , currentPage      = PageId 0
                                         , themePath        = clckThemeDir cc
+                                        , pluginPath       = Map.fromList (clckPluginDir cc)
                                         , componentPrefix  = Prefix (fromString "clckwrks")
                                         , uniqueId         = u
                                         , preProcessorCmds = Map.empty
@@ -79,6 +82,15 @@ routeClck pageHandler url =
                 if not (isSafePath (splitDirectories fp''))
                    then notFound (toResponse ())
                    else serveFile (guessContentTypeM mimeTypes) (fp </> "data" </> fp'')
+         (PluginData plugin fp')  ->
+             do ppm <- pluginPath <$> get
+                case Map.lookup plugin ppm of
+                  Nothing -> notFound (toResponse ())
+                  (Just pp) ->
+                      do let fp'' = makeRelative "/" fp'
+                         if not (isSafePath (splitDirectories fp''))
+                           then notFound (toResponse ())
+                           else serveFile (guessContentTypeM mimeTypes) (pp </> "data" </> fp'')
          (Admin adminURL) ->
              routeAdmin adminURL
          (Profile profileDataURL) ->
