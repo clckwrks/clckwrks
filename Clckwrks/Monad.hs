@@ -7,6 +7,7 @@ module Clckwrks.Monad
     , runClckT
     , mapClckT
     , ClckState(..)
+    , getUserId
     , Content(..)
     , markupToContent
     , addPreProcessor
@@ -57,11 +58,14 @@ import           Data.Text.Lazy.Builder (Builder)
 import qualified Data.Text.Lazy.Builder as B
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
+import Happstack.Auth                (AuthState, ProfileState, UserId)
+import qualified Happstack.Auth      as Auth
+
+import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT)
+import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
 import HSP.ServerPartT               ()
 import qualified HSX.XMLGenerator    as HSX
-import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT)
-import Happstack.Server.Internal.Monads (FilterFun)
 import HSX.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro    
 import Prelude                       hiding (takeWhile)
@@ -220,6 +224,12 @@ update event =
 instance (GetAcidState m st) => GetAcidState (XMLGenT m) st where
     getAcidState = XMLGenT getAcidState
 
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) AuthState where
+    getAcidState = (acidAuth . acidState) <$> get
+
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileState where
+    getAcidState = (acidProfile . acidState) <$> get
+
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) (MenuState ClckURL) where
     getAcidState = (acidMenu . acidState) <$> get
 
@@ -228,6 +238,12 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) PageState where
 
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
+
+getUserId :: (Happstack m, GetAcidState m AuthState, GetAcidState m ProfileState) => m (Maybe UserId)
+getUserId = 
+    do authState    <- getAcidState
+       profileState <- getAcidState
+       Auth.getUserId authState profileState
 
 -- * XMLGen / XMLGenerator instances for Clck
 

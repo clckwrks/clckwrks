@@ -7,14 +7,12 @@ import Clckwrks.ProfileData.URL   (ProfileDataURL(..))
 import Clckwrks.ProfileData.Types
 import Control.Monad.State (get)
 import Data.Set (singleton)
-import Happstack.Auth 
 
 routeProfileData :: ProfileDataURL -> Clck ProfileDataURL Response
 routeProfileData url =
     case url of
       CreateNewProfileData ->
-          do Acid{..} <- acidState <$> get
-             mUserId <- getUserId acidAuth acidProfile
+          do mUserId <- getUserId
              case mUserId of
                Nothing -> internalServerError $ toResponse $ "not logged in."
                (Just userId) ->

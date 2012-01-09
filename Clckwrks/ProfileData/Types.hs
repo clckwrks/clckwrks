@@ -14,8 +14,7 @@ import Data.Set      (Set, empty)
 import Data.Text     (Text, empty)
 
 data Role 
-    = Admin
-    | Editor
+    = Administrator
     | Visitor
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 

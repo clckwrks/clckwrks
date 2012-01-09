@@ -25,7 +25,7 @@ template title headers body =
    toResponse <$> (unXMLGenT $
     <html>
      <head>
-      <link type="text/css" href="/static/style.css" rel="stylesheet" />
+      <link type="text/css" href="/static/admin.css" rel="stylesheet" />
       <script type="text/javascript" src="/jquery/jquery.js" ></script>
       <script type="text/javascript" src="/json2/json2.js" ></script>
       <title><% title %></title>
