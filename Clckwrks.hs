@@ -5,6 +5,7 @@ module Clckwrks
     , module Clckwrks.Monad
     , module Clckwrks.Page.API
     , module Clckwrks.ProfileData.API
+    , module Clckwrks.ProfileData.Types
     , module Clckwrks.Types
     , module Clckwrks.Unauthorized
     , module Clckwrks.URL
@@ -26,6 +27,7 @@ import Clckwrks.Menu.API
 import Clckwrks.Monad
 import Clckwrks.Page.API
 import Clckwrks.ProfileData.API
+import Clckwrks.ProfileData.Types
 import Clckwrks.Types
 import Clckwrks.Unauthorized
 import Clckwrks.URL

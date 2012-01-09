@@ -4,7 +4,6 @@ module Clckwrks.Server where
 import Clckwrks
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Admin.Route        (routeAdmin)
-import Clckwrks.ProfileData.Acid   (HasRole(..))
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Clckwrks.ProfileData.Types  (Role(..))
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
@@ -71,16 +70,6 @@ jsHandlers c =
        , dir "json2"       $ serveDirectory DisableBrowsing [] (clckJSON2Path c)
        ]
 
-requiresRole :: (Happstack m) => Role -> url -> ClckT ClckURL m url 
-requiresRole role url =
-    do mu <- getUserId
-       case mu of
-         Nothing -> escape $ seeOtherURL (Auth $ AuthURL A_Login)
-         (Just uid) -> 
-             do r <- query (HasRole uid role)
-                if r
-                   then return url
-                   else escape $ unauthorizedPage "You do not have permission to view this page."
 
 checkAuth :: (Happstack m, Monad m) => ClckURL -> ClckT ClckURL m ClckURL
 checkAuth url =

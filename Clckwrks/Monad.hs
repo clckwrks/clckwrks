@@ -17,6 +17,8 @@ module Clckwrks.Monad
     , getPrefix
     , getUnique
     , setUnique
+    , requiresRole
+    , requiresRole_
     , query
     , update
     , nestURL
@@ -28,8 +30,10 @@ import Clckwrks.Acid                 (Acid(..), GetAcidState(..))
 import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
 import Clckwrks.Menu.Acid            (MenuState)
 import Clckwrks.Page.Acid            (PageState, PageId)
-import Clckwrks.ProfileData.Acid     (ProfileDataState)
+import Clckwrks.ProfileData.Acid     (ProfileDataState, HasRole(..))
+import Clckwrks.ProfileData.Types    (Role(..))
 import Clckwrks.Types                (Prefix)
+import Clckwrks.Unauthorized         (unauthorizedPage)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
 import Control.Monad                 (MonadPlus)
@@ -58,10 +62,11 @@ import           Data.Text.Lazy.Builder (Builder)
 import qualified Data.Text.Lazy.Builder as B
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
-import Happstack.Auth                (AuthState, ProfileState, UserId)
+import Happstack.Auth                (AuthProfileURL(..), AuthURL(..), AuthState, ProfileState, UserId)
 import qualified Happstack.Auth      as Auth
 
-import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT)
+import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT, escape)
+import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
 import HSP.ServerPartT               ()
@@ -72,9 +77,9 @@ import Prelude                       hiding (takeWhile)
 import System.Locale                 (defaultTimeLocale)
 import Text.Blaze                    (Html)
 import Text.Blaze.Renderer.String    (renderHtml)
-import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(unRouteT), mapRouteT, showURL)
+import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL)
 import qualified Web.Routes          as R
-import Web.Routes.Happstack          () -- imported so that instances are scope even though we do not use them here
+import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
 
 data ClckState 
@@ -472,3 +477,18 @@ process handlers txt =
       Left e -> error e
       Right segs -> 
           (TL.toStrict . B.toLazyText) <$> processSegments handlers segs
+
+requiresRole_ :: (Happstack  m) => (ClckURL -> [(T.Text, Maybe T.Text)] -> T.Text) -> Role -> url -> ClckT u m url
+requiresRole_ showFn role url =
+    ClckT $ RouteT $ \_ -> unRouteT (unClckT (requiresRole role url)) showFn
+
+requiresRole :: (Happstack m) => Role -> url -> ClckT ClckURL m url 
+requiresRole role url =
+    do mu <- getUserId
+       case mu of
+         Nothing -> escape $ seeOtherURL (Auth $ AuthURL A_Login)
+         (Just uid) -> 
+             do r <- query (HasRole uid role)
+                if r
+                   then return url
+                   else escape $ unauthorizedPage ("You do not have permission to view this page." :: T.Text)
