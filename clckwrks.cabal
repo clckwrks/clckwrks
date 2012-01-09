@@ -28,6 +28,7 @@ Library
                    Clckwrks.Admin.Console
                    Clckwrks.Admin.Route
                    Clckwrks.Admin.NewPage 
+                   Clckwrks.Admin.Pages
                    Clckwrks.Admin.EditPage
                    Clckwrks.BasicTemplate
                    Clckwrks.IOThread
@@ -64,6 +65,7 @@ Library
      digestive-functors == 0.2.*,
      digestive-functors-happstack == 0.1.*,
      digestive-functors-hsp == 0.4.*,
+     directory == 1.1.*,
      filepath >= 1.2 && <1.4,
      happstack-authenticate == 0.7.*,
      happstack-hsp == 6.2.*,
@@ -74,6 +76,7 @@ Library
      ixset == 1.0.*,
      jmacro == 0.5.*,
      mtl == 2.0.*,
+     network == 2.3.*,
      old-locale ==  1.0.*,
      process >= 1.0 && < 1.2,
 --     plugins-auto == 0.0.1.1,
