@@ -71,7 +71,6 @@ jsHandlers c =
        , dir "json2"       $ serveDirectory DisableBrowsing [] (clckJSON2Path c)
        ]
 
-
 checkAuth :: (Happstack m, Monad m) => ClckURL -> ClckT ClckURL m ClckURL
 checkAuth url =
     case url of
@@ -119,7 +118,7 @@ routeClck cc url' =
 
 routeClck' :: ClckwrksConfig u -> ClckState -> ClckURL -> RouteT ClckURL (ServerPartT IO) Response
 routeClck' cc clckState url =
-    mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck cc url) 
+    mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck cc url)
 
 clckSite :: ClckwrksConfig u -> ClckState -> Site ClckURL (ServerPart Response)
 clckSite cc clckState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'
