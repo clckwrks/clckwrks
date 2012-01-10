@@ -31,6 +31,7 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckPluginDir    :: [(Text, FilePath)]
     , clckStaticDir    :: FilePath
     , clckPageHandler  :: Clck ClckURL Response
+    , clckBlogHandler  :: Clck ClckURL Response
     }
         
 withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
@@ -51,15 +52,15 @@ withClckwrks cc action =
 simpleClckwrks :: ClckwrksConfig u -> IO ()
 simpleClckwrks cc =
   withClckwrks cc $ \clckState ->
-    simpleHTTP (nullConf { port = clckPort cc }) (handlers (clckPageHandler cc) clckState)
+    simpleHTTP (nullConf { port = clckPort cc }) (handlers cc clckState)
   where
-    handlers ph clckState =
+    handlers cc clckState =
        do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
           msum $ 
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
-            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite ph clckState)
+            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
             ]
               
 jsHandlers :: (Happstack m) => ClckwrksConfig u -> m Response
@@ -75,20 +76,23 @@ checkAuth :: (Happstack m, Monad m) => ClckURL -> ClckT ClckURL m ClckURL
 checkAuth url =
     case url of
       ViewPage{}    -> return url 
+      Blog{}        -> return url 
       ThemeData{}   -> return url
       PluginData{}  -> return url
       Admin{}       -> requiresRole Administrator url
       Profile{}     -> return url
       Auth{}        -> return url
 
-routeClck :: Clck ClckURL Response -> ClckURL -> Clck ClckURL Response
-routeClck pageHandler url' =
+routeClck :: ClckwrksConfig u -> ClckURL -> Clck ClckURL Response
+routeClck cc url' =
     do url <- checkAuth url'
        setUnique 0
        case url of
          (ViewPage pid) ->
            do setCurrentPage pid
-              pageHandler
+              (clckPageHandler cc)
+         (Blog) ->
+           do clckBlogHandler cc
          (ThemeData fp')  ->
              do fp <- themePath <$> get
                 let fp'' = makeRelative "/" fp'
@@ -113,11 +117,11 @@ routeClck pageHandler url' =
                 u <- showURL $ Profile CreateNewProfileData
                 nestURL Auth $ handleAuthProfile acidAuth acidProfile basicTemplate Nothing Nothing u apURL
 
-routeClck' :: Clck ClckURL Response -> ClckState -> ClckURL -> RouteT ClckURL (ServerPartT IO) Response
-routeClck' pageHandler clckState url =
-    mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck pageHandler url) 
+routeClck' :: ClckwrksConfig u -> ClckState -> ClckURL -> RouteT ClckURL (ServerPartT IO) Response
+routeClck' cc clckState url =
+    mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck cc url) 
 
-clckSite :: Clck ClckURL Response -> ClckState -> Site ClckURL (ServerPart Response)
-clckSite ph clckState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'
+clckSite :: ClckwrksConfig u -> ClckState -> Site ClckURL (ServerPart Response)
+clckSite cc clckState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'
     where
-      route' f u = unRouteT (routeClck' ph clckState u) f
+      route' f u = unRouteT (routeClck' cc clckState u) f

@@ -22,6 +22,7 @@ import Web.Routes.TH               (derivePathInfo)
 
 data ClckURL
     = ViewPage PageId
+    | Blog
     | ThemeData FilePath
     | PluginData Text FilePath
     | Admin AdminURL

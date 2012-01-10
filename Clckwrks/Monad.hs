@@ -286,22 +286,7 @@ instance (Functor m, Monad m) => IsAttrValue (ClckT url m) T.Text where
 
 instance (Functor m, Monad m) => IsAttrValue (ClckT url m) TL.Text where
     toAttrValue = toAttrValue . TL.unpack
-{-
-instance EmbedAsChild Clck (Block t) where
-  asChild b = asChild $
-    <script type="text/javascript">
-      <% show b %>
-    </script>
 
-instance IsAttrValue Clck (HJScript (Exp t)) where
-  toAttrValue script = toAttrValue $ evaluateHJScript script
-
-instance IsAttrValue Clck (Block t) where
-  toAttrValue block = return . attrVal $ "javascript:" ++ show block
-
-instance (IsName n) => HSX.EmbedAsAttr Clck (Attr n (HJScript (Exp a))) where
-    asAttr (n := script) = return . (:[]) . FAttr $ MkAttr (toName n, attrVal $ show $ evaluateHJScript script)
--}
 instance (Functor m, Monad m) => HSX.EmbedAsAttr (ClckT url m) Attribute where
     asAttr = return . (:[]) . FAttr 
 
@@ -397,6 +382,10 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) UTCTime where
     asChild = asChild . formatTime defaultTimeLocale "%a, %F @ %r"
+
+instance (Functor m, Monad m, EmbedAsChild (ClckT url m) a) => EmbedAsChild (ClckT url m) (Maybe a) where
+    asChild Nothing = asChild ()
+    asChild (Just a) = asChild a
 
 instance (Functor m, Monad m) => AppendChild (ClckT url m) XML where
  appAll xml children = do

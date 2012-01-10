@@ -9,6 +9,7 @@ module Clckwrks.Page.API
     , getPagesSummary
     , getPageSummary
     , getPageMenu
+    , getPosts
     , extractExcerpt
     ) where
 
@@ -90,5 +91,6 @@ takeThrough f (p:ps)
     | f p = p : takeThrough f ps
     | otherwise = []
 
-        
-    
+-- | get all posts, sorted reverse cronological
+getPosts :: XMLGenT (Clck url) [Page]
+getPosts = query AllPosts

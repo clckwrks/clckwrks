@@ -65,6 +65,12 @@ data PublishStatus
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 $(deriveSafeCopy 1 'base ''PublishStatus)
 
+data PageKind
+    = PlainPage
+    | Post
+      deriving (Eq, Ord, Read, Show, Data, Typeable)
+$(deriveSafeCopy 1 'base ''PageKind)
+
 data Page 
     = Page { pageId        :: PageId
            , pageTitle     :: Text 
@@ -72,12 +78,15 @@ data Page
            , pageExcerpt   :: Maybe Markup
            , pageDate      :: Maybe UTCTime
            , pageStatus    :: PublishStatus
+           , pageKind      :: PageKind
            }
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 $(deriveSafeCopy 1 'base ''Page)
 
 instance Indexable Page where
     empty = ixSet [ ixFun ((:[]) . pageId) 
+                  , ixFun ((:[]) . pageDate)
+                  , ixFun ((:[]) . pageKind)
                   ]
 
 type Pages = IxSet Page

@@ -9,25 +9,25 @@ module Clckwrks.Page.Acid
     , PageById(..)
     , PagesSummary(..)
     , UpdatePage(..)
+    , AllPosts(..)
     ) where
 
-import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), Page(..), Pages(..))
+import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), PageKind(..), Page(..), Pages(..))
 import Control.Applicative  ((<$>))
 import Control.Monad.Reader (ask)
 import Control.Monad.State  (get, put)
 import Control.Monad.Trans  (liftIO)
 import Data.Acid            (AcidState, Query, Update, makeAcidic)
 import Data.Data            (Data, Typeable)
-import Data.IxSet           (Indexable, IxSet, (@=), empty, fromList, getOne, ixSet, ixFun, insert, toList, updateIx)
+import Data.IxSet           (Indexable, IxSet, (@=), Proxy(..), empty, fromList, getOne, ixSet, ixFun, insert, toList, toDescList, updateIx)
 import Data.SafeCopy        (base, deriveSafeCopy)
 import Data.Text            (Text)
-import Data.Time.Clock      (getCurrentTime)
+import Data.Time.Clock      (UTCTime, getCurrentTime)
 import qualified Data.Text  as Text
 
 data PageState  = PageState 
     { nextPageId :: PageId
     , pages      :: IxSet Page
-    , posts      :: IxSet Page
     }
     deriving (Eq, Read, Show, Data, Typeable)
 $(deriveSafeCopy 1 'base ''PageState)
@@ -43,9 +43,9 @@ initialPageState =
                                         , pageExcerpt   = Nothing
                                         , pageDate      = Nothing
                                         , pageStatus    = Published
+                                        , pageKind      = PlainPage
                                         } 
                                  ]
-              , posts = fromList []
               }
 
 pageById :: PageId -> Query PageState (Maybe Page)
@@ -67,8 +67,8 @@ updatePage page =
              do put $ ps { pages = updateIx (pageId page) page pages }
                 return Nothing
 
-newPage :: Update PageState Page
-newPage =
+newPage :: PageKind -> Update PageState Page
+newPage pk =
     do ps@PageState{..} <- get
        let page = Page { pageId      = nextPageId
                        , pageTitle   = "Untitled"
@@ -78,33 +78,23 @@ newPage =
                        , pageExcerpt = Nothing
                        , pageDate    = Nothing
                        , pageStatus  = Draft
+                       , pageKind    = pk
                        }
        put $ ps { nextPageId = PageId $ succ $ unPageId nextPageId
-                , pages = insert page pages
+                , pages      = insert page pages
                 }
        return page
 
-newPost :: Update PageState Page
-newPost =
-    do ps@PageState{..} <- get
-       let page = Page { pageId      = nextPageId
-                       , pageTitle   = "Untitled"
-                       , pageSrc     = Markup { preProcessors = [ Markdown ]
-                                              , markup        = Text.empty
-                                              }
-                       , pageExcerpt = Nothing
-                       , pageDate    = Nothing
-                       , pageStatus  = Draft
-                       }
-       put $ ps { nextPageId = PageId $ succ $ unPageId nextPageId
-                , pages = insert page pages
-                }
-       return page
+-- | get all posts, sorted reverse cronological
+allPosts :: Query PageState [Page]
+allPosts =
+    do pgs <- pages <$> ask
+       return $ toDescList (Proxy :: Proxy (Maybe UTCTime)) (pgs @= Post)
 
 $(makeAcidic ''PageState 
   [ 'newPage
-  , 'newPost
   , 'pageById
   , 'pagesSummary
   , 'updatePage
+  , 'allPosts
   ])

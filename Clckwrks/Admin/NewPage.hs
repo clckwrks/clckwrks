@@ -14,5 +14,5 @@ newPage =
           </form>
     <|>
     do method POST
-       page <- update Acid.NewPage
+       page <- update (Acid.NewPage PlainPage)
        seeOtherURL (EditPage (pageId page))
