@@ -93,48 +93,6 @@ data ClckState
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 }
 
--- TODO: move into happstack-server
-instance (ServerMonad m) => ServerMonad (StateT s m) where
-    askRq   = lift askRq
-    localRq f = mapStateT (localRq f)
-
-instance (Monad m, HasRqData m) => HasRqData (StateT s m) where
-    askRqEnv = lift askRqEnv
-    localRqEnv f = mapStateT (localRqEnv f)
-    rqDataError e = lift (rqDataError e)
-
-instance (FilterMonad r m) => FilterMonad r (StateT s m) where
-    setFilter f = lift $ setFilter f
-    composeFilter = lift . composeFilter
-    getFilter   m = mapStateT (\m' -> 
-                                   do ((b,s), f) <- getFilter m'
-                                      return ((b, f) ,s)) m
-
-instance (WebMonad a m) => WebMonad a (StateT s m) where
-    finishWith = lift . finishWith
-
-instance (Happstack m) => Happstack (StateT s m)
-
-
-instance (ServerMonad m) => ServerMonad (ReaderT s m) where
-    askRq   = lift askRq
-    localRq f = mapReaderT (localRq f)
-
-instance (Monad m, HasRqData m) => HasRqData (ReaderT s m) where
-    askRqEnv = lift askRqEnv
-    localRqEnv f = mapReaderT (localRqEnv f)
-    rqDataError e = lift (rqDataError e)
-
-instance (FilterMonad r m) => FilterMonad r (ReaderT s m) where
-    setFilter f = lift $ setFilter f
-    composeFilter = lift . composeFilter
-    getFilter     = mapReaderT getFilter
-
-instance (WebMonad a m) => WebMonad a (ReaderT s m) where
-    finishWith = lift . finishWith
-
-instance (Happstack m) => Happstack (ReaderT s m)
-
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
 
