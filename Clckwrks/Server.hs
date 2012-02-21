@@ -16,6 +16,7 @@ import qualified Data.Text         as Text
 import Data.String                 (fromString)
 import Happstack.Auth              (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
+import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack        (implSite)
 
@@ -94,7 +95,7 @@ routeClck cc url' =
            do clckBlogHandler cc
          (ThemeData fp')  ->
              do fp <- themePath <$> get
-                let fp'' = makeRelative "/" fp'
+                let fp'' = makeRelative "/" (unEscapeString fp')
                 if not (isSafePath (splitDirectories fp''))
                    then notFound (toResponse ())
                    else serveFile (guessContentTypeM mimeTypes) (fp </> "data" </> fp'')
