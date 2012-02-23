@@ -47,6 +47,7 @@ withClckwrks cc action =
                                         , uniqueId         = u
                                         , preProcessorCmds = Map.empty
                                         , adminMenus       = []
+                                        , uacct            = Nothing
                                         }
               action clckState
   

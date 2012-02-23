@@ -1,0 +1,79 @@
+body
+{
+    margin: 0;
+    padding: 0;
+}
+
+form fieldset
+{
+    border: none;
+}
+
+form ol
+{
+    list-style-type: none;
+}
+
+/* admin console */
+
+#admin-sidebar
+{
+    width: 200px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 0;
+    border-right: 1px solid black;
+    height: 100%;
+}
+
+#admin-body
+{
+    position: absolute;
+    top: 0;
+    left: 210px;
+}
+
+ul#admin-menu 
+{
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+
+}
+
+#admin-menu ul
+{
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.admin-menu-link
+{
+    border-bottom: 1px dotted #ddd;
+    padding-left: 1em;
+}
+
+#admin-menu a
+{
+    text-decoration: none;
+    color: black;
+}
+
+#admin-menu-links li:hover
+{
+    background: #ddd;
+}
+
+
+.admin-menu-category-title
+{
+
+    display: block;
+    font-weight: bold;
+    color: white;
+    background: gray;
+    font-size: 1.1em;
+    padding-left: 1em;
+}

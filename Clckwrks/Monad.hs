@@ -15,6 +15,7 @@ module Clckwrks.Monad
     , addPluginPath
     , setCurrentPage
     , getPrefix
+    , getUACCT
     , getUnique
     , setUnique
     , requiresRole
@@ -69,6 +70,7 @@ import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
+import HSP.Google.Analytics          (UACCT)
 import HSP.ServerPartT               ()
 import qualified HSX.XMLGenerator    as HSX
 import HSX.JMacro                    (IntegerSupply(..))
@@ -91,6 +93,7 @@ data ClckState
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , preProcessorCmds :: forall m url. (Functor m, MonadIO m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
+                , uacct            :: Maybe UACCT
                 }
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
@@ -121,12 +124,19 @@ setUnique i =
     do u <- uniqueId <$> get
        liftIO $ atomically $ writeTVar u i
 
+-- | get a unique 'Integer'.
+--
+-- Only unique for the current request
 getUnique :: Clck url Integer
 getUnique = 
     do u <- uniqueId <$> get
        liftIO $ atomically $ do i <- readTVar u
                                 writeTVar u (succ i)
                                 return i
+
+-- | get the google tracking code ('UACCT') associated with this site
+getUACCT :: (Functor m, MonadState ClckState m) => m (Maybe UACCT)
+getUACCT = uacct <$> get
 
 addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m) => T.Text -> ClckT url m Builder) -> ClckT u n ()
 addPreProcessor name action =

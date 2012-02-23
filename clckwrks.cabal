@@ -11,14 +11,10 @@ Maintainer:          jeremy@n-heptane.com
 Stability:           Experimental
 Category:            Clckwrks
 Build-type:          Simple
-
--- Extra files to be distributed with the package, such as examples or
--- a README.
 -- Extra-source-files:  
-
--- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
-
+Data-Files:
+    static/admin.css
 
 Library
   Exposed-modules: Clckwrks
