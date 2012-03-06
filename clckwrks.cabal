@@ -48,6 +48,7 @@ Library
                    Clckwrks.Types
                    Clckwrks.Unauthorized
                    Clckwrks.URL
+                   Paths_clckwrks
   
   Packages needed in order to build this package.
   Build-depends:
