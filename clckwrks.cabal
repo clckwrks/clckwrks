@@ -1,17 +1,17 @@
 Name:                clckwrks
-Version:             0.1
-Synopsis:            A secure, reliable CMS 
--- Description:         
+Version:             0.1.1
+Synopsis:            A secure, reliable CMS
+-- Description:
 Homepage:            http://www.clckwrks.com/
 License:             BSD3
 License-file:        LICENSE
 Author:              Jeremy Shaw
 Maintainer:          jeremy@n-heptane.com
--- Copyright:           
+-- Copyright:
 Stability:           Experimental
 Category:            Clckwrks
 Build-type:          Simple
--- Extra-source-files:  
+-- Extra-source-files:
 Cabal-version:       >=1.2
 Data-Files:
     static/admin.css
@@ -23,7 +23,7 @@ Library
                    Clckwrks.Admin.URL
                    Clckwrks.Admin.Console
                    Clckwrks.Admin.Route
-                   Clckwrks.Admin.NewPage 
+                   Clckwrks.Admin.NewPage
                    Clckwrks.Admin.Pages
                    Clckwrks.Admin.EditPage
                    Clckwrks.BasicTemplate
@@ -49,7 +49,7 @@ Library
                    Clckwrks.Unauthorized
                    Clckwrks.URL
                    Paths_clckwrks
-  
+
   Packages needed in order to build this package.
   Build-depends:
      acid-state == 0.6.*,
@@ -82,7 +82,7 @@ Library
      tagsoup == 0.12.*,
      text == 0.11.*,
      time >= 1.2 && <1.5,
-     unordered-containers == 0.1.*,
+     unordered-containers >= 0.1 && < 0.3,
      utf8-string == 0.3.*,
      vector == 0.9.*,
      web-routes,
