@@ -17,6 +17,7 @@ Data-Files:
     static/admin.css
 
 Library
+  Build-tools:     trhsx
   Exposed-modules: Clckwrks
                    Clckwrks.Acid
                    Clckwrks.Admin.Template

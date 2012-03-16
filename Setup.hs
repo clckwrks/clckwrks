@@ -1,3 +1,13 @@
-#!/usr/bin/env runhaskell
+#!/usr/bin/env runghc
+
+module Main where
+
 import Distribution.Simple
-main = defaultMain
+import Distribution.Simple.Program
+
+trhsxProgram = simpleProgram "trhsx"
+
+main :: IO ()
+main = defaultMainWithHooks simpleUserHooks {
+         hookedPrograms = [trhsxProgram]
+       }
