@@ -38,4 +38,4 @@ hscolour mArgs txt = liftIO $
                 return (Left e)
          ExitSuccess ->
              do m <- readMVar mvOut
-                return (Right (sanitizeBalance (T.pack m)))
+                return (Right ({- sanitizeBalance -} (T.pack m)))

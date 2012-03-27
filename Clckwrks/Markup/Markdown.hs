@@ -23,7 +23,7 @@ markdown mArgs txt = liftIO $
                     Nothing -> ["--html4tags"]
                     (Just a) -> a
        (inh, outh, errh, ph) <- runInteractiveProcess "markdown" args Nothing Nothing
-       _ <- forkIO $ do T.hPutStr inh txt 
+       _ <- forkIO $ do T.hPutStr inh txt
                         hClose inh
        mvOut <- newEmptyMVar
        _ <- forkIO $ do c <- hGetContents outh
@@ -38,4 +38,4 @@ markdown mArgs txt = liftIO $
                 return (Left e)
          ExitSuccess ->
              do m <- readMVar mvOut
-                return (Right (sanitizeBalance (T.pack m)))
+                return (Right ({- sanitizeBalance -} (T.pack m)))

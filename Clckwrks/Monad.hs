@@ -74,7 +74,7 @@ import HSP.Google.Analytics          (UACCT)
 import HSP.ServerPartT               ()
 import qualified HSX.XMLGenerator    as HSX
 import HSX.JMacro                    (IntegerSupply(..))
-import Language.Javascript.JMacro    
+import Language.Javascript.JMacro
 import Prelude                       hiding (takeWhile)
 import System.Locale                 (defaultTimeLocale)
 import Text.Blaze                    (Html)
@@ -84,8 +84,8 @@ import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
 
-data ClckState 
-    = ClckState { acidState        :: Acid 
+data ClckState
+    = ClckState { acidState        :: Acid
                 , currentPage      :: PageId
                 , themePath        :: FilePath
                 , pluginPath       :: Map T.Text FilePath
@@ -128,7 +128,7 @@ setUnique i =
 --
 -- Only unique for the current request
 getUnique :: Clck url Integer
-getUnique = 
+getUnique =
     do u <- uniqueId <$> get
        liftIO $ atomically $ do i <- readTVar u
                                 writeTVar u (succ i)
@@ -174,7 +174,7 @@ instance ToJExpr Value where
     toJExpr (Bool False)  = ValExpr $ JVar    $ StrI "false"
     toJExpr Null          = ValExpr $ JVar    $ StrI "null"
 
-instance ToJExpr Text.Text where    
+instance ToJExpr Text.Text where
   toJExpr t = ValExpr $ JStr $ T.unpack t
 
 nestURL :: (url1 -> url2) -> ClckT url1 m a -> ClckT url2 m a
@@ -213,7 +213,7 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState whe
     getAcidState = (acidProfileData . acidState) <$> get
 
 getUserId :: (Happstack m, GetAcidState m AuthState, GetAcidState m ProfileState) => m (Maybe UserId)
-getUserId = 
+getUserId =
     do authState    <- getAcidState
        profileState <- getAcidState
        Auth.getUserId authState profileState
@@ -240,7 +240,7 @@ flattenCDATA cxml =
                 case flP cxml [] of
                  [] -> []
                  [CDATA _ ""] -> []
-                 xs -> xs                       
+                 xs -> xs
     where
         flP :: [XML] -> [XML] -> [XML]
         flP [] bs = reverse bs
@@ -256,7 +256,7 @@ instance (Functor m, Monad m) => IsAttrValue (ClckT url m) TL.Text where
     toAttrValue = toAttrValue . TL.unpack
 
 instance (Functor m, Monad m) => HSX.EmbedAsAttr (ClckT url m) Attribute where
-    asAttr = return . (:[]) . FAttr 
+    asAttr = return . (:[]) . FAttr
 
 instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n String) where
     asAttr (n := str)  = asAttr $ MkAttr (toName n, pAttrVal str)
@@ -275,19 +275,19 @@ instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n
     asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal (show i))
 
 instance (IsName n) => HSX.EmbedAsAttr (Clck ClckURL) (Attr n ClckURL) where
-    asAttr (n := u) = 
+    asAttr (n := u) =
         do url <- showURL u
            asAttr $ MkAttr (toName n, pAttrVal (T.unpack url))
 
 instance (IsName n) => HSX.EmbedAsAttr (Clck AdminURL) (Attr n AdminURL) where
-    asAttr (n := u) = 
+    asAttr (n := u) =
         do url <- showURL u
            asAttr $ MkAttr (toName n, pAttrVal (T.unpack url))
 
 
 {-
 instance HSX.EmbedAsAttr Clck (Attr String AuthURL) where
-    asAttr (n := u) = 
+    asAttr (n := u) =
         do url <- showURL (W_Auth u)
            asAttr $ MkAttr (toName n, pAttrVal url)
 -}
@@ -323,12 +323,12 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) T.Text where
     asChild = asChild . T.unpack
 
 instance (EmbedAsChild (ClckT url1 m) a, url1 ~ url2) => EmbedAsChild (ClckT url1 m) (ClckT url2 m a) where
-    asChild c = 
+    asChild c =
         do a <- XMLGenT c
            asChild a
 
 instance (Functor m, MonadIO m, EmbedAsChild (ClckT url m) a) => EmbedAsChild (ClckT url m) (IO a) where
-    asChild c = 
+    asChild c =
         do a <- XMLGenT (liftIO c)
            asChild a
 
@@ -371,7 +371,7 @@ instance (Functor m, Monad m) => SetAttr (ClckT url m) XML where
 
 instance (Functor m, Monad m) => XMLGenerator (ClckT url m)
 
-data Content 
+data Content
     = TrustedHtml T.Text
     | PlainText   T.Text
       deriving (Eq, Ord, Read, Show, Data, Typeable)
@@ -382,7 +382,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
 
 markupToContent :: (Functor m, MonadIO m) => Markup -> ClckT url m Content
 markupToContent Markup{..} =
-    do clckState <- get 
+    do clckState <- get
        markup' <- process (preProcessorCmds clckState) markup
        e <- liftIO $ runPreProcessors preProcessors markup'
        case e of
@@ -417,34 +417,34 @@ segments = many segment
 processSegment :: (MonadIO m) => Map T.Text (T.Text -> m Builder) -> Segment -> m Builder
 processSegment _ (TextBlock txt) = return $ B.fromText txt
 processSegment handlers (Command name txt) =
-    case Map.lookup name handlers of 
-      Nothing -> return $ "<span class='preprocessor-error'>Invalid processor name: " `mappend` 
-                             (B.fromText name) `mappend` 
+    case Map.lookup name handlers of
+      Nothing -> return $ "<span class='preprocessor-error'>Invalid processor name: " `mappend`
+                             (B.fromText name) `mappend`
                           "</span>"
       (Just cmd) ->
           cmd txt
 
 processSegments :: (Functor m, MonadIO m) => Map T.Text (T.Text -> m Builder) -> [Segment] -> m Builder
-processSegments handlers segments = 
+processSegments handlers segments =
     mconcat <$> mapM (processSegment handlers) segments
 
 process :: (Functor m, MonadIO m) => Map T.Text (T.Text -> m Builder) -> T.Text -> m T.Text
 process handlers txt =
     case parseOnly segments txt of
       Left e -> error e
-      Right segs -> 
+      Right segs ->
           (TL.toStrict . B.toLazyText) <$> processSegments handlers segs
 
 requiresRole_ :: (Happstack  m) => (ClckURL -> [(T.Text, Maybe T.Text)] -> T.Text) -> Role -> url -> ClckT u m url
 requiresRole_ showFn role url =
     ClckT $ RouteT $ \_ -> unRouteT (unClckT (requiresRole role url)) showFn
 
-requiresRole :: (Happstack m) => Role -> url -> ClckT ClckURL m url 
+requiresRole :: (Happstack m) => Role -> url -> ClckT ClckURL m url
 requiresRole role url =
     do mu <- getUserId
        case mu of
          Nothing -> escape $ seeOtherURL (Auth $ AuthURL A_Login)
-         (Just uid) -> 
+         (Just uid) ->
              do r <- query (HasRole uid role)
                 if r
                    then return url

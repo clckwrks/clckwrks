@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.1.1
+Version:             0.1.2
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -49,6 +49,7 @@ Library
                    Clckwrks.Types
                    Clckwrks.Unauthorized
                    Clckwrks.URL
+                   HSP.HTMLBuilder
                    Paths_clckwrks
 
   Packages needed in order to build this package.
