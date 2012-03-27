@@ -91,7 +91,7 @@ data ClckState
                 , pluginPath       :: Map T.Text FilePath
                 , componentPrefix  :: Prefix
                 , uniqueId         :: TVar Integer -- only unique for this request
-                , preProcessorCmds :: forall m url. (Functor m, MonadIO m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
+                , preProcessorCmds :: forall m url. (Functor m, MonadIO m, Happstack m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , uacct            :: Maybe UACCT
                 }
@@ -138,7 +138,7 @@ getUnique =
 getUACCT :: (Functor m, MonadState ClckState m) => m (Maybe UACCT)
 getUACCT = uacct <$> get
 
-addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m) => T.Text -> ClckT url m Builder) -> ClckT u n ()
+addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m, Happstack m) => T.Text -> ClckT url m Builder) -> ClckT u n ()
 addPreProcessor name action =
     modify $ \cs ->
         cs { preProcessorCmds = Map.insert name action (preProcessorCmds cs) }
@@ -342,7 +342,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) XML where
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
 
-instance (Functor m, MonadIO m) => EmbedAsChild (ClckT url m) Markup where
+instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) Markup where
     asChild mrkup = asChild =<< (XMLGenT $ markupToContent mrkup)
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
@@ -380,7 +380,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
 
-markupToContent :: (Functor m, MonadIO m) => Markup -> ClckT url m Content
+markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m Content
 markupToContent Markup{..} =
     do clckState <- get
        markup' <- process (preProcessorCmds clckState) markup

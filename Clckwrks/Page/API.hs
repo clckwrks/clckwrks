@@ -67,7 +67,7 @@ getPageSummary pid =
          (Just pge) -> 
              extractExcerpt pge
 
-extractExcerpt :: (MonadIO m, Functor m) => Page -> ClckT url m Content
+extractExcerpt :: (MonadIO m, Functor m, Happstack m) => Page -> ClckT url m Content
 extractExcerpt Page{..} =
              case pageExcerpt of
                (Just excerpt) ->
