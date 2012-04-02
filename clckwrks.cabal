@@ -67,7 +67,7 @@ Library
      directory == 1.1.*,
      filepath >= 1.2 && <1.4,
      happstack-authenticate == 0.7.*,
-     happstack-hsp == 6.2.*,
+     happstack-hsp    >= 7.0.1 && < 7.1,
      happstack-server == 6.6.*,
      hsp == 0.6.*,
      hsx == 0.9.*,
