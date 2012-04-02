@@ -34,12 +34,12 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckPageHandler  :: Clck ClckURL Response
     , clckBlogHandler  :: Clck ClckURL Response
     }
-        
+
 withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
     do withAcid Nothing $ \acid ->
            do u <- atomically $ newTVar 0
-              let clckState = ClckState { acidState        = acid 
+              let clckState = ClckState { acidState        = acid
                                         , currentPage      = PageId 0
                                         , themePath        = clckThemeDir cc
                                         , pluginPath       = Map.fromList (clckPluginDir cc)
@@ -50,7 +50,7 @@ withClckwrks cc action =
                                         , uacct            = Nothing
                                         }
               action clckState
-  
+
 simpleClckwrks :: ClckwrksConfig u -> IO ()
 simpleClckwrks cc =
   withClckwrks cc $ \clckState ->
@@ -58,13 +58,13 @@ simpleClckwrks cc =
   where
     handlers cc clckState =
        do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
-          msum $ 
+          msum $
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
             , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
             ]
-              
+
 jsHandlers :: (Happstack m) => ClckwrksConfig u -> m Response
 jsHandlers c =
   msum [ dir "jquery"      $ serveDirectory DisableBrowsing [] (clckJQueryPath c)
@@ -76,8 +76,8 @@ jsHandlers c =
 checkAuth :: (Happstack m, Monad m) => ClckURL -> ClckT ClckURL m ClckURL
 checkAuth url =
     case url of
-      ViewPage{}    -> return url 
-      Blog{}        -> return url 
+      ViewPage{}    -> return url
+      Blog{}        -> return url
       ThemeData{}   -> return url
       PluginData{}  -> return url
       Admin{}       -> requiresRole Administrator url

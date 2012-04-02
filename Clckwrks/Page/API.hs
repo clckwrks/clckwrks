@@ -42,7 +42,7 @@ getPageTitle :: Clck url Text
 getPageTitle = pageTitle <$> getPage
 
 getPageContent :: Clck url Content
-getPageContent = 
+getPageContent =
     do mrkup <- pageSrc <$> getPage
        markupToContent mrkup
 

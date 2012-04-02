@@ -5,7 +5,7 @@ import Clckwrks.Menu.Acid          (MenuState       , initialMenuState)
 import Clckwrks.Page.Acid          (PageState       , initialPageState)
 import Clckwrks.ProfileData.Acid   (ProfileDataState, initialProfileDataState)
 import Clckwrks.URL                (ClckURL)
-import Control.Exception           (bracket)
+import Control.Exception           (bracket, catch, throw)
 import Control.Concurrent          (killThread, forkIO)
 import Data.Acid                   (AcidState)
 import Data.Acid.Local             (openLocalStateFrom, createCheckpointAndClose)
@@ -14,8 +14,10 @@ import Data.Maybe                  (fromMaybe)
 import Happstack.Auth.Core.Auth    (AuthState       , initialAuthState)
 import Happstack.Auth.Core.Profile (ProfileState    , initialProfileState)
 import Network                     (PortID(UnixSocket))
+import Prelude                     hiding (catch)
 import System.Directory            (removeFile)
 import System.FilePath             ((</>))
+import System.IO.Error             (isDoesNotExistError)
 
 data Acid = Acid
     { acidAuth        :: AcidState AuthState
@@ -36,7 +38,8 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "page")        initialPageState)        (createCheckpointAndClose) $ \page ->
     bracket (openLocalStateFrom (basePath </> "menu")        initialMenuState)        (createCheckpointAndClose) $ \menu ->
-        bracket (forkIO $ acidServer profileData (UnixSocket $ basePath </> "profileData_socket"))
-                (\tid -> killThread tid >> removeFile (basePath </> "profileData_socket"))
+        bracket (forkIO $ tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket"))
+                (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
                 (const $ f (Acid auth profile profileData page menu))
-
+    where
+      tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)
