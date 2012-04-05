@@ -1,5 +1,6 @@
 module Clckwrks.Markup.Markdown where
 
+import           Clckwrks.Types                (Trust(..))
 import           Control.Concurrent      (forkIO)
 import           Control.Concurrent.MVar (newEmptyMVar, readMVar, putMVar)
 import           Control.Monad.Trans     (MonadIO(liftIO))
@@ -11,14 +12,15 @@ import           System.Exit             (ExitCode(ExitFailure, ExitSuccess))
 import           System.IO               (hClose, hGetContents)
 import           System.Process          (waitForProcess, runInteractiveProcess)
 
--- | run the text through the 'markdown' executable and, if
--- successful, run the output through xss-sanitize / sanitizeBalance
--- to prevent injection attacks.
+-- | run the text through the 'markdown' executable. If successful,
+-- and the input is marked 'Untrusted', run the output through
+-- xss-sanitize / sanitizeBalance to prevent injection attacks.
 markdown :: (MonadIO m) =>
-            Maybe [String] -- ^ override command-line flags
-         -> Text -- ^ markdown text
+            Maybe [String]       -- ^ override command-line flags
+         -> Trust                -- ^ do we trust the author
+         -> Text                 -- ^ markdown text
          -> m (Either Text Text) -- ^ Left error, Right html
-markdown mArgs txt = liftIO $
+markdown mArgs trust txt = liftIO $
     do let args = case mArgs of
                     Nothing -> ["--html4tags"]
                     (Just a) -> a
@@ -38,4 +40,4 @@ markdown mArgs txt = liftIO $
                 return (Left e)
          ExitSuccess ->
              do m <- readMVar mvOut
-                return (Right ({- sanitizeBalance -} (T.pack m)))
+                return (Right ((if (trust == Untrusted) then sanitizeBalance else id) (T.pack m)))

@@ -14,7 +14,7 @@ module Clckwrks
     , module Control.Monad
     , module Control.Monad.Trans
     , module Happstack.Auth
-    , module HSP 
+    , module HSP
     , module HSP.ServerPartT
     , module Happstack.Server
     , module Language.Javascript.JMacro

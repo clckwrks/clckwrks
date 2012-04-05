@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.1.4
+Version:             0.2.0
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -52,7 +52,6 @@ Library
                    HSP.HTMLBuilder
                    Paths_clckwrks
 
-  Packages needed in order to build this package.
   Build-depends:
      acid-state == 0.6.*,
      aeson >= 0.5 && < 0.7,
@@ -68,10 +67,10 @@ Library
      filepath >= 1.2 && <1.4,
      happstack-authenticate == 0.7.*,
      happstack-hsp    >= 7.0.1 && < 7.1,
-     happstack-server == 6.6.*,
+     happstack-server == 7.0.*,
      hsp == 0.6.*,
      hsx == 0.9.*,
-     hsx-jmacro == 6.0.*,
+     hsx-jmacro == 7.0.*,
      ixset == 1.0.*,
      jmacro == 0.5.*,
      mtl == 2.0.*,
@@ -92,11 +91,6 @@ Library
      web-routes-hsp,
      web-routes-th == 0.21.*,
      xss-sanitize == 0.3.*
-  
-  
-  -- Modules not exported by this package.
-  -- Other-modules:       
-  
-  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
-  -- Build-tools:         
-  
+
+
+  -- Build-tools: trhsx
