@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies, RecordWildCards, OverloadedStrings #-}
-module Clckwrks.Page.Acid 
+module Clckwrks.Page.Acid
     ( module Clckwrks.Page.Types
       -- * state
     , PageState
@@ -25,7 +25,7 @@ import Data.Text            (Text)
 import Data.Time.Clock      (UTCTime, getCurrentTime)
 import qualified Data.Text  as Text
 
-data PageState  = PageState 
+data PageState  = PageState
     { nextPageId :: PageId
     , pages      :: IxSet Page
     }
@@ -33,18 +33,19 @@ data PageState  = PageState
 $(deriveSafeCopy 1 'base ''PageState)
 
 initialPageState :: PageState
-initialPageState = 
+initialPageState =
     PageState { nextPageId = PageId 2
               , pages = fromList [ Page { pageId        = PageId 1
                                         , pageTitle     = "This title rocks!"
                                         , pageSrc       = Markup { preProcessors = [ Markdown ]
+                                                                 , trust         = Trusted
                                                                  , markup        = "This is the body!"
                                                                  }
                                         , pageExcerpt   = Nothing
                                         , pageDate      = Nothing
                                         , pageStatus    = Published
                                         , pageKind      = PlainPage
-                                        } 
+                                        }
                                  ]
               }
 
@@ -63,7 +64,7 @@ updatePage page =
     do ps@PageState{..} <- get
        case getOne $ pages @= (pageId page) of
          Nothing  -> return $ Just $ "updatePage: Invalid PageId " ++ show (unPageId $ pageId page)
-         (Just _) -> 
+         (Just _) ->
              do put $ ps { pages = updateIx (pageId page) page pages }
                 return Nothing
 
@@ -73,6 +74,7 @@ newPage pk =
        let page = Page { pageId      = nextPageId
                        , pageTitle   = "Untitled"
                        , pageSrc     = Markup { preProcessors = [ Markdown ]
+                                              , trust         = Trusted
                                               , markup        = Text.empty
                                               }
                        , pageExcerpt = Nothing
@@ -91,7 +93,7 @@ allPosts =
     do pgs <- pages <$> ask
        return $ toDescList (Proxy :: Proxy (Maybe UTCTime)) (pgs @= Post)
 
-$(makeAcidic ''PageState 
+$(makeAcidic ''PageState
   [ 'newPage
   , 'pageById
   , 'pagesSummary
