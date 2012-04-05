@@ -33,7 +33,7 @@ import Clckwrks.Menu.Acid            (MenuState)
 import Clckwrks.Page.Acid            (PageState, PageId)
 import Clckwrks.ProfileData.Acid     (ProfileDataState, HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
-import Clckwrks.Types                (Prefix)
+import Clckwrks.Types                (Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
@@ -384,7 +384,7 @@ markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m 
 markupToContent Markup{..} =
     do clckState <- get
        markup' <- process (preProcessorCmds clckState) markup
-       e <- liftIO $ runPreProcessors preProcessors markup'
+       e <- liftIO $ runPreProcessors preProcessors trust markup'
        case e of
          (Left err)   -> return (PlainText err)
          (Right html) -> return (TrustedHtml html)

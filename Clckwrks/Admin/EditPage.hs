@@ -19,15 +19,15 @@ editPage here pid =
          Nothing -> notFound $ toResponse $ "Page not found" ++ show (unPageId pid)
          (Just page) ->
              do action <- showURL here
-                template "edit page" () $ 
-                  <%> 
+                template "edit page" () $
+                  <%>
                    <% multiFormPart "ep" action updatePage Nothing (pageFormlet page) %>
                   </%>
     where
       updatePage :: Page -> Clck ClckURL Response
       updatePage page =
           do update (UpdatePage page)
-             seeOtherURL (ViewPage (pageId page)) 
+             seeOtherURL (ViewPage (pageId page))
 
 pageFormlet :: Page -> FormDF (Clck ClckURL) Page
 pageFormlet page =
@@ -43,10 +43,11 @@ pageFormlet page =
       toPage :: (MonadIO m) => (Bool, PageKind, Text, Text) -> m (Either e Page)
       toPage (haskell, kind, ttl, bdy) =
           do now <- liftIO $ getCurrentTime
-             return $ Right $ 
+             return $ Right $
                Page { pageId    = pageId page
                     , pageTitle = ttl
                     , pageSrc   = Markup { preProcessors =  (if haskell then ([ HsColour ] ++) else id) [ Markdown ]
+                                         , trust = Trusted
                                          , markup = bdy
                                          }
                     , pageExcerpt = Nothing
