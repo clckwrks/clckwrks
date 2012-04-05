@@ -13,6 +13,7 @@ module Clckwrks.Page.Acid
     ) where
 
 import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), PageKind(..), Page(..), Pages(..))
+import Clckwrks.Types       (Trust(..))
 import Control.Applicative  ((<$>))
 import Control.Monad.Reader (ask)
 import Control.Monad.State  (get, put)
