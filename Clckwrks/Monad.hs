@@ -6,6 +6,7 @@ module Clckwrks.Monad
     , execClckT
     , runClckT
     , mapClckT
+    , withRouteClckT
     , ClckState(..)
     , getUserId
     , Content(..)
@@ -79,7 +80,7 @@ import Prelude                       hiding (takeWhile)
 import System.Locale                 (defaultTimeLocale)
 import Text.Blaze                    (Html)
 import Text.Blaze.Renderer.String    (renderHtml)
-import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL)
+import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
@@ -159,6 +160,12 @@ mapClckT :: (m (a, ClckState) -> n (b, ClckState))
          -> ClckT url m a
          -> ClckT url n b
 mapClckT f (ClckT r) = ClckT $ mapRouteT (mapStateT f) r
+
+-- | change the route url
+withRouteClckT :: ((url' -> [(T.Text, Maybe T.Text)] -> T.Text) -> url -> [(T.Text, Maybe T.Text)] -> T.Text)
+               -> ClckT url  m a
+               -> ClckT url' m a
+withRouteClckT f (ClckT routeT) = (ClckT $ withRouteT f routeT)
 
 type Clck url = ClckT url (ServerPartT IO)
 

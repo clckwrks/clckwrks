@@ -33,11 +33,12 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckStaticDir    :: FilePath
     , clckPageHandler  :: Clck ClckURL Response
     , clckBlogHandler  :: Clck ClckURL Response
+    , clckTopDir       :: Maybe FilePath
     }
 
 withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
-    do withAcid Nothing $ \acid ->
+    do withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
                                         , currentPage      = PageId 0
