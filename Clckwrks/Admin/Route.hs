@@ -1,8 +1,9 @@
 module Clckwrks.Admin.Route where
 
 import Clckwrks
-import Clckwrks.Admin.Console 
+import Clckwrks.Admin.Console
 import Clckwrks.Admin.URL
+import Clckwrks.Admin.EditFeedConfig (editFeedConfig)
 import Clckwrks.Admin.EditPage
 import Clckwrks.Admin.NewPage
 import Clckwrks.Admin.Pages
@@ -15,9 +16,11 @@ routeAdmin url =
     case url of
       Console        -> nestURL Admin $ consolePage
       (EditPage pid) -> editPage (Admin url) pid
-      NewPage        -> nestURL Admin $ newPage
+      EditFeedConfig -> editFeedConfig (Admin url)
+      NewPage        -> nestURL Admin $ newPage PlainPage
+      NewPost        -> nestURL Admin $ newPage Post
       Pages          -> nestURL Admin $ pages
-      EditMenu       -> 
+      EditMenu       ->
           do menu <- query AskMenu
              editMenu (menu :: Menu ClckURL)
       MenuPOST       -> menuPost

@@ -26,4 +26,3 @@ editList pgs =
       editPageLI :: (PageId, Text) -> GenXML (Clck AdminURL)
       editPageLI (pid, ttl) =
           <li><a href=(EditPage pid)><% ttl %></a></li>
-

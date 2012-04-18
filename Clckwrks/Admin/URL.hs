@@ -9,8 +9,10 @@ import Web.Routes.TH       (derivePathInfo)
 data AdminURL
     = Console
     | EditPage PageId
+    | EditFeedConfig
     | Pages
     | NewPage
+    | NewPost
     | EditMenu
     | MenuPOST
       deriving (Eq, Ord, Read, Show, Data, Typeable)

@@ -2,15 +2,19 @@
 module Clckwrks.ProfileData.Acid
     ( ProfileDataState(..)
     , initialProfileDataState
+    , ProfileDataError(..)
+    , profileDataErrorStr
     , SetProfileData(..)
     , GetProfileData(..)
     , NewProfileData(..)
     , HasRole(..)
     , AddRole(..)
     , RemoveRole(..)
+    , UsernameForId(..)
     ) where
 
-import Clckwrks.ProfileData.Types (ProfileData(..), Role(..))
+import Clckwrks.ProfileData.Types (ProfileData(..), Role(..), Username(..))
+import Control.Applicative        ((<$>))
 import Control.Monad.Reader       (ask)
 import Control.Monad.State        (get, put)
 import Data.Acid                  (Update, Query, makeAcidic)
@@ -18,6 +22,9 @@ import Data.Data                  (Data, Typeable)
 import Data.IxSet                 (IxSet, (@=), empty, getOne, insert, updateIx)
 import Data.SafeCopy              (base, deriveSafeCopy)
 import qualified Data.Set         as Set
+import           Data.Set         (Set)
+import Data.Text                  (Text)
+import qualified Data.Text        as Text
 import Happstack.Auth             (UserId(..))
 
 data ProfileDataState = ProfileDataState
@@ -30,22 +37,53 @@ $(deriveSafeCopy 1 'base ''ProfileDataState)
 initialProfileDataState :: ProfileDataState
 initialProfileDataState = ProfileDataState { profileData = empty }
 
-setProfileData :: ProfileData -> Update ProfileDataState ()
+data ProfileDataError
+    = UsernameAlreadyInUse
+      deriving (Eq, Ord, Read, Show, Data, Typeable)
+$(deriveSafeCopy 0 'base ''ProfileDataError)
+
+profileDataErrorStr :: ProfileDataError -> String
+profileDataErrorStr UsernameAlreadyInUse = "Username already in use."
+
+checkInvariants :: ProfileDataState -> ProfileData -> Maybe ProfileDataError
+checkInvariants pds@ProfileDataState{..} pd =
+       case getOne $ profileData @= (Username $ username pd) of
+         (Just existingPd)
+             | ((username existingPd) == (username pd))  &&
+               ((username pd) /= Text.pack "Anonymous")  &&
+               (not $ Text.null (username pd)) ->
+                 (Just UsernameAlreadyInUse)
+         _ ->
+             Nothing
+
+
+setProfileData :: ProfileData
+               -> Update ProfileDataState (Maybe ProfileDataError)
 setProfileData pd =
     do pds@(ProfileDataState{..}) <- get
-       put $ pds { profileData = updateIx (dataFor pd) pd profileData }
+       case checkInvariants pds pd of
+         (Just err) -> return (Just err)
+         Nothing    ->
+             do put $ pds { profileData = updateIx (dataFor pd) pd profileData }
+                return Nothing
 
-getProfileData :: UserId -> Query ProfileDataState (Maybe ProfileData)
+
+
+getProfileData :: UserId
+               -> Query ProfileDataState (Maybe ProfileData)
 getProfileData uid =
     do ProfileDataState{..} <- ask
        return $ getOne $ profileData @= uid
 
-updateProfileData :: ProfileData -> Update ProfileDataState ()
+updateProfileData :: ProfileData
+                  -> Update ProfileDataState ()
 updateProfileData pd =
     do ps <- get
        put $ ps { profileData = updateIx (dataFor pd) pd (profileData ps) }
 
-modifyProfileData :: (ProfileData -> ProfileData) -> UserId -> Update ProfileDataState ()
+modifyProfileData :: (ProfileData -> ProfileData)
+                  -> UserId
+                  -> Update ProfileDataState ()
 modifyProfileData fn uid =
     do ps@(ProfileDataState {..}) <- get
        case getOne $ profileData @= uid of
@@ -55,41 +93,62 @@ modifyProfileData fn uid =
                 put ps { profileData = updateIx (dataFor pd') pd' profileData }
 
 -- | create the profile data, but only if it is missing
-newProfileData :: ProfileData -> Update ProfileDataState ProfileData
-newProfileData pd = 
-    do pds@(ProfileDataState {..}) <- get       
+newProfileData :: ProfileData
+               -> Update ProfileDataState ProfileData
+newProfileData pd =
+    do pds@(ProfileDataState {..}) <- get
        case getOne (profileData @= (dataFor pd)) of
          Nothing -> do put $ pds { profileData = updateIx (dataFor pd) pd profileData }
                        return pd
          (Just pd') -> return pd'
 
-
-
-hasRole :: UserId -> Role -> Query ProfileDataState Bool
+hasRole :: UserId
+        -> Set Role
+        -> Query ProfileDataState Bool
 hasRole uid role =
     do mp <- getProfileData uid
        case mp of
          Nothing -> return False
          (Just profile) ->
-             return (role `Set.member` roles profile)
+             return (not $ Set.null $ role `Set.intersection` roles profile)
 
-addRole :: UserId -> Role -> Update ProfileDataState ()
+addRole :: UserId
+        -> Role
+        -> Update ProfileDataState ()
 addRole uid role =
     modifyProfileData fn uid
     where
       fn profileData = profileData { roles = Set.insert role (roles profileData) }
 
-removeRole :: UserId -> Role -> Update ProfileDataState ()
+removeRole :: UserId
+           -> Role
+           -> Update ProfileDataState ()
 removeRole uid role =
     modifyProfileData fn uid
     where
       fn profileData = profileData { roles = Set.delete role (roles profileData) }
 
-$(makeAcidic ''ProfileDataState 
+usernameForId :: UserId
+              -> Query ProfileDataState (Maybe Text)
+usernameForId uid =
+    do ProfileDataState{..} <- ask
+       case getOne $ profileData @= uid of
+         Nothing   -> return Nothing
+         (Just pd) -> return $ Just $ username pd
+
+dataForUsername :: Text -- ^ username
+                -> Query ProfileDataState (Maybe ProfileData)
+dataForUsername uname =
+    do ProfileDataState{..} <- ask
+       return $ getOne $ profileData @= (Username uname)
+
+$(makeAcidic ''ProfileDataState
   [ 'setProfileData
   , 'getProfileData
   , 'newProfileData
   , 'hasRole
   , 'addRole
   , 'removeRole
+  , 'usernameForId
+  , 'dataForUsername
   ])

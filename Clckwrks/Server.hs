@@ -4,6 +4,7 @@ module Clckwrks.Server where
 import Clckwrks
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Admin.Route        (routeAdmin)
+import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Clckwrks.ProfileData.Types  (Role(..))
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
@@ -11,9 +12,11 @@ import Control.Concurrent.STM      (atomically, newTVar)
 import Control.Monad.State         (get, evalStateT)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
+import qualified Data.Set          as Set
+import Data.String                 (fromString)
 import           Data.Text         (Text)
 import qualified Data.Text         as Text
-import Data.String                 (fromString)
+import qualified Data.UUID         as UUID
 import Happstack.Auth              (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Network.URI                 (unEscapeString)
@@ -77,13 +80,17 @@ jsHandlers c =
 checkAuth :: (Happstack m, Monad m) => ClckURL -> ClckT ClckURL m ClckURL
 checkAuth url =
     case url of
-      ViewPage{}    -> return url
-      Blog{}        -> return url
-      ThemeData{}   -> return url
-      PluginData{}  -> return url
-      Admin{}       -> requiresRole Administrator url
-      Profile{}     -> return url
-      Auth{}        -> return url
+      ViewPage{}           -> return url
+      Blog{}               -> return url
+      AtomFeed{}           -> return url
+      ThemeData{}          -> return url
+      PluginData{}         -> return url
+      Admin{}              -> requiresRole (Set.singleton Administrator) url
+      Auth{}               -> return url
+      Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
+      Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
+      Profile CreateNewProfileData -> return url
+
 
 routeClck :: ClckwrksConfig u -> ClckURL -> Clck ClckURL Response
 routeClck cc url' =
@@ -95,6 +102,8 @@ routeClck cc url' =
               (clckPageHandler cc)
          (Blog) ->
            do clckBlogHandler cc
+         AtomFeed ->
+             do handleAtomFeed
          (ThemeData fp')  ->
              do fp <- themePath <$> get
                 let fp'' = makeRelative "/" (unEscapeString fp')
@@ -113,7 +122,7 @@ routeClck cc url' =
          (Admin adminURL) ->
              routeAdmin adminURL
          (Profile profileDataURL) ->
-             nestURL Profile $ routeProfileData profileDataURL
+             do nestURL Profile $ routeProfileData profileDataURL
          (Auth apURL) ->
              do Acid{..} <- acidState <$> get
                 u <- showURL $ Profile CreateNewProfileData

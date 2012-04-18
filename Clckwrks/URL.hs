@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
-module Clckwrks.URL 
+module Clckwrks.URL
      ( ClckURL(..)
      , AdminURL(..)
      , AuthURL(..)
@@ -15,7 +15,7 @@ import Control.Applicative         ((<$>))
 import Data.Data                   (Data, Typeable)
 import Data.SafeCopy               (SafeCopy(..), base, deriveSafeCopy)
 import Data.Text                   (Text)
-import Happstack.Auth              (AuthURL(..), ProfileURL(..), AuthProfileURL(..))
+import Happstack.Auth              (AuthURL(..), ProfileURL(..), AuthProfileURL(..), UserId)
 import Happstack.Auth.Core.AuthURL (OpenIdURL, AuthMode, OpenIdProvider)
 
 import Web.Routes.TH               (derivePathInfo)
@@ -23,6 +23,7 @@ import Web.Routes.TH               (derivePathInfo)
 data ClckURL
     = ViewPage PageId
     | Blog
+    | AtomFeed
     | ThemeData FilePath
     | PluginData Text FilePath
     | Admin AdminURL

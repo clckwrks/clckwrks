@@ -44,14 +44,17 @@ pageFormlet page =
       toPage (haskell, kind, ttl, bdy) =
           do now <- liftIO $ getCurrentTime
              return $ Right $
-               Page { pageId    = pageId page
-                    , pageTitle = ttl
-                    , pageSrc   = Markup { preProcessors =  (if haskell then ([ HsColour ] ++) else id) [ Markdown ]
-                                         , trust = Trusted
-                                         , markup = bdy
-                                         }
+               Page { pageId      = pageId page
+                    , pageAuthor  = pageAuthor page
+                    , pageTitle   = ttl
+                    , pageSrc     = Markup { preProcessors =  (if haskell then ([ HsColour ] ++) else id) [ Markdown ]
+                                           , trust = Trusted
+                                           , markup = bdy
+                                           }
                     , pageExcerpt = Nothing
-                    , pageDate    = Just now
+                    , pageDate    = pageDate page
+                    , pageUpdated = now
                     , pageStatus  = Published
                     , pageKind    = kind
+                    , pageUUID    = pageUUID page
                     }

@@ -33,10 +33,11 @@ class GetAcidState m st where
 withAcid :: Maybe FilePath -> (Acid -> IO a) -> IO a
 withAcid mBasePath f =
     let basePath = fromMaybe "_state" mBasePath in
+    initialPageState >>= \ips ->
     bracket (openLocalStateFrom (basePath </> "auth")        initialAuthState)        (createCheckpointAndClose) $ \auth ->
     bracket (openLocalStateFrom (basePath </> "profile")     initialProfileState)     (createCheckpointAndClose) $ \profile ->
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createCheckpointAndClose) $ \profileData ->
-    bracket (openLocalStateFrom (basePath </> "page")        initialPageState)        (createCheckpointAndClose) $ \page ->
+    bracket (openLocalStateFrom (basePath </> "page")        ips)                     (createCheckpointAndClose) $ \page ->
     bracket (openLocalStateFrom (basePath </> "menu")        initialMenuState)        (createCheckpointAndClose) $ \menu ->
         bracket (forkIO $ tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket"))
                 (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))

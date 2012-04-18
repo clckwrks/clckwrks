@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Clckwrks.Page.API 
+module Clckwrks.Page.API
     ( PageId(..)
     , getPage
     , getPageId
@@ -28,7 +28,7 @@ import HSP hiding (escape)
 import Text.HTML.TagSoup
 
 getPage :: Clck url Page
-getPage = 
+getPage =
     do ClckState{..} <- get
        mPage <- query (PageById currentPage)
        case mPage of
@@ -50,7 +50,7 @@ getPagesSummary :: Clck url [(PageId, Text)]
 getPagesSummary = query PagesSummary
 
 getPageMenu :: GenXML (Clck ClckURL)
-getPageMenu = 
+getPageMenu =
     do ps <- query PagesSummary
        case ps of
          [] -> <div>No pages found.</div>
@@ -64,7 +64,7 @@ getPageSummary pid =
        case mPage of
          Nothing ->
              return $ PlainText $ Text.pack $ "Invalid PageId " ++ (show $ unPageId pid)
-         (Just pge) -> 
+         (Just pge) ->
              extractExcerpt pge
 
 extractExcerpt :: (MonadIO m, Functor m, Happstack m) => Page -> ClckT url m Content
@@ -84,7 +84,7 @@ extractExcerpt Page{..} =
                             in return (TrustedHtml paragraph)
                         (PlainText text) ->
                                return (PlainText text)
-                      
+
 takeThrough :: (a -> Bool) -> [a] -> [a]
 takeThrough _ [] = []
 takeThrough f (p:ps)

@@ -12,10 +12,10 @@ import Control.Monad.Instances
 import Prelude hiding (mapM, sequence)
 
 import Data.Monoid
-import Data.Foldable 
-import Data.Traversable 
+import Data.Foldable
+import Data.Traversable
 
-template :: 
+template ::
     ( Functor m
     , Monad m
     , EmbedAsChild (ClckT url m) headers
@@ -58,7 +58,7 @@ instance Foldable ((,) a) where
 instance Traversable ((,) a) where
     traverse f (c, a) = fmap (\b -> (c, b)) $ f a
     sequenceA (c, fa) = fmap (\a -> (c, a)) fa
-    mapM f (c, a) = 
+    mapM f (c, a) =
         do b <- f a
            return (c, b)
     sequence (a, m) = do b <- m
@@ -66,11 +66,12 @@ instance Traversable ((,) a) where
 
 defaultAdminMenu :: (Monad m) => ClckT ClckURL m [(Text, [(Text, Text)])]
 defaultAdminMenu =
-    do links <- sequence $ map sequence $ map (second (showURL . Admin)) 
+    do links <- sequence $ map sequence $ map (second (showURL . Admin))
                  [ (fromString "Console", Console)
-                 , (fromString "Edit Page", Pages) 
-                 , (fromString "New Page", NewPage) 
-                 , (fromString "Edit Menu", EditMenu) 
+                 , (fromString "Edit Page", Pages)
+                 , (fromString "New Page/Post", NewPage)
+                 , (fromString "Edit Feed Config", EditFeedConfig)
+                 , (fromString "Edit Menu", EditMenu)
                  ]
        return [(fromString "Admin", links)]
 

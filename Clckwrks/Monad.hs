@@ -58,6 +58,7 @@ import Data.ByteString.Lazy.UTF8     as LB (toString)
 import Data.Data                     (Data, Typeable)
 import Data.Map                      (Map)
 import Data.SafeCopy                 (SafeCopy(..))
+import Data.Set                      (Set)
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import           Data.Text.Lazy.Builder (Builder)
@@ -442,11 +443,11 @@ process handlers txt =
       Right segs ->
           (TL.toStrict . B.toLazyText) <$> processSegments handlers segs
 
-requiresRole_ :: (Happstack  m) => (ClckURL -> [(T.Text, Maybe T.Text)] -> T.Text) -> Role -> url -> ClckT u m url
+requiresRole_ :: (Happstack  m) => (ClckURL -> [(T.Text, Maybe T.Text)] -> T.Text) -> Set Role -> url -> ClckT u m url
 requiresRole_ showFn role url =
     ClckT $ RouteT $ \_ -> unRouteT (unClckT (requiresRole role url)) showFn
 
-requiresRole :: (Happstack m) => Role -> url -> ClckT ClckURL m url
+requiresRole :: (Happstack m) => Set Role -> url -> ClckT ClckURL m url
 requiresRole role url =
     do mu <- getUserId
        case mu of
