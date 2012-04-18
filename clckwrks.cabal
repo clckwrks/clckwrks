@@ -49,6 +49,7 @@ Library
                    Clckwrks.ProfileData.Acid
                    Clckwrks.ProfileData.API
                    Clckwrks.ProfileData.EditProfileData
+                   Clckwrks.ProfileData.EditProfileDataFor
                    Clckwrks.Types
                    Clckwrks.Unauthorized
                    Clckwrks.URL
