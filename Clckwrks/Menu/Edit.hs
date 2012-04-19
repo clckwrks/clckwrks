@@ -48,10 +48,10 @@ editMenu menu =
                         $("#menu").jstree(`(jstree menu)`);
                         var !menu = $.jstree._reference("#menu");
                         // click elsewhere in document to unselect nodes
-                        $(document).bind("click", function (e) { 
-                         if(!$(e.target).parents(".jstree:eq(0)").length) { 
-                                 $.jstree._focused().deselect_all(); 
-                         } 
+                        $(document).bind("click", function (e) {
+                         if(!$(e.target).parents(".jstree:eq(0)").length) {
+                                 $.jstree._focused().deselect_all();
+                         }
                         });
                         `(saveChanges menuUpdate)`;
                         `(addPageMenu summaries)`;
@@ -87,16 +87,16 @@ addPageMenu pageSummaries =
           object [ fromString "data" .=
                      object [ fromString "title" .= "menu"
                             ]
-                 , fromString "attr" .= 
-                     object [ fromString "rel" .= "root" 
+                 , fromString "attr" .=
+                     object [ fromString "rel" .= "root"
                             ]
                  ]
       summaryData (PageId pid, ttl)  =
           object [ fromString "data" .=
                      object [ fromString "title" .= ttl
                             ]
-                 , fromString "attr" .= 
-                     object [ fromString "rel" .= "target" 
+                 , fromString "attr" .=
+                     object [ fromString "rel" .= "target"
                             ]
                  , fromString "metadata"  .= object [ fromString "pid" .= pid ]
                  ]
@@ -133,7 +133,7 @@ saveChanges :: Text -> JStat
 saveChanges menuUpdateURL =
     [$jmacro|
      $("#saveChanges").click(function () {
-       var tree = $("#menu").jstree("get_json", -1);          
+       var tree = $("#menu").jstree("get_json", -1);
        var json = JSON.stringify(tree);
        console.log(json);
        $.post(`(menuUpdateURL)`, { tree : json });
@@ -144,13 +144,13 @@ jstree :: (PathInfo url) => Menu url -> Value
 jstree menu =
     object [ fromString "types" .=
                object [ fromString "types" .=
-                         object [ fromString "root" .= 
+                         object [ fromString "root" .=
                                     object [ fromString "max_children" .= (-1 :: Int)
                                            ]
-                                , fromString "menu" .= 
+                                , fromString "menu" .=
                                     object [ fromString "max_children" .= (-1 :: Int)
                                            ]
-                                , fromString "target" .= 
+                                , fromString "target" .=
                                     object [ fromString "max_children" .= (0 :: Int)
                                            ]
                                 ]
@@ -159,7 +159,7 @@ jstree menu =
                object [ fromString "drop_target"  .= False
                       , fromString "drag_target"  .= False
                       ]
-               
+
            , fromString "ui" .=
                object [ fromString "initially_select" .= [ "tree-root" ]
                       ]
@@ -170,13 +170,13 @@ jstree menu =
 
 rootNode :: Value -> Value
 rootNode children =
-    object  [ fromString "data" .= 
-                object [ fromString "data" .= 
+    object  [ fromString "data" .=
+                object [ fromString "data" .=
                            object [ fromString "title" .= "menu"
                                   ]
 
                 , fromString "attr" .=
-                    object [ fromString "id" .= "tree-root" 
+                    object [ fromString "id" .= "tree-root"
                            ]
 
                 , fromString "children" .= children
@@ -186,14 +186,14 @@ rootNode children =
 
 menuToJSTree :: (PathInfo url) => Menu url -> Value
 menuToJSTree (Menu items) =
-    object  [ fromString "data" .= (toJSON $ map menuTreeToJSTree items) 
+    object  [ fromString "data" .= (toJSON $ map menuTreeToJSTree items)
             ]
 
 menuTreeToJSTree :: (PathInfo url) => Tree (MenuItem url) -> Value
 menuTreeToJSTree (Node item children) =
-    object [ fromString "data" .= 
+    object [ fromString "data" .=
                object [ fromString "title" .= menuTitle item ]
-           , fromString "metadata" .= 
+           , fromString "metadata" .=
                object [ fromString "menuName" .=
                           object [ fromString "prefix" .= prefixText (menuPrefix (menuName item))
                                  , fromString "tag"    .= menuTag (menuName item)
@@ -209,7 +209,7 @@ menuTreeToJSTree (Node item children) =
                                          object [ fromString "linkType" .= "url"
                                                 , fromString "linkDest" .= toPathInfo url
                                                 ]
-                                   
+
                       ]
            , fromString "children" .=
                map menuTreeToJSTree children
@@ -220,16 +220,16 @@ newtype MenuUpdateItem url = MenuUpdateItem (String, Maybe MenuName, Maybe Integ
 
 instance (PathInfo url) => FromJSON (MenuUpdate url) where
   parseJSON (Array a) = MenuUpdate <$> mapM parseJSON (Vector.toList a)
-  
+
 instance (PathInfo url) => FromJSON (Tree (MenuUpdateItem url)) where
-  parseJSON (Object o) = 
+  parseJSON (Object o) =
     do ttl      <- o .: (fromString "data")
        meta     <- o .: (fromString "metadata")
        pid      <- optional $ meta .: (fromString "pid")
        link     <- do mLinkObj <- optional $ meta .: (fromString "link")
                       case mLinkObj of
                         Nothing ->  return Nothing
-                        (Just linkObj) -> 
+                        (Just linkObj) ->
                             do linkType <- linkObj .: (fromString "linkType")
                                case () of
                                  () | linkType == "text" ->
@@ -240,7 +240,7 @@ instance (PathInfo url) => FromJSON (Tree (MenuUpdateItem url)) where
                                            case fromPathInfo linkDest of
                                              (Left _) -> return Nothing
                                              (Right u) -> return (Just $ LinkURL u)
-                                 
+
        menuName <- do mmno <- optional $ meta .: (fromString "menuName")
                       case mmno of
                         Nothing -> return Nothing
@@ -257,7 +257,7 @@ menuPost =
   do t <- lookBS "tree"
      let mu = decode t :: Maybe (MenuUpdate ClckURL)
      case mu of
-       Nothing -> 
+       Nothing ->
            internalServerError $ toResponse "menuPost: failed to decode JSON data"
        (Just u) ->
            do update (SetMenu (updateToMenu u))
@@ -268,13 +268,13 @@ updateToMenu (MenuUpdate t) =
     Menu $ map convertItem t
     where
       convertItem :: Tree (MenuUpdateItem ClckURL) -> Tree (MenuItem ClckURL)
-      convertItem (Node (MenuUpdateItem (ttl, mmn, mPageId, mLink)) children) = 
+      convertItem (Node (MenuUpdateItem (ttl, mmn, mPageId, mLink)) children) =
           let menuName = case mmn of
                            Just mn -> mn
                            Nothing -> MenuName (Prefix (fromString "clckwrks")) (fromString "tag") 1
               menuItem = MenuItem { menuName  = menuName
                                   , menuTitle = Text.pack ttl
-                                  , menuLink = 
+                                  , menuLink =
                                       case mPageId of
                                         (Just pid) -> LinkURL (ViewPage (PageId pid))
                                         Nothing ->

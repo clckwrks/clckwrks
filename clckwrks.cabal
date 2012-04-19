@@ -77,7 +77,7 @@ Library
      hsx-jmacro                   == 7.0.*,
      ixset                        == 1.0.*,
      jmacro                       == 0.5.*,
-     mtl                          >= 2.0 && <2.3
+     mtl                          >= 2.0 && <2.3,
      network                      == 2.3.*,
      old-locale                   ==  1.0.*,
      process                      >= 1.0 && < 1.2,
