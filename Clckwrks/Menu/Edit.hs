@@ -28,10 +28,14 @@ import Web.Routes              (PathInfo, showURL, toPathInfo, fromPathInfo)
 editMenu :: (PathInfo url) => Menu url -> Clck ClckURL Response
 editMenu menu =
     do summaries <- query PagesSummary
-       template "edit menu" (headers summaries) $
+       let clckLinks = [ (toPathInfo Blog, fromString "Blog")
+                       ]
+       template "edit menu" (headers summaries clckLinks) $
          <%>
           <button id="add-page">Add Page</button>
           <select id="page-list"></select><br />
+          <button id="add-clckwrks-link">Add Clckwrks Link</button>
+          <select id="clckwrks-link"></select><br />
           <button id="add-sub-menu">Add Sub-Menu</button><br />
           <button id="remove-item">Remove</button><br />
           <button id="saveChanges">Save Changes</button><br />
@@ -39,7 +43,7 @@ editMenu menu =
           </div>
          </%>
     where
-      headers summaries
+      headers summaries clckLinks
            = do menuUpdate <- showURL (Admin MenuPOST)
                 <%>
                  <script type="text/javascript" src="/jstree/jquery.jstree.js" ></script>
@@ -55,6 +59,7 @@ editMenu menu =
                         });
                         `(saveChanges menuUpdate)`;
                         `(addPageMenu summaries)`;
+                        `(addClckwrksMenu clckLinks)`;
                         `(addSubMenu)`;
                         `(removeItem)`;
 //                        `(menuEvents)`;
@@ -62,6 +67,44 @@ editMenu menu =
                     |]
                   %>
                  </%>
+
+addClckwrksMenu :: [(Text, Text)] -> JStat
+addClckwrksMenu linkInfos =
+    [$jmacro|
+      var select = $("#clckwrks-link");
+      var links  = `(data_)`;
+
+      for (var i = 0; i < links.length; i++) {
+       var option = $("<option>");
+       option.attr('value', i);
+       option.text(links[i].data.title);
+       option.data( 'menu', links[i]);
+       select.append(option);
+      }
+
+      $("#add-clckwrks-link").click(function () {
+        var i = select.val();
+        menu.create(null, 0, links[i], false, true);
+      });
+
+     |]
+    where
+      data_ = map summaryData linkInfos
+
+      summaryData (link, ttl)  =
+          object [ fromString "data" .=
+                     object [ fromString "title" .= ttl
+                            ]
+                 , fromString "attr" .=
+                     object [ fromString "rel" .= "target"
+                            ]
+                 , fromString "metadata"  .= object [ fromString "link" .=
+                                                                 object [ fromString "linkType" .= "url"
+                                                                        , fromString "linkDest" .= link
+                                                                        ]
+                                                    ]
+                 ]
+
 
 addPageMenu :: [(PageId, Text)] -> JStat
 addPageMenu pageSummaries =
@@ -279,7 +322,7 @@ updateToMenu (MenuUpdate t) =
                                         (Just pid) -> LinkURL (ViewPage (PageId pid))
                                         Nothing ->
                                             case mLink of
-                                              Nothing -> LinkText Text.empty -- FIXME: this is really an error..
+                                              Nothing -> LinkText (fromString "updateToMenu failed") -- Text.empty -- FIXME: this is really an error..
                                               (Just link) -> link
                                   }
           in Node menuItem (map convertItem children)

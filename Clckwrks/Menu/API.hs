@@ -42,5 +42,6 @@ menuTreeHTML (Node menuItem subMenus) =
               </li>
       LinkMenu ->  -- FIXME: add real support for sub menus
           <li>sub-menu (fixme)</li>
+      LinkText txt ->
+          <li>LinkText not implemented: <% txt %></li>
 
-             
