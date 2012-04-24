@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.5.1
+Version:             0.5.2
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -66,15 +66,15 @@ Library
      containers                   == 0.4.*,
      digestive-functors           == 0.2.*,
      digestive-functors-happstack == 0.1.*,
-     digestive-functors-hsp       == 0.4.*,
+     digestive-functors-hsp       == 0.5.*,
      directory                    == 1.1.*,
      filepath                     >= 1.2 && <1.4,
      happstack-authenticate       >= 0.7 && < 0.9,
-     happstack-hsp                >= 7.0.1 && < 7.1,
+     happstack-hsp                == 7.1.*,
      happstack-server             == 7.0.*,
-     hsp                          == 0.6.*,
-     hsx                          == 0.9.*,
-     hsx-jmacro                   == 7.0.*,
+     hsp                          == 0.7.*,
+     hsx                          == 0.10.*,
+     hsx-jmacro                   == 7.1.*,
      ixset                        == 1.0.*,
      jmacro                       == 0.5.*,
      mtl                          >= 2.0 && <2.3,

@@ -1,19 +1,19 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Clckwrks.Unauthorized 
+module Clckwrks.Unauthorized
     ( unauthorizedPage
     ) where
 
 import Control.Applicative ((<$>))
 import HSP
 import Happstack.Server (Happstack, Response, ToMessage, toResponse, unauthorized)
-import qualified HSX.XMLGenerator as HSX
+import qualified HSX.XMLGenerator (XMLType)
 
-unauthorizedPage :: 
+unauthorizedPage ::
     ( Happstack m
     , XMLGenerator m
     , EmbedAsChild m msg
-    , ToMessage (HSX.XML m)
+    , ToMessage (XMLType m)
     ) => msg -> m Response
 unauthorizedPage msg =
     do unauthorized ()

@@ -74,7 +74,7 @@ import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
 import HSP.Google.Analytics          (UACCT)
 import HSP.ServerPartT               ()
-import qualified HSX.XMLGenerator    as HSX
+import HSX.XMLGenerator              (XMLGen(..))
 import HSX.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro
 import Prelude                       hiding (takeWhile)
@@ -228,12 +228,12 @@ getUserId =
 
 -- * XMLGen / XMLGenerator instances for Clck
 
-instance (Functor m, Monad m) => HSX.XMLGen (ClckT url m) where
-    type XML (ClckT url m) = XML
-    newtype Child (ClckT url m) = ClckChild { unClckChild :: XML }
-    newtype Attribute (ClckT url m) = FAttr { unFAttr :: Attribute }
+instance (Functor m, Monad m) => XMLGen (ClckT url m) where
+    type XMLType          (ClckT url m) = XML
+    newtype ChildType     (ClckT url m) = ClckChild { unClckChild :: XML }
+    newtype AttributeType (ClckT url m) = ClckAttr { unClckAttr :: Attribute }
     genElement n attrs children =
-        do attribs <- map unFAttr <$> asAttr attrs
+        do attribs <- map unClckAttr <$> asAttr attrs
            childer <- flattenCDATA . map (unClckChild) <$> asChild children
            XMLGenT $ return (Element
                               (toName n)
@@ -241,7 +241,7 @@ instance (Functor m, Monad m) => HSX.XMLGen (ClckT url m) where
                               childer
                              )
     xmlToChild = ClckChild
-    pcdataToChild = HSX.xmlToChild . pcdata
+    pcdataToChild = xmlToChild . pcdata
 
 flattenCDATA :: [XML] -> [XML]
 flattenCDATA cxml =
@@ -263,38 +263,38 @@ instance (Functor m, Monad m) => IsAttrValue (ClckT url m) T.Text where
 instance (Functor m, Monad m) => IsAttrValue (ClckT url m) TL.Text where
     toAttrValue = toAttrValue . TL.unpack
 
-instance (Functor m, Monad m) => HSX.EmbedAsAttr (ClckT url m) Attribute where
-    asAttr = return . (:[]) . FAttr
+instance (Functor m, Monad m) => EmbedAsAttr (ClckT url m) Attribute where
+    asAttr = return . (:[]) . ClckAttr
 
-instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n String) where
+instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n String) where
     asAttr (n := str)  = asAttr $ MkAttr (toName n, pAttrVal str)
 
-instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Char) where
+instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Char) where
     asAttr (n := c)  = asAttr (n := [c])
 
-instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Bool) where
+instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Bool) where
     asAttr (n := True)  = asAttr $ MkAttr (toName n, pAttrVal "true")
     asAttr (n := False) = asAttr $ MkAttr (toName n, pAttrVal "false")
 
-instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Int) where
+instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Int) where
     asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal (show i))
 
-instance (Functor m, Monad m, IsName n) => HSX.EmbedAsAttr (ClckT url m) (Attr n Integer) where
+instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Integer) where
     asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal (show i))
 
-instance (IsName n) => HSX.EmbedAsAttr (Clck ClckURL) (Attr n ClckURL) where
+instance (IsName n) => EmbedAsAttr (Clck ClckURL) (Attr n ClckURL) where
     asAttr (n := u) =
         do url <- showURL u
            asAttr $ MkAttr (toName n, pAttrVal (T.unpack url))
 
-instance (IsName n) => HSX.EmbedAsAttr (Clck AdminURL) (Attr n AdminURL) where
+instance (IsName n) => EmbedAsAttr (Clck AdminURL) (Attr n AdminURL) where
     asAttr (n := u) =
         do url <- showURL u
            asAttr $ MkAttr (toName n, pAttrVal (T.unpack url))
 
 
 {-
-instance HSX.EmbedAsAttr Clck (Attr String AuthURL) where
+instance EmbedAsAttr Clck (Attr String AuthURL) where
     asAttr (n := u) =
         do url <- showURL (W_Auth u)
            asAttr $ MkAttr (toName n, pAttrVal url)
@@ -375,7 +375,7 @@ instance (Functor m, Monad m) => SetAttr (ClckT url m) XML where
         attrs <- hats
         case xml of
          CDATA _ _       -> return xml
-         Element n as cs -> return $ Element n (foldr (:) as (map unFAttr attrs)) cs
+         Element n as cs -> return $ Element n (foldr (:) as (map unClckAttr attrs)) cs
 
 instance (Functor m, Monad m) => XMLGenerator (ClckT url m)
 
