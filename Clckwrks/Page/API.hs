@@ -11,6 +11,7 @@ module Clckwrks.Page.API
     , getPageMenu
     , getPosts
     , extractExcerpt
+    , getBlogTitle
     ) where
 
 import Clckwrks.Acid
@@ -66,6 +67,9 @@ getPageSummary pid =
              return $ PlainText $ Text.pack $ "Invalid PageId " ++ (show $ unPageId pid)
          (Just pge) ->
              extractExcerpt pge
+
+getBlogTitle :: Clck url Text
+getBlogTitle = query GetBlogTitle
 
 extractExcerpt :: (MonadIO m, Functor m, Happstack m) => Page -> ClckT url m Content
 extractExcerpt Page{..} =

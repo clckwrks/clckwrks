@@ -12,6 +12,7 @@ module Clckwrks.Page.Acid
     , AllPosts(..)
     , GetFeedConfig(..)
     , SetFeedConfig(..)
+    , GetBlogTitle(..)
     ) where
 
 import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), PageKind(..), Page(..), Pages(..), FeedConfig(..), initialFeedConfig)
@@ -127,6 +128,11 @@ getFeedConfig =
     do PageState{..} <- ask
        return feedConfig
 
+getBlogTitle :: Query PageState Text
+getBlogTitle =
+    do PageState{..} <- ask
+       return (feedTitle feedConfig)
+
 setFeedConfig :: FeedConfig -> Update PageState ()
 setFeedConfig fc =
     do ps <- get
@@ -146,4 +152,5 @@ $(makeAcidic ''PageState
   , 'allPosts
   , 'getFeedConfig
   , 'setFeedConfig
+  , 'getBlogTitle
   ])
