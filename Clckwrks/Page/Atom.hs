@@ -69,7 +69,7 @@ entry Page{..} =
                        return $ cdata ""
                    | otherwise ->
                        <author>
-                        <name><% author %></name>
+                        <name><% n %></name>
                        </author>
 
 atomDate :: UTCTime -> String
