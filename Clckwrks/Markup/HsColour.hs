@@ -23,7 +23,7 @@ hscolour mArgs txt = liftIO $
                     Nothing -> ["-lit","-partial","-css"]
                     (Just a) -> a
        (inh, outh, errh, ph) <- runInteractiveProcess "HsColour" args Nothing Nothing
-       _ <- forkIO $ do T.hPutStr inh txt 
+       _ <- forkIO $ do T.hPutStr inh txt
                         hClose inh
        mvOut <- newEmptyMVar
        _ <- forkIO $ do c <- hGetContents outh
