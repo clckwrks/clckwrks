@@ -4,11 +4,11 @@ module Clckwrks.Admin.EditFeedConfig where
 
 import Clckwrks
 import Clckwrks.Admin.Template  (template)
-import Clckwrks.FormPart        (FormDF, fieldset, ol, li, multiFormPart)
 import Clckwrks.Page.Acid       (GetFeedConfig(..), SetFeedConfig(..))
-import Data.Text                (Text)
-import Text.Digestive           (Transformer, (++>), transform, transformEither)
-import Text.Digestive.HSP.Html4 (inputText, label, submit)
+import Data.Text                (Text, pack)
+import Text.Reform
+import Text.Reform.Happstack
+import Text.Reform.HSP.Text
 
 editFeedConfig :: ClckURL -> Clck ClckURL Response
 editFeedConfig here =
@@ -16,7 +16,7 @@ editFeedConfig here =
        action <- showURL here
        template "edit feed config" () $
                   <%>
-                   <% multiFormPart "ep" action updateFeedConfig Nothing (feedConfigFormlet feedConfig) %>
+                   <% reform (form action) "ep" updateFeedConfig Nothing (feedConfigForm feedConfig) %>
                   </%>
     where
       updateFeedConfig :: FeedConfig -> Clck ClckURL Response
@@ -24,19 +24,18 @@ editFeedConfig here =
           do update (SetFeedConfig fc)
              seeOtherURL (Admin Console)
 
-feedConfigFormlet :: FeedConfig -> FormDF (Clck ClckURL) FeedConfig
-feedConfigFormlet fc@FeedConfig{..} =
-    (fieldset $
-       ol $ (,) <$> ((li $ label "Feed Title:")                ++>
-                        (li $ inputText (Just feedTitle)))
-                <*> ((li $ label "Default Author Name:")  ++>
-                        (li $ inputText (Just feedAuthorName)))
-                <*  submit "update")
-    `transform` toFeedConfig
+feedConfigForm :: FeedConfig -> ClckForm ClckURL FeedConfig
+feedConfigForm fc@FeedConfig{..} =
+    fieldset $
+     ol $
+      ((,) <$> (li $ label "Feed Title:")          ++> (li $ inputText feedTitle)
+           <*>  (li $ label "Default Author Name:") ++> (li $ inputText feedTitle)
+           <* inputSubmit (pack "update")
+      )
+     `transformEither` toFeedConfig
     where
-      toFeedConfig :: (Monad m) => Transformer m e (Text, Text) FeedConfig
-      toFeedConfig =
-          transformEither $ \(ttl, athr) ->
+      toFeedConfig :: (Text, Text) -> Either ClckFormError FeedConfig
+      toFeedConfig (ttl, athr) =
               Right $ fc { feedTitle      = ttl
                          , feedAuthorName = athr
                          }

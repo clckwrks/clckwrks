@@ -4,13 +4,14 @@ module Clckwrks.ProfileData.EditProfileData where
 
 import Clckwrks
 import Clckwrks.Admin.Template  (template)
-import Clckwrks.FormPart        (FormDF, fieldset, ol, li, multiFormPart)
 import Clckwrks.ProfileData.Acid (GetProfileData(..), SetProfileData(..), profileDataErrorStr)
-import Data.Text                (Text)
+import Data.Text                (Text, pack)
+import Data.Maybe               (fromMaybe)
 import qualified Data.Text      as Text
 import Happstack.Auth           (UserId)
-import Text.Digestive           (Transformer, (++>), transform, transformEitherM)
-import Text.Digestive.HSP.Html4 (inputText, label, submit)
+import Text.Reform              ((++>), transformEitherM)
+import Text.Reform.HSP.Text     (form, inputText, inputSubmit, label, fieldset, ol, li)
+import Text.Reform.Happstack    (reform)
 
 -- FIXME: this currently uses the admin template. Which is sort of right, and sort of not.
 
@@ -28,32 +29,28 @@ editProfileDataPage here =
                       do action <- showURL here
                          template "Edit Profile Data" () $
                                <%>
-                                <% multiFormPart "epd" action updated Nothing (profileDataFormlet pd) %>
+                                <% reform (form action) "epd" updated Nothing (profileDataFormlet pd) %>
                                </%>
     where
       updated :: () -> Clck ProfileDataURL Response
       updated () =
           do seeOtherURL here
 
-profileDataFormlet :: ProfileData -> FormDF (Clck ProfileDataURL) ()
+profileDataFormlet :: ProfileData -> ClckForm ProfileDataURL ()
 profileDataFormlet pd@ProfileData{..} =
-    (fieldset $
-       ol $ (,) <$> ((li $ label "username:")                ++>
-                        (li $ inputText (Just username)))
-                <*> ((li $ label "email (optional):")  ++>
-                        (li $ inputText email))
-                <*  submit "update")
-    `transform` updateProfileData
+    ((,) <$> (li $ label "username:" )        ++> (li $ inputText username)
+         <*> (li $ label" email (optional):") ++> (li $ inputText (fromMaybe Text.empty email))
+         <* inputSubmit (pack "update"))
+    `transformEitherM` updateProfileData
     where
-      updateProfileData :: (Functor m, MonadIO m) => Transformer (ClckT url m) String (Text, Text) ()
-      updateProfileData =
-          transformEitherM $ \(usrnm, eml) ->
+      updateProfileData :: (Text, Text) -> Clck ProfileDataURL (Either ClckFormError ())
+      updateProfileData (usrnm, eml) =
               if Text.null usrnm
-                 then do return (Left $ "Username can not be empty.")
+                 then do return (Left EmptyUsername)
                  else do let newPd = pd { username = usrnm
                                         , email    = if Text.null eml then Nothing else (Just eml)
                                         }
                          merr <- update (SetProfileData newPd)
                          case merr of
                            Nothing    -> return $ Right ()
-                           (Just err) -> return $ Left (profileDataErrorStr err)
+                           (Just err) -> return $ Left (PDE err)

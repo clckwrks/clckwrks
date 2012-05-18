@@ -2,6 +2,9 @@
 module Clckwrks.Monad
     ( Clck
     , ClckT(..)
+    , ClckForm
+    , ClckFormT
+    , ClckFormError(..)
     , evalClckT
     , execClckT
     , runClckT
@@ -32,7 +35,7 @@ import Clckwrks.Acid                 (Acid(..), GetAcidState(..))
 import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
 import Clckwrks.Menu.Acid            (MenuState)
 import Clckwrks.Page.Acid            (PageState, PageId)
-import Clckwrks.ProfileData.Acid     (ProfileDataState, HasRole(..))
+import Clckwrks.ProfileData.Acid     (ProfileDataState, ProfileDataError(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
 import Clckwrks.Types                (Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
@@ -68,7 +71,7 @@ import Data.Time.Format              (formatTime)
 import Happstack.Auth                (AuthProfileURL(..), AuthURL(..), AuthState, ProfileState, UserId)
 import qualified Happstack.Auth      as Auth
 
-import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT, escape)
+import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT, escape)
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
@@ -79,8 +82,9 @@ import HSX.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro
 import Prelude                       hiding (takeWhile)
 import System.Locale                 (defaultTimeLocale)
-import Text.Blaze                    (Html)
-import Text.Blaze.Renderer.String    (renderHtml)
+import Text.Blaze.Html               (Html)
+import Text.Blaze.Html.Renderer.String    (renderHtml)
+import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
@@ -112,6 +116,21 @@ execClckT showFn clckState m = execStateT (unRouteT (unClckT m) showFn) clckStat
 
 runClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m (a, ClckState)
 runClckT showFn clckState m = runStateT (unRouteT (unClckT m) showFn) clckState
+
+
+data ClckFormError
+    = ClckCFE (CommonFormError [Input])
+    | PDE ProfileDataError
+    | EmptyUsername
+      deriving (Show)
+
+instance FormError ClckFormError where
+    type ErrorInputType ClckFormError = [Input]
+    commonFormError = ClckCFE
+
+-- | ClckForm - type for reform forms
+type ClckFormT error m = Form m  [Input] error [XMLGenT m XML] ()
+type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [XMLGenT (ClckT url (ServerPartT IO)) XML] ()
 
 -- | update the 'currentPage' field of 'ClckState'
 setCurrentPage :: PageId -> Clck url ()
@@ -352,6 +371,9 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
 
 instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) Markup where
     asChild mrkup = asChild =<< (XMLGenT $ markupToContent mrkup)
+
+instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckFormError where
+    asChild formError = asChild (show formError)
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
     asChild () = return []

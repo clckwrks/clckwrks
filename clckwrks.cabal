@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.5.4
+Version:             0.6.0
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -32,7 +32,6 @@ Library
                    Clckwrks.IOThread
                    Clckwrks.Monad
                    Clckwrks.Server
-                   Clckwrks.FormPart
                    Clckwrks.Markup.HsColour
                    Clckwrks.Markup.Markdown
                    Clckwrks.Menu.Acid
@@ -61,12 +60,9 @@ Library
      aeson                        >= 0.5 && < 0.7,
      attoparsec                   == 0.10.*,
      base                           < 5,
-     blaze-html                   == 0.4.*,
+     blaze-html                   == 0.5.*,
      bytestring                   == 0.9.*,
      containers                   == 0.4.*,
-     digestive-functors           == 0.2.*,
-     digestive-functors-happstack == 0.1.*,
-     digestive-functors-hsp       == 0.5.*,
      directory                    == 1.1.*,
      filepath                     >= 1.2 && <1.4,
      happstack-authenticate       >= 0.7 && < 0.9,
@@ -82,8 +78,11 @@ Library
      old-locale                   ==  1.0.*,
      process                      >= 1.0 && < 1.2,
 --     plugins-auto == 0.0.1.1,
+     reform                       == 0.1.*,
+     reform-happstack             == 0.1.*,
+     reform-hsp                   >= 0.1.1 && < 0.2,
      safecopy                     == 0.6.*,
-     stm                          == 2.2.*,
+     stm                          >= 2.2 && <2.4,
      tagsoup                      == 0.12.*,
      text                         == 0.11.*,
      time                         >= 1.2 && <1.5,

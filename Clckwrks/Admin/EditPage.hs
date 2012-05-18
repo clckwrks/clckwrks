@@ -5,12 +5,13 @@ module Clckwrks.Admin.EditPage where
 import Control.Applicative ((<$>), (<*>), (<*))
 import Clckwrks
 import Clckwrks.Admin.Template (template)
-import Clckwrks.FormPart       (FormDF, fieldset, ol, li, inputTextArea, multiFormPart)
+import Clckwrks.Monad          (ClckFormError)
 import Clckwrks.Page.Acid      (Markup(..), Page(..), PageKind(..), PublishStatus(..), PreProcessor(..), PageById(..), UpdatePage(..))
-import Data.Text               (Text)
+import Data.Text               (Text, pack)
 import Data.Time.Clock         (getCurrentTime)
-import Text.Digestive          ((<++), (++>), transform, transformEitherM)
-import Text.Digestive.HSP.Html4 (inputCheckBox, inputSelect, inputText, label, setAttrs, submit)
+import Text.Reform             ((<++), (++>), transformEitherM)
+import Text.Reform.Happstack   (reform)
+import Text.Reform.HSP.Text    (form, inputCheckbox, inputText, label, inputSubmit, select, textarea, fieldset, ol, li, setAttrs)
 
 editPage :: ClckURL -> PageId -> Clck ClckURL Response
 editPage here pid =
@@ -21,7 +22,7 @@ editPage here pid =
              do action <- showURL here
                 template "edit page" () $
                   <%>
-                   <% multiFormPart "ep" action updatePage Nothing (pageFormlet page) %>
+                   <% reform (form action) "ep" updatePage Nothing (pageFormlet page) %>
                   </%>
     where
       updatePage :: Page -> Clck ClckURL Response
@@ -29,18 +30,18 @@ editPage here pid =
           do update (UpdatePage page)
              seeOtherURL (ViewPage (pageId page))
 
-pageFormlet :: Page -> FormDF (Clck ClckURL) Page
+pageFormlet :: Page -> ClckForm ClckURL Page
 pageFormlet page =
     (fieldset $
-       ol $ (,,,) <$> (li $ inputCheckBox hsColour <++ label "Highlight Haskell code with HsColour")
-                  <*> ((li $ label "kind:")   ++> (li $ inputSelect (pageKind page) [(PlainPage, "page"), (Post, "post")]))
-                  <*> ((li $ label "title:") ++> (li $ inputText (Just (pageTitle page)) `setAttrs` ("size" := "80")))
-                  <*> ((li $ label "body:")  ++> (li $ inputTextArea (Just 80) (Just 25) (Just (markup (pageSrc page)))))
-                  <*  submit "update")
-    `transform` (transformEitherM toPage)
+       ol $ (,,,) <$> (li $ inputCheckbox hsColour <++ label "Highlight Haskell code with HsColour")
+                  <*> ((li $ label "kind:")  ++> (li $ select [(PlainPage, "page"), (Post, "post")] (== (pageKind page))))
+                  <*> ((li $ label "title:") ++> (li $ inputText (pageTitle page) `setAttrs` ("size" := "80") ))
+                  <*> ((li $ label "body:")  ++> (li $ textarea 80 25 (markup (pageSrc page))))
+                  <*  inputSubmit (pack "update"))
+    `transformEitherM` toPage
     where
       hsColour = HsColour `elem` (preProcessors $ pageSrc page)
-      toPage :: (MonadIO m) => (Bool, PageKind, Text, Text) -> m (Either e Page)
+      toPage :: (MonadIO m) => (Bool, PageKind, Text, Text) -> m (Either ClckFormError Page)
       toPage (haskell, kind, ttl, bdy) =
           do now <- liftIO $ getCurrentTime
              return $ Right $
