@@ -13,13 +13,15 @@ module Clckwrks.Page.Acid
     , GetFeedConfig(..)
     , SetFeedConfig(..)
     , GetBlogTitle(..)
+    , GetUACCT(..)
+    , SetUACCT(..)
     ) where
 
 import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), PageKind(..), Page(..), Pages(..), FeedConfig(..), initialFeedConfig)
 import Clckwrks.Types       (Trust(..))
 import Control.Applicative  ((<$>))
 import Control.Monad.Reader (ask)
-import Control.Monad.State  (get, put)
+import Control.Monad.State  (get, modify, put)
 import Control.Monad.Trans  (liftIO)
 import Data.Acid            (AcidState, Query, Update, makeAcidic)
 import Data.Data            (Data, Typeable)
@@ -35,6 +37,9 @@ import           Data.UUID  (UUID)
 import qualified Data.UUID  as UUID
 import Data.UUID.V1         (nextUUID)
 import Happstack.Auth       (UserId(..))
+import HSP.Google.Analytics (UACCT)
+
+$(deriveSafeCopy 0 'base ''UACCT)
 
 data PageState_001  = PageState_001
     { nextPageId_001 :: PageId
@@ -43,22 +48,36 @@ data PageState_001  = PageState_001
     deriving (Eq, Read, Show, Data, Typeable)
 $(deriveSafeCopy 1 'base ''PageState_001)
 
+data PageState_002  = PageState_002
+    { nextPageId_002 :: PageId
+    , pages_002      :: IxSet Page
+    , feedConfig_002 :: FeedConfig
+    }
+    deriving (Eq, Read, Show, Data, Typeable)
+$(deriveSafeCopy 2 'extension ''PageState_002)
+
+instance Migrate PageState_002 where
+    type MigrateFrom PageState_002 = PageState_001
+    migrate (PageState_001 npi pgs) =
+        PageState_002 npi pgs (FeedConfig { feedUUID       = fromJust $ UUID.fromString "fa6cf090-84d7-11e1-8001-0021cc712949"
+                                          , feedTitle      = fromString "Untitled Feed"
+                                          , feedLink       = fromString ""
+                                          , feedAuthorName = fromString "Anonymous"
+                                          })
+
 data PageState  = PageState
     { nextPageId :: PageId
     , pages      :: IxSet Page
     , feedConfig :: FeedConfig
+    , uacct      :: Maybe UACCT
     }
     deriving (Eq, Read, Show, Data, Typeable)
-$(deriveSafeCopy 2 'extension ''PageState)
+$(deriveSafeCopy 3 'extension ''PageState)
 
 instance Migrate PageState where
-    type MigrateFrom PageState = PageState_001
-    migrate (PageState_001 npi pgs) =
-        PageState npi pgs (FeedConfig { feedUUID       = fromJust $ UUID.fromString "fa6cf090-84d7-11e1-8001-0021cc712949"
-                                      , feedTitle      = fromString "Untitled Feed"
-                                      , feedLink       = fromString ""
-                                      , feedAuthorName = fromString "Anonymous"
-                                      })
+    type MigrateFrom PageState = PageState_002
+    migrate (PageState_002 npi pgs fc) =
+        PageState npi pgs fc Nothing
 
 initialPageState :: IO PageState
 initialPageState =
@@ -80,6 +99,7 @@ initialPageState =
                                                     }
                                              ]
                           , feedConfig = fc
+                          , uacct = Nothing
                           }
 
 pageById :: PageId -> Query PageState (Maybe Page)
@@ -144,6 +164,14 @@ allPosts =
     do pgs <- pages <$> ask
        return $ toDescList (Proxy :: Proxy UTCTime) (pgs @= Post)
 
+-- | get the 'UACCT' for Google Analytics
+getUACCT :: Query PageState (Maybe UACCT)
+getUACCT = uacct <$> ask
+
+-- | set the 'UACCT' for Google Analytics
+setUACCT :: Maybe UACCT -> Update PageState ()
+setUACCT mua = modify $ \ps -> ps { uacct = mua }
+
 $(makeAcidic ''PageState
   [ 'newPage
   , 'pageById
@@ -153,4 +181,6 @@ $(makeAcidic ''PageState
   , 'getFeedConfig
   , 'setFeedConfig
   , 'getBlogTitle
+  , 'getUACCT
+  , 'setUACCT
   ])

@@ -12,6 +12,7 @@ module Clckwrks.Page.API
     , getPosts
     , extractExcerpt
     , getBlogTitle
+    , googleAnalytics
     ) where
 
 import Clckwrks.Acid
@@ -21,11 +22,11 @@ import Clckwrks.URL
 import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Trans (MonadIO)
-
-import Data.Text (Text)
+import Data.Text (Text, empty)
 import qualified Data.Text as Text
 import Happstack.Server
 import HSP hiding (escape)
+import HSP.Google.Analytics (analyticsAsync)
 import Text.HTML.TagSoup
 
 getPage :: Clck url Page
@@ -98,3 +99,22 @@ takeThrough f (p:ps)
 -- | get all posts, sorted reverse cronological
 getPosts :: XMLGenT (Clck url) [Page]
 getPosts = query AllPosts
+
+-- | create a google analytics tracking code block
+--
+-- This will under two different conditions:
+--
+--  * the 'enableAnalytics' field in 'ClckState' is 'False'
+--
+--  * the 'uacct' field in 'PageState' is 'Nothing'
+googleAnalytics :: XMLGenT (Clck url) XML
+googleAnalytics =
+    do enabled <- getEnableAnalytics
+       case enabled of
+         False -> return $ cdata ""
+         True ->
+             do muacct <- query GetUACCT
+                case muacct of
+                  Nothing -> return $ cdata ""
+                  (Just uacct) ->
+                      analyticsAsync uacct

@@ -24,19 +24,20 @@ import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack        (implSite)
 
 data ClckwrksConfig url = ClckwrksConfig
-    { clckHostname     :: String
-    , clckPort         :: Int
-    , clckURL          :: ClckURL -> url
-    , clckJQueryPath   :: FilePath
-    , clckJQueryUIPath :: FilePath
-    , clckJSTreePath   :: FilePath
-    , clckJSON2Path    :: FilePath
-    , clckThemeDir     :: FilePath
-    , clckPluginDir    :: [(Text, FilePath)]
-    , clckStaticDir    :: FilePath
-    , clckPageHandler  :: Clck ClckURL Response
-    , clckBlogHandler  :: Clck ClckURL Response
-    , clckTopDir       :: Maybe FilePath
+    { clckHostname        :: String
+    , clckPort            :: Int
+    , clckURL             :: ClckURL -> url
+    , clckJQueryPath      :: FilePath
+    , clckJQueryUIPath    :: FilePath
+    , clckJSTreePath      :: FilePath
+    , clckJSON2Path       :: FilePath
+    , clckThemeDir        :: FilePath
+    , clckPluginDir       :: [(Text, FilePath)]
+    , clckStaticDir       :: FilePath
+    , clckPageHandler     :: Clck ClckURL Response
+    , clckBlogHandler     :: Clck ClckURL Response
+    , clckTopDir          :: Maybe FilePath
+    , clckEnableAnalytics :: Bool
     }
 
 withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
@@ -51,7 +52,7 @@ withClckwrks cc action =
                                         , uniqueId         = u
                                         , preProcessorCmds = Map.empty
                                         , adminMenus       = []
-                                        , uacct            = Nothing
+                                        , enableAnalytics  = clckEnableAnalytics cc
                                         }
               action clckState
 

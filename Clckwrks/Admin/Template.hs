@@ -67,11 +67,12 @@ instance Traversable ((,) a) where
 defaultAdminMenu :: (Monad m) => ClckT ClckURL m [(Text, [(Text, Text)])]
 defaultAdminMenu =
     do links <- sequence $ map sequence $ map (second (showURL . Admin))
-                 [ (fromString "Console", Console)
-                 , (fromString "Edit Page", Pages)
-                 , (fromString "New Page/Post", NewPage)
+                 [ (fromString "Console"         , Console)
+                 , (fromString "Edit Settings"   , EditSettings)
                  , (fromString "Edit Feed Config", EditFeedConfig)
-                 , (fromString "Edit Menu", EditMenu)
+                 , (fromString "Edit Page"       , Pages)
+                 , (fromString "New Page/Post"   , NewPage)
+                 , (fromString "Edit Menu"       , EditMenu)
                  ]
        return [(fromString "Admin", links)]
 

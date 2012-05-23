@@ -10,6 +10,7 @@ data AdminURL
     = Console
     | EditPage PageId
     | EditFeedConfig
+    | EditSettings
     | Pages
     | NewPage
     | NewPost

@@ -19,7 +19,7 @@ module Clckwrks.Monad
     , addPluginPath
     , setCurrentPage
     , getPrefix
-    , getUACCT
+    , getEnableAnalytics
     , getUnique
     , setUnique
     , requiresRole
@@ -99,7 +99,7 @@ data ClckState
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , preProcessorCmds :: forall m url. (Functor m, MonadIO m, Happstack m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
-                , uacct            :: Maybe UACCT
+                , enableAnalytics  :: Bool -- ^ enable Google Analytics
                 }
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
@@ -116,7 +116,6 @@ execClckT showFn clckState m = execStateT (unRouteT (unClckT m) showFn) clckStat
 
 runClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m (a, ClckState)
 runClckT showFn clckState m = runStateT (unRouteT (unClckT m) showFn) clckState
-
 
 data ClckFormError
     = ClckCFE (CommonFormError [Input])
@@ -155,9 +154,9 @@ getUnique =
                                 writeTVar u (succ i)
                                 return i
 
--- | get the google tracking code ('UACCT') associated with this site
-getUACCT :: (Functor m, MonadState ClckState m) => m (Maybe UACCT)
-getUACCT = uacct <$> get
+-- | get the 'Bool' value indicating if Google Analytics should be enabled or not
+getEnableAnalytics :: (Functor m, MonadState ClckState m) => m Bool
+getEnableAnalytics = enableAnalytics <$> get
 
 addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m, Happstack m) => T.Text -> ClckT url m Builder) -> ClckT u n ()
 addPreProcessor name action =

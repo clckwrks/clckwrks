@@ -5,6 +5,7 @@ import Clckwrks.Admin.Console
 import Clckwrks.Admin.URL
 import Clckwrks.Admin.EditFeedConfig (editFeedConfig)
 import Clckwrks.Admin.EditPage
+import Clckwrks.Admin.EditSettings (editSettings)
 import Clckwrks.Admin.NewPage
 import Clckwrks.Admin.Pages
 import Clckwrks.Menu.Acid
@@ -17,6 +18,7 @@ routeAdmin url =
       Console        -> nestURL Admin $ consolePage
       (EditPage pid) -> editPage (Admin url) pid
       EditFeedConfig -> editFeedConfig (Admin url)
+      EditSettings   -> editSettings   (Admin url)
       NewPage        -> nestURL Admin $ newPage PlainPage
       NewPost        -> nestURL Admin $ newPage Post
       Pages          -> nestURL Admin $ pages
