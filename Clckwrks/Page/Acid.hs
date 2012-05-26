@@ -7,6 +7,7 @@ module Clckwrks.Page.Acid
       -- * events
     , NewPage(..)
     , PageById(..)
+    , GetPageTitle(..)
     , PagesSummary(..)
     , UpdatePage(..)
     , AllPosts(..)
@@ -107,6 +108,11 @@ pageById pid =
     do pgs <- pages <$> ask
        return $ getOne $ pgs @= pid
 
+-- | get the 'pageTitle' for 'PageId'
+getPageTitle :: PageId -> Query PageState (Maybe Text)
+getPageTitle pid = fmap pageTitle <$> pageById pid
+
+
 pagesSummary :: Query PageState [(PageId, Text)]
 pagesSummary =
     do pgs <- pages <$> ask
@@ -175,6 +181,7 @@ setUACCT mua = modify $ \ps -> ps { uacct = mua }
 $(makeAcidic ''PageState
   [ 'newPage
   , 'pageById
+  , 'getPageTitle
   , 'pagesSummary
   , 'updatePage
   , 'allPosts
