@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.7.2
+Version:             0.7.3
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -43,6 +43,7 @@ Library
                    Clckwrks.Page.Acid
                    Clckwrks.Page.API
                    Clckwrks.Page.Atom
+                   Clckwrks.Page.PreProcess
                    Clckwrks.ProfileData.URL
                    Clckwrks.ProfileData.Route
                    Clckwrks.ProfileData.Types
