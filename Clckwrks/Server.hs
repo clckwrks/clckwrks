@@ -5,6 +5,7 @@ import Clckwrks
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Admin.Route        (routeAdmin)
 import Clckwrks.Page.Atom          (handleAtomFeed)
+import Clckwrks.Page.PreProcess    (pageCmd)
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Clckwrks.ProfileData.Types  (Role(..))
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
