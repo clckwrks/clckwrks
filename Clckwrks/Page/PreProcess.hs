@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 module Clckwrks.Page.PreProcess where
 import Control.Monad.Trans (MonadIO)
@@ -9,6 +9,7 @@ import Clckwrks.URL   (ClckURL(ViewPage))
 import Clckwrks.Page.Types (PageId(..))
 import Data.Attoparsec.Text (Parser, anyChar, char, decimal, parseOnly, space, stringCI, try)
 import Data.Attoparsec.Combinator (many1, manyTill, skipMany)
+import Data.String (fromString)
 import           Data.Text (Text, pack)
 import           Data.Text.Lazy.Builder (Builder)
 import qualified Data.Text.Lazy.Builder as B
@@ -39,7 +40,7 @@ data PageCmd
       deriving (Eq, Ord, Show)
 
 pageId :: Parser PageCmd
-pageId = LinkPage <$> (parseAttr "id" *> (PageId <$> decimal)) <*> (optional $ parseAttr "title" *> qtext)
+pageId = LinkPage <$> (parseAttr (fromString "id") *> (PageId <$> decimal)) <*> (optional $ parseAttr (fromString "title") *> qtext)
 
 parseCmd :: Parser PageCmd
 parseCmd = pageId
