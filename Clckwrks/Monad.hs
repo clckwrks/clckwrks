@@ -5,6 +5,8 @@ module Clckwrks.Monad
     , ClckForm
     , ClckFormT
     , ClckFormError(..)
+    , ChildType(..)
+    , AttributeType(..)
     , evalClckT
     , execClckT
     , runClckT

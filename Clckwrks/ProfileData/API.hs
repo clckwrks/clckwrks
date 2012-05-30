@@ -19,7 +19,7 @@ getProfileData uid = query (GetProfileData uid)
 
 getUsername :: UserId -> Clck url (Maybe Text)
 getUsername uid =
-    fmap username <$> query (GetProfileData uid)
+    query (GetUsername uid)
 
 whoami :: Clck url (Maybe UserId)
 whoami =

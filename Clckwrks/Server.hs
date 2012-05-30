@@ -33,7 +33,7 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckJSTreePath      :: FilePath
     , clckJSON2Path       :: FilePath
     , clckThemeDir        :: FilePath
-    , clckPluginDir       :: [(Text, FilePath)]
+    , clckPluginDir       :: Map Text FilePath
     , clckStaticDir       :: FilePath
     , clckPageHandler     :: Clck ClckURL Response
     , clckBlogHandler     :: Clck ClckURL Response
@@ -48,7 +48,7 @@ withClckwrks cc action =
               let clckState = ClckState { acidState        = acid
                                         , currentPage      = PageId 0
                                         , themePath        = clckThemeDir cc
-                                        , pluginPath       = Map.fromList (clckPluginDir cc)
+                                        , pluginPath       = clckPluginDir cc
                                         , componentPrefix  = Prefix (fromString "clckwrks")
                                         , uniqueId         = u
                                         , preProcessorCmds = Map.empty
@@ -92,7 +92,6 @@ checkAuth url =
       Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
       Profile CreateNewProfileData -> return url
-
 
 routeClck :: ClckwrksConfig u -> ClckURL -> Clck ClckURL Response
 routeClck cc url' =

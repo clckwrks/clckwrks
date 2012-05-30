@@ -7,6 +7,8 @@ module Clckwrks.ProfileData.Acid
     , SetProfileData(..)
     , GetProfileData(..)
     , NewProfileData(..)
+    , GetUsername(..)
+    , GetUserIdUsernames(..)
     , HasRole(..)
     , AddRole(..)
     , RemoveRole(..)
@@ -19,7 +21,7 @@ import Control.Monad.Reader       (ask)
 import Control.Monad.State        (get, put)
 import Data.Acid                  (Update, Query, makeAcidic)
 import Data.Data                  (Data, Typeable)
-import Data.IxSet                 (IxSet, (@=), empty, getOne, insert, updateIx)
+import Data.IxSet                 (IxSet, (@=), empty, getOne, insert, updateIx, toList)
 import Data.SafeCopy              (base, deriveSafeCopy)
 import qualified Data.Set         as Set
 import           Data.Set         (Set)
@@ -102,6 +104,17 @@ newProfileData pd =
                        return pd
          (Just pd') -> return pd'
 
+getUsername :: UserId
+            -> Query ProfileDataState (Maybe Text)
+getUsername uid =
+        fmap username <$> getProfileData uid
+
+-- | get all the users
+getUserIdUsernames :: Query ProfileDataState [(UserId, Text)]
+getUserIdUsernames =
+    do pds <- profileData <$> ask
+       return $ map (\pd -> (dataFor pd, username pd)) (toList pds)
+
 hasRole :: UserId
         -> Set Role
         -> Query ProfileDataState Bool
@@ -146,6 +159,8 @@ $(makeAcidic ''ProfileDataState
   [ 'setProfileData
   , 'getProfileData
   , 'newProfileData
+  , 'getUsername
+  , 'getUserIdUsernames
   , 'hasRole
   , 'addRole
   , 'removeRole
