@@ -29,7 +29,7 @@ feedConfigForm fc@FeedConfig{..} =
     fieldset $
      ol $
       ((,) <$> (li $ label "Feed Title:")          ++> (li $ inputText feedTitle)
-           <*>  (li $ label "Default Author Name:") ++> (li $ inputText feedTitle)
+           <*> (li $ label "Default Author Name:") ++> (li $ inputText feedAuthorName)
            <* inputSubmit (pack "update")
       )
      `transformEither` toFeedConfig
