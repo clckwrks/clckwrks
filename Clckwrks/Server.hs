@@ -116,7 +116,7 @@ routeClck cc url' =
                 case Map.lookup plugin ppm of
                   Nothing -> notFound (toResponse ())
                   (Just pp) ->
-                      do let fp'' = makeRelative "/" fp'
+                      do let fp'' = makeRelative "/" (unEscapeString fp')
                          if not (isSafePath (splitDirectories fp''))
                            then notFound (toResponse ())
                            else serveFile (guessContentTypeM mimeTypes) (pp </> "data" </> fp'')
