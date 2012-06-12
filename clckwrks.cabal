@@ -7,12 +7,12 @@ License:             BSD3
 License-file:        LICENSE
 Author:              Jeremy Shaw
 Maintainer:          jeremy@n-heptane.com
--- Copyright:
+Copyright:           2012 SeeReason Partners LLC, Jeremy Shaw
 Stability:           Experimental
 Category:            Clckwrks
-Build-type:          Simple
+Build-type:          Custom
 -- Extra-source-files:
-Cabal-version:       >=1.2
+Cabal-version:       >=1.6
 Data-Files:
     static/admin.css
 
