@@ -32,6 +32,7 @@ atom :: FeedConfig  -- ^ feed configuration
 atom FeedConfig{..} pages =
     unXMLGenT $ <feed xmlns="http://www.w3.org/2005/Atom">
                  <title><% feedTitle %></title>
+                 <link type="text/html" href=Blog />
                  <link rel="self" type="application/atom+xml" href=AtomFeed />
                  <author>
                   <name><% feedAuthorName %></name>
