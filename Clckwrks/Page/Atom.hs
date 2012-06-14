@@ -8,23 +8,19 @@ import Clckwrks.Page.Acid
 import Clckwrks.Page.Types
 import Clckwrks.ProfileData.Acid
 import Clckwrks.URL
--- import Data.Set      (Set)
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
-import Data.Maybe       (fromMaybe)
-import Data.Text        (Text,pack)
-import qualified Data.Text as Text
+import Data.Maybe            (fromMaybe)
+import Data.String           (fromString)
+import Data.Text             (Text, pack)
+import qualified Data.Text   as Text
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Data.Time.Format (formatTime)
-import System.Locale (defaultTimeLocale)
-import Data.UUID (UUID, toString)
-import Data.UUID.V1 (nextUUID)
-import qualified Data.UUID as UUID
-import Data.String (fromString)
-import Happstack.Server (Response, ok, toResponseBS)
+import Data.Time.Format      (formatTime)
+import Data.UUID             (toString)
+import Happstack.Server      (Response, ok, toResponseBS)
 import HSP
-import HSP.XML (renderXML)
-
+import HSP.XML               (renderXML)
+import System.Locale         (defaultTimeLocale)
 
 atom :: FeedConfig  -- ^ feed configuration
      -> [Page]      -- ^ pages to publish in feed
@@ -92,14 +88,3 @@ handleAtomFeed =
        feedConfig <- query GetFeedConfig
        xml <- atom feedConfig ps
        ok $ toResponseBS (fromString "application/atom+xml;charset=utf-8") (UTF8.fromString $ "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" ++ renderXML xml)
-
--- not thread safe
---
--- only needed for happstack-dot-com
-fixFeedConfigUUID :: ClckT url IO ()
-fixFeedConfigUUID =
-    do fc <- query GetFeedConfig
-       if (Just $ feedUUID fc) /= UUID.fromString "fa6cf090-84d7-11e1-8001-0021cc712949"
-          then do return ()
-          else do (Just uuid) <- liftIO nextUUID
-                  update $ SetFeedConfig (fc { feedUUID = uuid })

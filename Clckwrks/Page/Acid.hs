@@ -36,7 +36,6 @@ import Data.Time.Clock.POSIX(posixSecondsToUTCTime)
 import qualified Data.Text  as Text
 import           Data.UUID  (UUID)
 import qualified Data.UUID  as UUID
-import Data.UUID.V1         (nextUUID)
 import Happstack.Auth       (UserId(..))
 import HSP.Google.Analytics (UACCT)
 

@@ -4,8 +4,9 @@ module Clckwrks.Admin.NewPage where
 import Clckwrks
 import Clckwrks.Page.Acid      as Acid
 import Clckwrks.Admin.Template (template)
-import Data.UUID.V1            (nextUUID)
+import Data.UUID               () -- instance Random UUID
 import Data.Time.Clock         (getCurrentTime)
+import System.Random           (randomIO)
 
 newPage :: PageKind -> Clck AdminURL Response
 newPage pageKind =
@@ -22,9 +23,9 @@ newPage pageKind =
 
     <|>
     do method POST
-       (Just uuid) <- liftIO $ nextUUID
+       uuid <- liftIO $ randomIO
        now  <- liftIO $ getCurrentTime
-       muid  <- getUserId
+       muid <- getUserId
        case muid of
          Nothing -> escape $ internalServerError $ toResponse "Clcwrks.Admin.NewPage.newPage was unable to obtain the current UserId"
          (Just uid) ->

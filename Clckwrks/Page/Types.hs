@@ -17,10 +17,10 @@ import Data.Text                (Text)
 import Data.Time                (UTCTime)
 import Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import Data.UUID                (UUID)
-import Data.UUID.V1             (nextUUID)
 import Data.UUID.V5             (generateNamed, namespaceOID)
 import Happstack.Auth           (UserId(..))
 import Web.Routes               (PathInfo(..))
+import System.Random            (randomIO)
 
 $(deriveSafeCopy 0 'base ''UUID)
 
@@ -149,7 +149,7 @@ $(deriveSafeCopy 0 'base ''FeedConfig)
 
 initialFeedConfig :: IO FeedConfig
 initialFeedConfig =
-    do (Just uuid) <- nextUUID
+    do uuid <- randomIO
        return $ FeedConfig { feedUUID       = uuid
                            , feedTitle      = fromString "Untitled Feed"
                            , feedLink       = fromString ""
