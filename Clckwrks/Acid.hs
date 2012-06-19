@@ -8,7 +8,7 @@ import Clckwrks.URL                (ClckURL)
 import Control.Exception           (bracket, catch, throw)
 import Control.Concurrent          (killThread, forkIO)
 import Data.Acid                   (AcidState)
-import Data.Acid.Local             (openLocalStateFrom, createCheckpointAndClose)
+import Data.Acid.Local             (openLocalStateFrom, createArchive, createCheckpointAndClose)
 import Data.Acid.Remote            (acidServer)
 import Data.Maybe                  (fromMaybe)
 import Happstack.Auth.Core.Auth    (AuthState       , initialAuthState)
@@ -34,13 +34,17 @@ withAcid :: Maybe FilePath -> (Acid -> IO a) -> IO a
 withAcid mBasePath f =
     let basePath = fromMaybe "_state" mBasePath in
     initialPageState >>= \ips ->
-    bracket (openLocalStateFrom (basePath </> "auth")        initialAuthState)        (createCheckpointAndClose) $ \auth ->
-    bracket (openLocalStateFrom (basePath </> "profile")     initialProfileState)     (createCheckpointAndClose) $ \profile ->
-    bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createCheckpointAndClose) $ \profileData ->
-    bracket (openLocalStateFrom (basePath </> "page")        ips)                     (createCheckpointAndClose) $ \page ->
-    bracket (openLocalStateFrom (basePath </> "menu")        initialMenuState)        (createCheckpointAndClose) $ \menu ->
+    bracket (openLocalStateFrom (basePath </> "auth")        initialAuthState)        (createArchiveCheckpointAndClose) $ \auth ->
+    bracket (openLocalStateFrom (basePath </> "profile")     initialProfileState)     (createArchiveCheckpointAndClose) $ \profile ->
+    bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
+    bracket (openLocalStateFrom (basePath </> "page")        ips)                     (createArchiveCheckpointAndClose) $ \page ->
+    bracket (openLocalStateFrom (basePath </> "menu")        initialMenuState)        (createArchiveCheckpointAndClose) $ \menu ->
         bracket (forkIO $ tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket"))
                 (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
                 (const $ f (Acid auth profile profileData page menu))
     where
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)
+      createArchiveCheckpointAndClose acid =
+          do createArchive acid
+             createCheckpointAndClose acid
+

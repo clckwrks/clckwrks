@@ -4,6 +4,7 @@ module Clckwrks.Server where
 import Clckwrks
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Admin.Route        (routeAdmin)
+import Clckwrks.Page.Acid          (IsPublishedPage(..))
 import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.Page.PreProcess    (pageCmd)
 import Clckwrks.ProfileData.Route  (routeProfileData)
@@ -99,8 +100,11 @@ routeClck cc url' =
        setUnique 0
        case url of
          (ViewPage pid) ->
-           do setCurrentPage pid
-              (clckPageHandler cc)
+           do published <- query (IsPublishedPage pid)
+              if published
+                 then do setCurrentPage pid
+                         (clckPageHandler cc)
+                 else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
          (Blog) ->
            do clckBlogHandler cc
          AtomFeed ->
@@ -121,7 +125,7 @@ routeClck cc url' =
                            then notFound (toResponse ())
                            else serveFile (guessContentTypeM mimeTypes) (pp </> "data" </> fp'')
          (Admin adminURL) ->
-             routeAdmin adminURL
+             routeAdmin (clckPageHandler cc) adminURL
          (Profile profileDataURL) ->
              do nestURL Profile $ routeProfileData profileDataURL
          (Auth apURL) ->

@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.9.0
+Version:             0.10.0
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -29,6 +29,7 @@ Library
                    Clckwrks.Admin.EditPage
                    Clckwrks.Admin.EditFeedConfig
                    Clckwrks.Admin.EditSettings
+                   Clckwrks.Admin.PreviewPage
                    Clckwrks.BasicTemplate
                    Clckwrks.IOThread
                    Clckwrks.Monad

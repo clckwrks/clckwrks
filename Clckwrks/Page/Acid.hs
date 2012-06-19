@@ -8,6 +8,7 @@ module Clckwrks.Page.Acid
     , NewPage(..)
     , PageById(..)
     , GetPageTitle(..)
+    , IsPublishedPage(..)
     , PagesSummary(..)
     , UpdatePage(..)
     , AllPosts(..)
@@ -111,6 +112,13 @@ pageById pid =
 getPageTitle :: PageId -> Query PageState (Maybe Text)
 getPageTitle pid = fmap pageTitle <$> pageById pid
 
+-- | check if the 'PageId' corresponds to a published 'PageId'
+isPublishedPage :: PageId -> Query PageState Bool
+isPublishedPage pid =
+    do pgs <- pages <$> ask
+       case getOne $ pgs @= pid of
+         Nothing     -> return False
+         (Just page) -> return $ pageStatus page == Published
 
 pagesSummary :: Query PageState [(PageId, Text)]
 pagesSummary =
@@ -163,11 +171,11 @@ setFeedConfig fc =
     do ps <- get
        put $ ps { feedConfig = fc }
 
--- | get all posts, sorted reverse cronological
+-- | get all 'Published' posts, sorted reverse cronological
 allPosts :: Query PageState [Page]
 allPosts =
     do pgs <- pages <$> ask
-       return $ toDescList (Proxy :: Proxy UTCTime) (pgs @= Post)
+       return $ toDescList (Proxy :: Proxy UTCTime) (pgs @= Post @= Published)
 
 -- | get the 'UACCT' for Google Analytics
 getUACCT :: Query PageState (Maybe UACCT)
@@ -181,6 +189,7 @@ $(makeAcidic ''PageState
   [ 'newPage
   , 'pageById
   , 'getPageTitle
+  , 'isPublishedPage
   , 'pagesSummary
   , 'updatePage
   , 'allPosts

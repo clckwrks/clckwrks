@@ -133,6 +133,7 @@ instance Indexable Page where
                   , ixFun ((:[]) . pageDate)
                   , ixFun ((:[]) . pageKind)
                   , ixFun ((:[]) . pageDate)
+                  , ixFun ((:[]) . pageStatus)
                   ]
 
 type Pages = IxSet Page

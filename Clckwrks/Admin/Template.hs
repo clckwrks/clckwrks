@@ -70,7 +70,7 @@ defaultAdminMenu =
                  [ (fromString "Console"         , Console)
                  , (fromString "Edit Settings"   , EditSettings)
                  , (fromString "Edit Feed Config", EditFeedConfig)
-                 , (fromString "Edit Page"       , Pages)
+                 , (fromString "Edit Page/Post"  , Pages)
                  , (fromString "New Page/Post"   , NewPage)
                  , (fromString "Edit Menu"       , EditMenu)
                  ]
