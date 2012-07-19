@@ -97,7 +97,7 @@ Library
      web-routes,
      web-routes-happstack,
      web-routes-hsp,
-     web-routes-th                == 0.21.*,
+     web-routes-th                >= 0.21,
      xss-sanitize                 == 0.3.*
 
   -- Build-tools: trhsx
