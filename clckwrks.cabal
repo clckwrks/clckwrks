@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.10.0
+Version:             0.10.1
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -65,7 +65,7 @@ Library
      base                           < 5,
      blaze-html                   == 0.5.*,
      bytestring                   == 0.9.*,
-     containers                   == 0.4.*,
+     containers                   >= 0.4 && < 0.6,
      directory                    == 1.1.*,
      filepath                     >= 1.2 && <1.4,
      happstack-authenticate       == 0.9.*,
