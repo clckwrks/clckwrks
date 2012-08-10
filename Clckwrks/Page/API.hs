@@ -5,6 +5,7 @@ module Clckwrks.Page.API
     , getPage
     , getPageId
     , getPageTitle
+    , getPageTitleSlug
     , getPageContent
     , getPagesSummary
     , getPageSummary
@@ -24,6 +25,7 @@ import Control.Monad.State
 import Control.Monad.Trans (MonadIO)
 import Data.Text (Text, empty)
 import qualified Data.Text as Text
+import Clckwrks.Page.Types (toSlug)
 import Happstack.Server
 import HSP hiding (escape)
 import HSP.Google.Analytics (analyticsAsync)
@@ -43,12 +45,17 @@ getPageId = currentPage <$> get
 getPageTitle :: Clck url Text
 getPageTitle = pageTitle <$> getPage
 
+getPageTitleSlug :: Clck url (Text, Maybe Slug)
+getPageTitleSlug =
+    do p <- getPage
+       return (pageTitle p, pageSlug p)
+
 getPageContent :: Clck url Content
 getPageContent =
     do mrkup <- pageSrc <$> getPage
        markupToContent mrkup
 
-getPagesSummary :: Clck url [(PageId, Text)]
+getPagesSummary :: Clck url [(PageId, Text, Maybe Slug)]
 getPagesSummary = query PagesSummary
 
 getPageMenu :: GenXML (Clck ClckURL)
@@ -57,7 +64,7 @@ getPageMenu =
        case ps of
          [] -> <div>No pages found.</div>
          _ -> <ul class="page-menu">
-                <% mapM (\(pid, ttl) -> <li><a href=(ViewPage pid) title=ttl><% ttl %></a></li>) ps %>
+                <% mapM (\(pid, ttl, slug) -> <li><a href=(ViewPageSlug pid (toSlug ttl slug)) title=ttl><% ttl %></a></li>) ps %>
               </ul>
 
 getPageSummary :: PageId -> Clck url Content

@@ -80,7 +80,7 @@ data MenuLink url
     | LinkMenu -- (Menu url)
     deriving (Eq, Read, Show, Data, Typeable)
 
-data MenuItem url = MenuItem 
+data MenuItem url = MenuItem
     { menuName  :: MenuName
     , menuTitle :: Text
     , menuLink  :: MenuLink url

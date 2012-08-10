@@ -4,7 +4,7 @@ module Clckwrks.Server where
 import Clckwrks
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Admin.Route        (routeAdmin)
-import Clckwrks.Page.Acid          (IsPublishedPage(..))
+import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
 import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.Page.PreProcess    (pageCmd)
 import Clckwrks.ProfileData.Route  (routeProfileData)
@@ -84,6 +84,7 @@ checkAuth :: (Happstack m, Monad m) => ClckURL -> ClckT ClckURL m ClckURL
 checkAuth url =
     case url of
       ViewPage{}           -> return url
+      ViewPageSlug{}       -> return url
       Blog{}               -> return url
       AtomFeed{}           -> return url
       ThemeData{}          -> return url
@@ -100,6 +101,14 @@ routeClck cc url' =
        setUnique 0
        case url of
          (ViewPage pid) ->
+           do r <- query (GetPageTitle pid)
+              case r of
+                Nothing ->
+                    notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
+                (Just (title, slug)) ->
+                    seeOtherURL (ViewPageSlug pid (toSlug title slug))
+
+         (ViewPageSlug pid _slug) ->
            do published <- query (IsPublishedPage pid)
               if published
                  then do setCurrentPage pid
@@ -138,6 +147,6 @@ routeClck' cc clckState url =
     mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck cc url)
 
 clckSite :: ClckwrksConfig u -> ClckState -> Site ClckURL (ServerPart Response)
-clckSite cc clckState = setDefault (ViewPage $ PageId 1) $ mkSitePI route'
+clckSite cc clckState = setDefault (ViewPageSlug (PageId 1) (Slug Text.empty)) $ mkSitePI route'
     where
       route' f u = unRouteT (routeClck' cc clckState u) f

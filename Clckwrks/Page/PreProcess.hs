@@ -5,8 +5,8 @@ import Control.Monad.Trans (MonadIO)
 import Control.Applicative ((<*>), (*>), (<$>), (<|>), optional)
 import Clckwrks.Monad (ClckT, ClckState, query)
 import Clckwrks.Page.Acid (GetPageTitle(..))
-import Clckwrks.URL   (ClckURL(ViewPage))
-import Clckwrks.Page.Types (PageId(..))
+import Clckwrks.URL   (ClckURL(ViewPageSlug))
+import Clckwrks.Page.Types (PageId(..), slugify, toSlug)
 import Data.Attoparsec.Text (Parser, anyChar, char, decimal, parseOnly, space, stringCI, try)
 import Data.Attoparsec.Combinator (many1, manyTill, skipMany)
 import Data.String (fromString)
@@ -55,11 +55,12 @@ pageCmd showURLFn txt =
          (Right cmd) ->
              case cmd of
                (LinkPage pid mTitle) ->
-                   do ttl <- case mTitle of
-                               (Just t) -> return t
-                               Nothing  -> do mttl <- query (GetPageTitle pid)
-                                              case mttl of
-                                                Nothing -> return $ pack "Untitled"
-                                                (Just ttl) -> return ttl
-                      html <- unXMLGenT $ <a href=(showURLFn (ViewPage pid) [])><% ttl %></a>
+                   do (ttl, slug) <-
+                          case mTitle of
+                              (Just t) -> return (t, Just $ slugify t)
+                              Nothing  -> do mttl <- query (GetPageTitle pid)
+                                             case mttl of
+                                               Nothing -> return $ (pack "Untitled", Nothing)
+                                               (Just ttlSlug) -> return ttlSlug
+                      html <- unXMLGenT $ <a href=(showURLFn (ViewPageSlug pid (toSlug ttl slug)) [])><% ttl %></a>
                       return $ B.fromString $ concat $ lines $ renderAsHTML html

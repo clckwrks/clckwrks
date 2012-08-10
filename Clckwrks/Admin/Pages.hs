@@ -5,6 +5,7 @@ import Clckwrks                (AdminURL(..), Clck, ClckURL(..), PageId(..), Res
 import Clckwrks.Admin.URL      (AdminURL(..))
 import Clckwrks.Admin.Template (template)
 import Clckwrks.Page.Acid      (PagesSummary(..))
+import Clckwrks.Page.Types     (Slug(..))
 import Data.Text               (Text)
 import HSP
 
@@ -13,7 +14,7 @@ pages =
     do pages <- query PagesSummary
        template "page list" () $ editList pages
 
-editList ::  [(PageId, Text)] -> GenChildList (Clck AdminURL)
+editList ::  [(PageId, Text, Maybe Slug)] -> GenChildList (Clck AdminURL)
 editList [] = <%><p>There are currently no pages.</p></%>
 editList pgs =
     <%>
@@ -23,6 +24,6 @@ editList pgs =
      </ul>
     </%>
     where
-      editPageLI :: (PageId, Text) -> GenXML (Clck AdminURL)
-      editPageLI (pid, ttl) =
+      editPageLI :: (PageId, Text, Maybe Slug) -> GenXML (Clck AdminURL)
+      editPageLI (pid, ttl, _slug) =
           <li><a href=(EditPage pid)><% ttl %></a></li>

@@ -19,7 +19,7 @@ module Clckwrks.Page.Acid
     , SetUACCT(..)
     ) where
 
-import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), PageKind(..), Page(..), Pages(..), FeedConfig(..), initialFeedConfig)
+import Clckwrks.Page.Types  (Markup(..), PublishStatus(..), PreProcessor(..), PageId(..), PageKind(..), Page(..), Pages(..), FeedConfig(..), Slug(..), initialFeedConfig, slugify)
 import Clckwrks.Types       (Trust(..))
 import Control.Applicative  ((<$>))
 import Control.Monad.Reader (ask)
@@ -87,6 +87,7 @@ initialPageState =
                           , pages = fromList [ Page { pageId        = PageId 1
                                                     , pageAuthor    = UserId 1
                                                     , pageTitle     = "This title rocks!"
+                                                    , pageSlug      = Just $ slugify "This title rocks!"
                                                     , pageSrc       = Markup { preProcessors = [ Markdown ]
                                                                              , trust         = Trusted
                                                                              , markup        = "This is the body!"
@@ -109,8 +110,12 @@ pageById pid =
        return $ getOne $ pgs @= pid
 
 -- | get the 'pageTitle' for 'PageId'
-getPageTitle :: PageId -> Query PageState (Maybe Text)
-getPageTitle pid = fmap pageTitle <$> pageById pid
+getPageTitle :: PageId -> Query PageState (Maybe (Text, Maybe Slug))
+getPageTitle pid =
+    do mPage <- pageById pid
+       case mPage of
+         Nothing     -> return $ Nothing
+         (Just page) -> return $ Just (pageTitle page, pageSlug page)
 
 -- | check if the 'PageId' corresponds to a published 'PageId'
 isPublishedPage :: PageId -> Query PageState Bool
@@ -120,10 +125,10 @@ isPublishedPage pid =
          Nothing     -> return False
          (Just page) -> return $ pageStatus page == Published
 
-pagesSummary :: Query PageState [(PageId, Text)]
+pagesSummary :: Query PageState [(PageId, Text, Maybe Slug)]
 pagesSummary =
     do pgs <- pages <$> ask
-       return $ map (\page -> (pageId page, pageTitle page)) (toList pgs)
+       return $ map (\page -> (pageId page, pageTitle page, pageSlug page)) (toList pgs)
 
 updatePage :: Page -> Update PageState (Maybe String)
 updatePage page =
@@ -140,6 +145,7 @@ newPage pk uid uuid now =
        let page = Page { pageId      = nextPageId
                        , pageAuthor  = uid
                        , pageTitle   = "Untitled"
+                       , pageSlug    = Nothing
                        , pageSrc     = Markup { preProcessors = [ Markdown ]
                                               , trust         = Trusted
                                               , markup        = Text.empty

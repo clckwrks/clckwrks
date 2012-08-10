@@ -1,26 +1,28 @@
-{-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.Page.Types where
 
 import Clckwrks.Markup.HsColour (hscolour)
 import Clckwrks.Markup.Markdown (markdown)
 import Clckwrks.Types           (Trust(..))
-import Control.Applicative      ((<$>))
+import Control.Applicative      ((<$>), optional)
 import Control.Monad.Trans      (MonadIO(liftIO))
 import Data.Aeson               (ToJSON(..), FromJSON(..))
-import Data.Char                (ord)
+import Data.Char                (ord, toLower, isAlphaNum)
 import Data.Data                (Data, Typeable)
 import Data.Maybe               (fromMaybe)
 import Data.IxSet               (Indexable(..), IxSet, ixFun, ixSet)
 import Data.SafeCopy            (Migrate(..), base, deriveSafeCopy, extension)
 import Data.String              (fromString)
 import Data.Text                (Text)
+import qualified Data.Text      as Text
 import Data.Time                (UTCTime)
 import Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
 import Data.UUID                (UUID)
 import Data.UUID.V5             (generateNamed, namespaceOID)
 import Happstack.Auth           (UserId(..))
-import Web.Routes               (PathInfo(..))
+import Web.Routes               (PathInfo(..), anySegment)
 import System.Random            (randomIO)
+
 
 $(deriveSafeCopy 0 'base ''UUID)
 
@@ -105,11 +107,52 @@ data Page_001
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 $(deriveSafeCopy 1 'base ''Page_001)
 
+data Page_002
+    = Page_002 { pageId_002        :: PageId
+               , pageAuthor_002    :: UserId
+               , pageTitle_002     :: Text
+               , pageSrc_002       :: Markup
+               , pageExcerpt_002   :: Maybe Markup
+               , pageDate_002      :: UTCTime
+               , pageUpdated_002   :: UTCTime
+               , pageStatus_002    :: PublishStatus
+               , pageKind_002      :: PageKind
+               , pageUUID_002      :: UUID
+               }
+      deriving (Eq, Ord, Read, Show, Data, Typeable)
+$(deriveSafeCopy 2 'extension ''Page_002)
+
+instance Migrate Page_002 where
+    type MigrateFrom Page_002 = Page_001
+    migrate (Page_001 pi pt ps pe pd pst pk) =
+        (Page_002 pi (UserId 1) pt ps pe (fromMaybe epoch pd) (fromMaybe epoch pd) pst pk $ generateNamed namespaceOID (map (fromIntegral . ord) (show pi ++ show ps)))
+            where
+              epoch = posixSecondsToUTCTime 0
+
+newtype Slug = Slug { unSlug :: Text }
+    deriving (Eq, Ord, Data, Typeable, Read, Show)
+$(deriveSafeCopy 0 'base ''Slug)
+
+instance PathInfo Slug where
+    toPathSegments (Slug txt) = [txt]
+    fromPathSegments = Slug <$> anySegment
+
+-- NOTE: this instance will cause faulty behavior if the Maybe Slug is not at the end of the URL
+instance PathInfo (Maybe Slug) where
+    toPathSegments (Just slug) = toPathSegments slug
+    fromPathSegments = optional $ fromPathSegments
+
+slugify :: Text -> Slug
+slugify txt = Slug $ Text.dropWhileEnd (=='-') $ Text.map (\c -> if isAlphaNum c then (toLower c) else '-') txt
+
+toSlug :: Text -> Maybe Slug -> Slug
+toSlug txt slug = fromMaybe (slugify txt) slug
 
 data Page
     = Page { pageId        :: PageId
            , pageAuthor    :: UserId
            , pageTitle     :: Text
+           , pageSlug      :: Maybe Slug
            , pageSrc       :: Markup
            , pageExcerpt   :: Maybe Markup
            , pageDate      :: UTCTime
@@ -119,14 +162,12 @@ data Page
            , pageUUID      :: UUID
            }
       deriving (Eq, Ord, Read, Show, Data, Typeable)
-$(deriveSafeCopy 2 'extension ''Page)
+$(deriveSafeCopy 3 'extension ''Page)
 
 instance Migrate Page where
-    type MigrateFrom Page = Page_001
-    migrate (Page_001 pi pt ps pe pd pst pk) =
-        (Page pi (UserId 1) pt ps pe (fromMaybe epoch pd) (fromMaybe epoch pd) pst pk $ generateNamed namespaceOID (map (fromIntegral . ord) (show pi ++ show ps)))
-            where
-              epoch = posixSecondsToUTCTime 0
+    type MigrateFrom Page = Page_002
+    migrate (Page_002 pi pa pt ps pe pd pu pst pk puu) =
+        (Page pi pa pt Nothing ps pe pd pu pst pk puu)
 
 instance Indexable Page where
     empty = ixSet [ ixFun ((:[]) . pageId)

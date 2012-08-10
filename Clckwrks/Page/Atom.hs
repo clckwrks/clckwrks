@@ -49,7 +49,7 @@ entry :: Page
 entry Page{..} =
      unXMLGenT $ <entry>
                    <title><% pageTitle %></title>
-                   <link href=(ViewPage $ pageId) />
+                   <link href=(ViewPageSlug pageId (toSlug pageTitle pageSlug)) />
                    <id><% "urn:uuid:" ++ toString pageUUID %></id>
                    <% author %>
                    <updated><% atomDate pageUpdated %></updated>

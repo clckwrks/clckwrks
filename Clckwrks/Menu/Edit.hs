@@ -7,6 +7,7 @@ import Clckwrks.Menu.Types     (Menu(..), MenuItem(..), MenuLink(..), MenuName(.
 import Clckwrks.Menu.Acid      (SetMenu(..))
 import Clckwrks.Monad          (Clck, query, update)
 import Clckwrks.Page.Acid      (PageId(..), PagesSummary(..))
+import Clckwrks.Page.Types     (Slug(..), slugify)
 import Clckwrks.Types          (Prefix(..))
 import Clckwrks.URL            (ClckURL(..), AdminURL(..))
 import Control.Applicative     ((<$>), (<|>), optional, pure)
@@ -106,7 +107,7 @@ addClckwrksMenu linkInfos =
                  ]
 
 
-addPageMenu :: [(PageId, Text)] -> JStat
+addPageMenu :: [(PageId, Text, Maybe Slug)] -> JStat
 addPageMenu pageSummaries =
     [$jmacro|
       var select = $("#page-list");
@@ -134,7 +135,7 @@ addPageMenu pageSummaries =
                      object [ fromString "rel" .= "root"
                             ]
                  ]
-      summaryData (PageId pid, ttl)  =
+      summaryData (PageId pid, ttl, slug)  =
           object [ fromString "data" .=
                      object [ fromString "title" .= ttl
                             ]
