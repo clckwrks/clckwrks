@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.11.0
+Version:             0.12.0
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -59,7 +59,7 @@ Library
                    Paths_clckwrks
 
   Build-depends:
-     acid-state                   == 0.6.*,
+     acid-state                   == 0.7.*,
      aeson                        >= 0.5 && < 0.7,
      attoparsec                   == 0.10.*,
      base                           < 5,
