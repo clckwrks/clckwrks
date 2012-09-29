@@ -93,7 +93,7 @@ Library
      uuid                         == 1.2.*,
      unordered-containers         >= 0.1 && < 0.3,
      utf8-string                  == 0.3.*,
-     vector                       == 0.9.*,
+     vector                       >= 0.9,
      web-routes,
      web-routes-happstack,
      web-routes-hsp,
