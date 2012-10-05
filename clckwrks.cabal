@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.12.0
+Version:             0.12.2
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -59,15 +59,15 @@ Library
                    Paths_clckwrks
 
   Build-depends:
-     acid-state                   == 0.7.*,
+     acid-state                   >= 0.7 && < 0.9,
      aeson                        >= 0.5 && < 0.7,
      attoparsec                   == 0.10.*,
      base                           < 5,
      blaze-html                   == 0.5.*,
-     bytestring                   == 0.9.*,
+     bytestring                   >= 0.9 && < 0.11,
      containers                   >= 0.4 && < 0.6,
-     directory                    == 1.1.*,
-     filepath                     >= 1.2 && <1.4,
+     directory                    >= 1.1 && < 1.3,
+     filepath                     >= 1.2 && < 1.4,
      happstack-authenticate       == 0.9.*,
      happstack-hsp                == 7.1.*,
      happstack-server             == 7.0.*,
@@ -76,8 +76,8 @@ Library
      hsx-jmacro                   == 7.1.*,
      ixset                        == 1.0.*,
      jmacro                       == 0.5.*,
-     mtl                          >= 2.0 && <2.3,
-     network                      == 2.3.*,
+     mtl                          >= 2.0 && < 2.3,
+     network                      >= 2.3 && < 2.5,
      old-locale                   ==  1.0.*,
      process                      >= 1.0 && < 1.2,
 --     plugins-auto == 0.0.1.1,
