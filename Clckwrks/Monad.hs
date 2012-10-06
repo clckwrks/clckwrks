@@ -109,16 +109,45 @@ newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
 
 instance (Happstack m) => Happstack (ClckT url m)
 
-evalClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m a
+-- | evaluate a 'ClckT' returning the inner monad
+--
+-- similar to 'evalStateT'.
+evalClckT :: (Monad m) =>
+             (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -- ^ function to act as 'showURLParams'
+          -> ClckState                                            -- ^ initial 'ClckState'
+          -> ClckT url m a                                        -- ^ 'ClckT' to evaluate
+          -> m a
 evalClckT showFn clckState m = evalStateT (unRouteT (unClckT m) showFn) clckState
 
-execClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m ClckState
+-- | execute a 'ClckT' returning the final 'ClckState'
+--
+-- similar to 'execStateT'.
+execClckT :: (Monad m) =>
+             (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -- ^ function to act as 'showURLParams'
+          -> ClckState                                            -- ^ initial 'ClckState'
+          -> ClckT url m a                                        -- ^ 'ClckT' to evaluate
+          -> m ClckState
 execClckT showFn clckState m = execStateT (unRouteT (unClckT m) showFn) clckState
 
-
-runClckT :: (Monad m) => (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -> ClckState -> ClckT url m a -> m (a, ClckState)
+-- | run a 'ClckT'
+--
+-- similar to 'runStateT'.
+runClckT :: (Monad m) =>
+            (url -> [(Text.Text, Maybe Text.Text)] -> Text.Text) -- ^ function to act as 'showURLParams'
+         -> ClckState                                            -- ^ initial 'ClckState'
+         -> ClckT url m a                                        -- ^ 'ClckT' to evaluate
+         -> m (a, ClckState)
 runClckT showFn clckState m = runStateT (unRouteT (unClckT m) showFn) clckState
 
+-- | map a transformation function over the inner monad
+--
+-- similar to 'mapStateT'
+mapClckT :: (m (a, ClckState) -> n (b, ClckState)) -- ^ transformation function
+         -> ClckT url m a                          -- ^ initial monad
+         -> ClckT url n b
+mapClckT f (ClckT r) = ClckT $ mapRouteT (mapStateT f) r
+
+-- | error returned when a reform 'Form' fails to validate
 data ClckFormError
     = ClckCFE (CommonFormError [Input])
     | PDE ProfileDataError
@@ -177,11 +206,6 @@ addPluginPath plugin fp =
     modify $ \cs  ->
         cs { pluginPath = Map.insert plugin fp (pluginPath cs) }
 
-mapClckT :: (m (a, ClckState) -> n (b, ClckState))
-         -> ClckT url m a
-         -> ClckT url n b
-mapClckT f (ClckT r) = ClckT $ mapRouteT (mapStateT f) r
-
 -- | change the route url
 withRouteClckT :: ((url' -> [(T.Text, Maybe T.Text)] -> T.Text) -> url -> [(T.Text, Maybe T.Text)] -> T.Text)
                -> ClckT url  m a
@@ -212,11 +236,13 @@ instance (Monad m) => MonadRoute (ClckT url m) where
     type URL (ClckT url m) = url
     askRouteFn = ClckT $ askRouteFn
 
+-- | similar to the normal acid-state 'query' except it automatically gets the correct 'AcidState' handle from the environment
 query :: forall event m. (QueryEvent event, GetAcidState m (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
 query event =
     do as <- getAcidState
        query' (as :: AcidState (EventState event)) event
 
+-- | similar to the normal acid-state 'update' except it automatically gets the correct 'AcidState' handle from the environment
 update :: forall event m. (UpdateEvent event, GetAcidState m (EventState event), Functor m, MonadIO m, MonadState ClckState m) => event -> m (EventResult event)
 update event =
     do as <- getAcidState
@@ -240,6 +266,7 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) PageState where
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
 
+-- | The the 'UserId' of the current user. While return 'Nothing' if they are not logged in.
 getUserId :: (Happstack m, GetAcidState m AuthState, GetAcidState m ProfileState) => m (Maybe UserId)
 getUserId =
     do authState    <- getAcidState
@@ -402,6 +429,11 @@ instance (Functor m, Monad m) => SetAttr (ClckT url m) XML where
 
 instance (Functor m, Monad m) => XMLGenerator (ClckT url m)
 
+-- | a wrapper which identifies how to treat different 'Text' values when attempting to embed them.
+--
+-- In general 'Content' values have already been
+-- flatten/preprocessed/etc and are now basic formats like
+-- @text/plain@, @text/html@, etc
 data Content
     = TrustedHtml T.Text
     | PlainText   T.Text
@@ -411,6 +443,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
 
+-- | convert 'Markup' to 'Content' that can be embedded. Generally by running the pre-processors needed.
 markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m Content
 markupToContent Markup{..} =
     do clckState <- get

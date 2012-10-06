@@ -5,6 +5,7 @@ import Data.Data     (Data, Typeable)
 import Data.SafeCopy (SafeCopy, base, deriveSafeCopy)
 import Data.Text     as T
 
+-- | at present this is only used by the menu editor
 newtype Prefix = Prefix { prefixText :: T.Text }
     deriving (Eq, Ord, Read, Show, Data, Typeable, SafeCopy)
 
