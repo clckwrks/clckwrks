@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.12.2
+Version:             0.12.3
 Synopsis:            A secure, reliable CMS
 -- Description:
 Homepage:            http://www.clckwrks.com/
@@ -70,7 +70,7 @@ Library
      filepath                     >= 1.2 && < 1.4,
      happstack-authenticate       == 0.9.*,
      happstack-hsp                == 7.1.*,
-     happstack-server             == 7.0.*,
+     happstack-server             >= 7.0 && < 7.2,
      hsp                          == 0.7.*,
      hsx                          == 0.10.*,
      hsx-jmacro                   == 7.1.*,
