@@ -14,15 +14,15 @@ import Clckwrks.Menu.Edit
 import Clckwrks.Menu.Types
 
 -- | routes for 'AdminURL'
-routeAdmin :: Clck ClckURL Response -> AdminURL -> Clck ClckURL Response
-routeAdmin pageHandler url =
+routeAdmin :: AdminURL -> Clck ClckURL Response
+routeAdmin url =
     case url of
       Console           -> nestURL Admin $ consolePage
       (EditPage pid)    -> editPage (Admin url) pid
       EditFeedConfig    -> editFeedConfig (Admin url)
       EditSettings      -> editSettings   (Admin url)
       NewPage           -> nestURL Admin $ newPage PlainPage
-      (PreviewPage pid) -> previewPage pageHandler pid
+--      (PreviewPage pid) -> previewPage pageHandler pid -- FIXME
       NewPost           -> nestURL Admin $ newPage Post
       Pages             -> nestURL Admin $ pages
       EditMenu          ->

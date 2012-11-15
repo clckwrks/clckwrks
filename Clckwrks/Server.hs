@@ -1,19 +1,23 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, RecordWildCards #-}
 module Clckwrks.Server where
 
 import Clckwrks
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Admin.Route        (routeAdmin)
+import Clckwrks.Admin.Template     (defaultAdminMenu)
 import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
 import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.Page.PreProcess    (pageCmd)
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Clckwrks.ProfileData.Types  (Role(..))
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
+import Control.Arrow               (second)
 import Control.Concurrent.STM      (atomically, newTVar)
 import Control.Monad.State         (get, evalStateT)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
+import Data.Maybe                  (fromJust)
+import Data.Monoid                 ((<>))
 import qualified Data.Set          as Set
 import Data.String                 (fromString)
 import           Data.Text         (Text)
@@ -24,6 +28,7 @@ import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath,
 import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack        (implSite)
+import Web.Plugin.Core             (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
 
 data ClckwrksConfig url = ClckwrksConfig
     { clckHostname        :: String
@@ -36,15 +41,17 @@ data ClckwrksConfig url = ClckwrksConfig
     , clckThemeDir        :: FilePath
     , clckPluginDir       :: Map Text FilePath
     , clckStaticDir       :: FilePath
-    , clckPageHandler     :: Clck ClckURL Response
-    , clckBlogHandler     :: Clck ClckURL Response
+--     , clckPageHandler     :: Clck ClckURL Response
+--    , clckBlogHandler     :: Clck ClckURL Response
     , clckTopDir          :: Maybe FilePath
     , clckEnableAnalytics :: Bool
+    , clckInitHook        :: ClckState -> ClckwrksConfig url -> IO (ClckState, ClckwrksConfig url)
     }
 
 withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
-    do withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
+    withPlugins $ \plugins ->
+       withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
                                         , currentPage      = PageId 0
@@ -52,16 +59,24 @@ withClckwrks cc action =
                                         , pluginPath       = clckPluginDir cc
                                         , componentPrefix  = Prefix (fromString "clckwrks")
                                         , uniqueId         = u
-                                        , preProcessorCmds = Map.empty
+--                                        , preProcessorCmds = Map.empty
                                         , adminMenus       = []
                                         , enableAnalytics  = clckEnableAnalytics cc
+                                        , plugins          = plugins
                                         }
               action clckState
 
 simpleClckwrks :: ClckwrksConfig u -> IO ()
 simpleClckwrks cc =
   withClckwrks cc $ \clckState ->
-    simpleHTTP (nullConf { port = clckPort cc }) (handlers cc clckState)
+      do (clckState', cc') <- (clckInitHook cc) clckState cc
+         let p = plugins clckState'
+         hooks <- getPostHooks p
+         (Just clckShowFn) <- getPluginRouteFn p "clck"
+         let showFn = \url params -> clckShowFn url []
+         clckState'' <- execClckT showFn clckState' $ do dm <- defaultAdminMenu
+                                                         mapM_ addAdminMenu dm
+         simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
   where
     handlers cc clckState =
        do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
@@ -69,7 +84,8 @@ simpleClckwrks cc =
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
-            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
+            , clckSite cc clckState
+--            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
             ]
 
 jsHandlers :: (Happstack m) => ClckwrksConfig u -> m Response
@@ -94,7 +110,7 @@ checkAuth url =
       Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
       Profile CreateNewProfileData -> return url
-
+{-
 routeClck :: ClckwrksConfig u -> ClckURL -> Clck ClckURL Response
 routeClck cc url' =
     do url <- checkAuth url'
@@ -112,10 +128,11 @@ routeClck cc url' =
            do published <- query (IsPublishedPage pid)
               if published
                  then do setCurrentPage pid
-                         (clckPageHandler cc)
+                         clckState <- get
+                         (pageHandler clckState)
                  else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
-         (Blog) ->
-           do clckBlogHandler cc
+--         (Blog) ->
+--           do pageHandler cc
          AtomFeed ->
              do handleAtomFeed
          (ThemeData fp')  ->
@@ -134,7 +151,8 @@ routeClck cc url' =
                            then notFound (toResponse ())
                            else serveFile (guessContentTypeM mimeTypes) (pp </> "data" </> fp'')
          (Admin adminURL) ->
-             routeAdmin (clckPageHandler cc) adminURL
+             do clckState <- get
+                routeAdmin (pageHandler clckState) adminURL
          (Profile profileDataURL) ->
              do nestURL Profile $ routeProfileData profileDataURL
          (Auth apURL) ->
@@ -145,8 +163,46 @@ routeClck cc url' =
 routeClck' :: ClckwrksConfig u -> ClckState -> ClckURL -> RouteT ClckURL (ServerPartT IO) Response
 routeClck' cc clckState url =
     mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck cc url)
+-}
+clckSite :: ClckwrksConfig u -> ClckState -> ServerPart Response
+clckSite cc clckState =
+    do (Just clckShowFn) <- getPluginRouteFn (plugins clckState) (Text.pack "clck")
+       evalClckT (\u p -> clckShowFn u (map (second fromJust) p)) clckState (pluginsHandler (plugins clckState))
 
+
+pluginsHandler :: (Functor m, ServerMonad m, FilterMonad Response m, MonadIO m) =>
+               Plugins theme (m Response) hook
+            -> m Response
+pluginsHandler plugins =
+    do paths <- (map Text.pack . rqPaths) <$> askRq
+       case paths of
+         (p : ps) ->
+             do e <- liftIO $ serve plugins p ps
+                case e of
+                  (Right c) -> c
+                  (Left e) -> notFound $ toResponse e
+         _ -> notFound (toResponse ())
+
+
+
+--    where
+--      showFn u p = (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) <> toPathInfoParams u p
+{-
 clckSite :: ClckwrksConfig u -> ClckState -> Site ClckURL (ServerPart Response)
 clckSite cc clckState = setDefault (ViewPageSlug (PageId 1) (Slug Text.empty)) $ mkSitePI route'
     where
       route' f u = unRouteT (routeClck' cc clckState u) f
+-}
+{-
+pageHandler :: (Functor m, ServerMonad m, FilterMonad Response m, MonadIO m) =>
+     Plugins theme (m Response) -> m Response
+pageHandler plugins =
+    do paths <- (map Text.pack . rqPaths) <$> askRq
+       case paths of
+         (p : ps) ->
+             do e <- liftIO $ serve plugins p ps
+                case e of
+                  (Right c) -> c
+                  (Left e) -> notFound $ toResponse e
+         _ -> notFound (toResponse ())
+-}

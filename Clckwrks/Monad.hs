@@ -7,6 +7,8 @@ module Clckwrks.Monad
     , ClckFormError(..)
     , ChildType(..)
     , AttributeType(..)
+    , Theme(..)
+    , ThemeName
     , evalClckT
     , execClckT
     , runClckT
@@ -16,7 +18,7 @@ module Clckwrks.Monad
     , getUserId
     , Content(..)
     , markupToContent
-    , addPreProcessor
+--    , addPreProcessor
     , addAdminMenu
     , addPluginPath
     , setCurrentPage
@@ -88,9 +90,26 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.String    (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
+import Web.Plugin.Core               (Plugins)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
+
+type ThemeName = T.Text
+
+data Theme = Theme
+    { themeName      :: ThemeName
+    , _themeTemplate :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
+
+{-
+    , _themeTemplate :: ( EmbedAsChild (ServerPartT IO) headers
+                        , EmbedAsChild (ServerPartT IO) body) =>
+                       T.Text    -- ^ page title
+                     -> headers -- ^ extra elements to add to \<head\>
+                     -> body    -- ^ elements to insert in \<body\>
+                     -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
+-}
+    }
 
 data ClckState
     = ClckState { acidState        :: Acid
@@ -99,9 +118,10 @@ data ClckState
                 , pluginPath       :: Map T.Text FilePath
                 , componentPrefix  :: Prefix
                 , uniqueId         :: TVar Integer -- only unique for this request
-                , preProcessorCmds :: forall m url. (Functor m, MonadIO m, Happstack m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
+--                , preProcessorCmds :: forall m url. (Functor m, MonadIO m, Happstack m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
+                , plugins          :: Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ())
                 }
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
@@ -188,12 +208,12 @@ getUnique =
 -- | get the 'Bool' value indicating if Google Analytics should be enabled or not
 getEnableAnalytics :: (Functor m, MonadState ClckState m) => m Bool
 getEnableAnalytics = enableAnalytics <$> get
-
+{-
 addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m, Happstack m) => T.Text -> ClckT url m Builder) -> ClckT u n ()
 addPreProcessor name action =
     modify $ \cs ->
         cs { preProcessorCmds = Map.insert name action (preProcessorCmds cs) }
-
+-}
 addAdminMenu :: (Monad m) => (T.Text, [(T.Text, T.Text)]) -> ClckT url m ()
 addAdminMenu (category, entries) =
     modify $ \cs ->
@@ -447,7 +467,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
 markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m Content
 markupToContent Markup{..} =
     do clckState <- get
-       markup' <- process (preProcessorCmds clckState) markup
+       markup' <- return markup -- process (preProcessorCmds clckState) markup
        e <- liftIO $ runPreProcessors preProcessors trust markup'
        case e of
          (Left err)   -> return (PlainText err)
