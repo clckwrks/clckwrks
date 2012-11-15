@@ -100,7 +100,6 @@ type ThemeName = T.Text
 data Theme = Theme
     { themeName      :: ThemeName
     , _themeTemplate :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
-
 {-
     , _themeTemplate :: ( EmbedAsChild (ServerPartT IO) headers
                         , EmbedAsChild (ServerPartT IO) body) =>

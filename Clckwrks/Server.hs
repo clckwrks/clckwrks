@@ -84,6 +84,7 @@ simpleClckwrks cc =
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
+            , nullDir >> seeOther ("/clck/view-page/1") (toResponse ())
             , clckSite cc clckState
 --            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
             ]
