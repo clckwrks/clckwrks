@@ -74,17 +74,18 @@ simpleClckwrks cc =
          hooks <- getPostHooks p
          (Just clckShowFn) <- getPluginRouteFn p "clck"
          let showFn = \url params -> clckShowFn url []
-         clckState'' <- execClckT showFn clckState' $ do dm <- defaultAdminMenu
+         clckState'' <- execClckT showFn clckState' $ do sequence_ hooks
+                                                         dm <- defaultAdminMenu
                                                          mapM_ addAdminMenu dm
          simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
-  where
+    where
     handlers cc clckState =
        do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
           msum $
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
-            , nullDir >> seeOther ("/clck/view-page/1") (toResponse ())
+            , nullDir >> seeOther ("/clck/view-page/1" :: String) (toResponse ())
             , clckSite cc clckState
 --            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
             ]
@@ -168,7 +169,7 @@ routeClck' cc clckState url =
 clckSite :: ClckwrksConfig u -> ClckState -> ServerPart Response
 clckSite cc clckState =
     do (Just clckShowFn) <- getPluginRouteFn (plugins clckState) (Text.pack "clck")
-       evalClckT (\u p -> clckShowFn u (map (second fromJust) p)) clckState (pluginsHandler (plugins clckState))
+       evalClckT clckShowFn clckState (pluginsHandler (plugins clckState))
 
 
 pluginsHandler :: (Functor m, ServerMonad m, FilterMonad Response m, MonadIO m) =>

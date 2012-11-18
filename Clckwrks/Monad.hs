@@ -99,7 +99,12 @@ type ThemeName = T.Text
 
 data Theme = Theme
     { themeName      :: ThemeName
-    , _themeTemplate :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
+    , _themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
+                        , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
+                        T.Text  -- ^ page title
+                     -> headers -- ^ extra elements to add to \<head\>
+                     -> body    -- ^ elements to insert in \<body\>
+                     -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
 {-
     , _themeTemplate :: ( EmbedAsChild (ServerPartT IO) headers
                         , EmbedAsChild (ServerPartT IO) body) =>

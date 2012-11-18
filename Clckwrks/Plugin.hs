@@ -42,14 +42,22 @@ themeTemplate plugins title headers body =
          (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme) title headers body
 -}
 
-themeTemplate plugins =
+themeTemplate
+  :: (EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers,
+      EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
+     Plugins Theme n hook
+  -> Text
+  -> headers
+  -> body
+  -> ClckT ClckURL (ServerPartT IO) Response
+themeTemplate plugins ttl hdrs bdy =
     do mTheme <- getTheme plugins
        case mTheme of
          Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: Text)
-         (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme)
+         (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme ttl hdrs bdy)
 
 
-clckHandler :: (ClckURL -> [(Text, Text)] -> Text)
+clckHandler :: (ClckURL -> [(Text, Maybe Text)] -> Text)
             -> Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ())
             -> [Text]
             -> ClckT ClckURL (ServerPartT IO) Response
@@ -83,7 +91,9 @@ routeClck url' =
               if published
                  then do setCurrentPage pid
                          cs <- get
-                         themeTemplate (plugins cs)
+                         ttl <- getPageTitle
+                         bdy <- getPageContent
+                         themeTemplate (plugins cs) ttl () bdy
 --                         ok $ toResponse (show pid)
 --                         (clckPageHandler cc)
                  else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
