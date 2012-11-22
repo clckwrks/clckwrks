@@ -51,7 +51,7 @@ data ClckwrksConfig = ClckwrksConfig
 -}
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
-    withPlugins cc $ \plugins ->
+    withPlugins cc [] $ \plugins ->
        withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid

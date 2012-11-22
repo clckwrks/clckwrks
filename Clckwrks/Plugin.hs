@@ -17,6 +17,7 @@ import Clckwrks.Server (checkAuth)
 import Control.Monad
 import Control.Monad.Trans
 import Data.Text (Text)
+import qualified Data.Text.Lazy as TL
 import qualified Data.Map as Map
 import Data.Monoid ((<>))
 import Happstack.Server
@@ -142,7 +143,7 @@ clckInit plugins =
        return Nothing
 
 
-clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig (ClckT ClckURL IO)
+clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
 clckPlugin = Plugin
     { pluginName       = "clck"
     , pluginInit       = clckInit

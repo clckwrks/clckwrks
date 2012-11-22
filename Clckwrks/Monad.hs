@@ -23,6 +23,7 @@ module Clckwrks.Monad
 --    , addPreProcessor
     , addAdminMenu
     , addPluginPath
+    , addPreProc
     , setCurrentPage
     , getPrefix
     , getEnableAnalytics
@@ -94,12 +95,12 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.String    (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
-import Web.Plugin.Core               (Plugins, getPreProcs)
+import Web.Plugin.Core               (Plugins, getPluginsSt, modifyPluginsSt)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
 
-type ClckPlugins = Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig (ClckT ClckURL IO)
+type ClckPlugins = Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
 
 type ThemeName = T.Text
 
@@ -150,7 +151,7 @@ data ClckState
 --                , preProcessorCmds :: forall m url. (Functor m, MonadIO m, Happstack m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
-                , plugins          :: Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig (ClckT ClckURL IO)
+                , plugins          :: ClckPlugins -- Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
                 }
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
@@ -503,18 +504,18 @@ markupToContent :: (Functor m, MonadIO m, Happstack m) =>
                 -> ClckT url m Content
 markupToContent Markup{..} =
     do clckState <- get
-       pps <- getPreProcs (plugins clckState)
-       let transformers = Map.elems pps
-       (markup', clckState') <- liftIO $ runClckT undefined clckState (foldM (\txt pp -> pp txt) markup transformers)
+       transformers <- liftIO $ getPluginsSt (plugins clckState)
+       (markup', clckState') <- liftIO $ runClckT undefined clckState (foldM (\txt pp -> pp txt) (TL.fromStrict markup) transformers)
        put clckState'
-       return (TrustedHtml markup')
+       return (TrustedHtml $ TL.toStrict markup')
 
-{-
-       e <- liftIO $ runPreProcessors preProcessors trust markup'
-       case e of
-         (Left err)   -> return (PlainText err)
-         (Right html) -> return (TrustedHtml html)
--}
+addPreProc :: (MonadIO m) =>
+              Plugins theme n hook config [TL.Text -> ClckT ClckURL IO TL.Text]
+           -> (TL.Text -> ClckT ClckURL IO TL.Text)
+           -> m ()
+addPreProc plugins p =
+    modifyPluginsSt plugins $ \ps -> p : ps
+
 -- * Preprocess
 
 data Segment cmd
