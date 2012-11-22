@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards, FlexibleContexts, Rank2Types, OverloadedStrings #-}
 module Clckwrks.Plugin where
 
 import Control.Applicative ((<$>))
@@ -45,7 +45,7 @@ themeTemplate plugins title headers body =
 themeTemplate
   :: (EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers,
       EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
-     Plugins Theme n hook
+     ClckPlugins
   -> Text
   -> headers
   -> body
@@ -58,7 +58,7 @@ themeTemplate plugins ttl hdrs bdy =
 
 
 clckHandler :: (ClckURL -> [(Text, Maybe Text)] -> Text)
-            -> Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ())
+            -> ClckPlugins
             -> [Text]
             -> ClckT ClckURL (ServerPartT IO) Response
 clckHandler showRouteFn plugins paths =
@@ -132,16 +132,17 @@ routeClck url' =
                 u <- showURL $ Profile CreateNewProfileData
                 nestURL Auth $ handleAuthProfile acidAuth acidProfile basicTemplate Nothing Nothing u apURL
 
-clckInit :: Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) -> IO (Maybe Text)
+clckInit :: ClckPlugins
+         -> IO (Maybe Text)
 clckInit plugins =
     do (Just clckShowFn) <- getPluginRouteFn plugins "clck"
 --       evalClckT defaultAdminMenu clckShowFn
 --       addPreProc plugins "clck" (clckPreProcessor clckShowFn)
-       addHandler plugins "clck" (clckHandler clckShowFn)
+       addHandler (plugins :: ClckPlugins) "clck" (clckHandler clckShowFn)
        return Nothing
 
 
-clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ())
+clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig (ClckT ClckURL IO)
 clckPlugin = Plugin
     { pluginName       = "clck"
     , pluginInit       = clckInit
@@ -150,6 +151,8 @@ clckPlugin = Plugin
     , pluginPostHook   = return ()
     }
 
-plugin :: Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) -> Text -> IO (Maybe Text)
+plugin :: ClckPlugins
+       -> Text
+       -> IO (Maybe Text)
 plugin plugins baseURI =
     initPlugin plugins baseURI clckPlugin

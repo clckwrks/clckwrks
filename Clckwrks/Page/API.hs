@@ -79,7 +79,9 @@ getPageSummary pid =
 getBlogTitle :: Clck url Text
 getBlogTitle = query GetBlogTitle
 
-extractExcerpt :: (MonadIO m, Functor m, Happstack m) => Page -> ClckT url m Content
+extractExcerpt :: (MonadIO m, Functor m, Happstack m) =>
+                  Page
+               -> ClckT url m Content
 extractExcerpt Page{..} =
              case pageExcerpt of
                (Just excerpt) ->

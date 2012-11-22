@@ -1,10 +1,11 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes, RecordWildCards #-}
 module Clckwrks.Server where
 
 import Clckwrks
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Admin.Route        (routeAdmin)
 import Clckwrks.Admin.Template     (defaultAdminMenu)
+import Clckwrks.Monad              (ClckwrksConfig(..))
 import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
 import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.Page.PreProcess    (pageCmd)
@@ -29,11 +30,11 @@ import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack        (implSite)
 import Web.Plugin.Core             (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
-
-data ClckwrksConfig url = ClckwrksConfig
+{-
+data ClckwrksConfig = ClckwrksConfig
     { clckHostname        :: String
     , clckPort            :: Int
-    , clckURL             :: ClckURL -> url
+--    , clckURL             :: ClckURL -> url
     , clckJQueryPath      :: FilePath
     , clckJQueryUIPath    :: FilePath
     , clckJSTreePath      :: FilePath
@@ -45,12 +46,12 @@ data ClckwrksConfig url = ClckwrksConfig
 --    , clckBlogHandler     :: Clck ClckURL Response
     , clckTopDir          :: Maybe FilePath
     , clckEnableAnalytics :: Bool
-    , clckInitHook        :: ClckState -> ClckwrksConfig url -> IO (ClckState, ClckwrksConfig url)
+    , clckInitHook        :: ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig)
     }
-
-withClckwrks :: ClckwrksConfig url -> (ClckState -> IO b) -> IO b
+-}
+withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
-    withPlugins $ \plugins ->
+    withPlugins cc $ \plugins ->
        withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
@@ -66,7 +67,7 @@ withClckwrks cc action =
                                         }
               action clckState
 
-simpleClckwrks :: ClckwrksConfig u -> IO ()
+simpleClckwrks :: ClckwrksConfig -> IO ()
 simpleClckwrks cc =
   withClckwrks cc $ \clckState ->
       do (clckState', cc') <- (clckInitHook cc) clckState cc
@@ -90,7 +91,7 @@ simpleClckwrks cc =
 --            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
             ]
 
-jsHandlers :: (Happstack m) => ClckwrksConfig u -> m Response
+jsHandlers :: (Happstack m) => ClckwrksConfig -> m Response
 jsHandlers c =
   msum [ dir "jquery"      $ serveDirectory DisableBrowsing [] (clckJQueryPath c)
        , dir "jquery-ui"   $ serveDirectory DisableBrowsing [] (clckJQueryUIPath c)
@@ -166,14 +167,13 @@ routeClck' :: ClckwrksConfig u -> ClckState -> ClckURL -> RouteT ClckURL (Server
 routeClck' cc clckState url =
     mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck cc url)
 -}
-clckSite :: ClckwrksConfig u -> ClckState -> ServerPart Response
+clckSite :: ClckwrksConfig -> ClckState -> ServerPart Response
 clckSite cc clckState =
     do (Just clckShowFn) <- getPluginRouteFn (plugins clckState) (Text.pack "clck")
        evalClckT clckShowFn clckState (pluginsHandler (plugins clckState))
 
-
 pluginsHandler :: (Functor m, ServerMonad m, FilterMonad Response m, MonadIO m) =>
-               Plugins theme (m Response) hook
+               Plugins theme (m Response) hook config ppm
             -> m Response
 pluginsHandler plugins =
     do paths <- (map Text.pack . rqPaths) <$> askRq

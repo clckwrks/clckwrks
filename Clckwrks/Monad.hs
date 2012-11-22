@@ -1,11 +1,13 @@
 {-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RankNTypes, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings #-}
 module Clckwrks.Monad
     ( Clck
+    , ClckPlugins
     , ClckT(..)
     , ClckForm
     , ClckFormT
     , ClckFormError(..)
     , ChildType(..)
+    , ClckwrksConfig(..)
     , AttributeType(..)
     , Theme(..)
     , ThemeName
@@ -31,6 +33,8 @@ module Clckwrks.Monad
     , query
     , update
     , nestURL
+    , segments
+    , transform
     )
 where
 
@@ -45,7 +49,7 @@ import Clckwrks.Types                (Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
-import Control.Monad                 (MonadPlus)
+import Control.Monad                 (MonadPlus, foldM)
 import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT, get, mapStateT, modify, put, runStateT)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
 import Control.Monad.Trans           (MonadIO(liftIO), lift)
@@ -53,7 +57,7 @@ import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
 import Data.Aeson                    (Value(..))
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
 import Data.Acid.Advanced            (query', update')
-import Data.Attoparsec.Text          (Parser, parseOnly, char, try, takeWhile, takeWhile1)
+import Data.Attoparsec.Text.Lazy     (Parser, parseOnly, char, stringCI, try, takeWhile, takeWhile1)
 import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.List           as List
 import qualified Data.Map            as Map
@@ -68,7 +72,7 @@ import Data.SafeCopy                 (SafeCopy(..))
 import Data.Set                      (Set)
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
-import           Data.Text.Lazy.Builder (Builder)
+import           Data.Text.Lazy.Builder (Builder, fromText)
 import qualified Data.Text.Lazy.Builder as B
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
@@ -90,10 +94,12 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.String    (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
-import Web.Plugin.Core               (Plugins)
+import Web.Plugin.Core               (Plugins, getPreProcs)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
+
+type ClckPlugins = Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig (ClckT ClckURL IO)
 
 type ThemeName = T.Text
 
@@ -115,6 +121,25 @@ data Theme = Theme
 -}
     }
 
+data ClckwrksConfig = ClckwrksConfig
+    { clckHostname        :: String
+    , clckPort            :: Int
+--    , clckURL             :: ClckURL -> url
+    , clckJQueryPath      :: FilePath
+    , clckJQueryUIPath    :: FilePath
+    , clckJSTreePath      :: FilePath
+    , clckJSON2Path       :: FilePath
+    , clckThemeDir        :: FilePath
+    , clckPluginDir       :: Map T.Text FilePath
+    , clckStaticDir       :: FilePath
+--     , clckPageHandler     :: Clck ClckURL Response
+--    , clckBlogHandler     :: Clck ClckURL Response
+    , clckTopDir          :: Maybe FilePath
+    , clckEnableAnalytics :: Bool
+    , clckInitHook        :: ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig)
+    }
+
+
 data ClckState
     = ClckState { acidState        :: Acid
                 , currentPage      :: PageId
@@ -125,7 +150,7 @@ data ClckState
 --                , preProcessorCmds :: forall m url. (Functor m, MonadIO m, Happstack m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
-                , plugins          :: Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ())
+                , plugins          :: Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig (ClckT ClckURL IO)
                 }
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
@@ -151,7 +176,8 @@ execClckT :: (Monad m) =>
           -> ClckState                                            -- ^ initial 'ClckState'
           -> ClckT url m a                                        -- ^ 'ClckT' to evaluate
           -> m ClckState
-execClckT showFn clckState m = execStateT (unRouteT (unClckT m) showFn) clckState
+execClckT showFn clckState m =
+    execStateT (unRouteT (unClckT m) showFn) clckState
 
 -- | run a 'ClckT'
 --
@@ -161,7 +187,8 @@ runClckT :: (Monad m) =>
          -> ClckState                                            -- ^ initial 'ClckState'
          -> ClckT url m a                                        -- ^ 'ClckT' to evaluate
          -> m (a, ClckState)
-runClckT showFn clckState m = runStateT (unRouteT (unClckT m) showFn) clckState
+runClckT showFn clckState m =
+    runStateT (unRouteT (unClckT m) showFn) clckState
 
 -- | map a transformation function over the inner monad
 --
@@ -411,6 +438,7 @@ instance (Functor m, MonadIO m, EmbedAsChild (ClckT url m) a) => EmbedAsChild (C
         do a <- XMLGenT (liftIO c)
            asChild a
 
+
 {-
 instance EmbedAsChild Clck TextHtml where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . T.unpack . unTextHtml
@@ -421,7 +449,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) XML where
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
 
-instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) Markup where
+instance (Functor m, Monad m, Happstack m) => EmbedAsChild (ClckT url m) Markup where
     asChild mrkup = asChild =<< (XMLGenT $ markupToContent mrkup)
 
 instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckFormError where
@@ -441,6 +469,7 @@ instance (Functor m, Monad m) => AppendChild (ClckT url m) XML where
  appAll xml children = do
         chs <- children
         case xml of
+
          CDATA _ _       -> return xml
          Element n as cs -> return $ Element n as (cs ++ (map unClckChild chs))
 
@@ -468,60 +497,67 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
 
 -- | convert 'Markup' to 'Content' that can be embedded. Generally by running the pre-processors needed.
-markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m Content
+-- markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m Content
+markupToContent :: (Functor m, MonadIO m, Happstack m) =>
+                   Markup
+                -> ClckT url m Content
 markupToContent Markup{..} =
     do clckState <- get
-       markup' <- return markup -- process (preProcessorCmds clckState) markup
+       pps <- getPreProcs (plugins clckState)
+       let transformers = Map.elems pps
+       (markup', clckState') <- liftIO $ runClckT undefined clckState (foldM (\txt pp -> pp txt) markup transformers)
+       put clckState'
+       return (TrustedHtml markup')
+
+{-
        e <- liftIO $ runPreProcessors preProcessors trust markup'
        case e of
          (Left err)   -> return (PlainText err)
          (Right html) -> return (TrustedHtml html)
-
+-}
 -- * Preprocess
 
-data Segment
+data Segment cmd
     = TextBlock T.Text
-    | Command T.Text T.Text
-      deriving (Show)
+    | Cmd cmd
 
-segment :: Parser Segment
-segment =
-    tryCommand <|>
-    do t <- takeWhile1 (/= '{')
-       return (TextBlock t)
+transform :: (Monad m) =>
+             (cmd -> m Builder)
+          -> [Segment cmd]
+          -> m Builder
+transform f segments =
+    do bs <- mapM (transformSegment f) segments
+       return (mconcat bs)
 
-tryCommand :: Parser Segment
-tryCommand =
+transformSegment :: (Monad m) =>
+                    (cmd -> m Builder)
+                 -> Segment cmd
+                 -> m Builder
+transformSegment f (TextBlock t) = return (B.fromText t)
+transformSegment f (Cmd cmd) = f cmd
+
+segments :: T.Text
+         -> Parser a
+         -> Parser [Segment a]
+segments name p =
+    many (cmd name p <|> plainText)
+
+cmd :: T.Text -> Parser cmd -> Parser (Segment cmd)
+cmd n p =
     try $ do char '{'
-             cmd <- takeWhile1 (\c -> notElem c "|}")
+--             cmd <- takeWhile1 (\c -> notElem c "|}")
+             stringCI n
              char '|'
-             arg <- takeWhile (/= '}')
+             r <- p
              char '}'
-             return (Command cmd arg)
+             return (Cmd r)
 
-segments :: Parser [Segment]
-segments = many segment
+plainText :: Parser (Segment cmd)
+plainText =
+    do t <- takeWhile1 (/= '{')
+       return $ TextBlock t
 
-processSegment :: (MonadIO m) => Map T.Text (T.Text -> m Builder) -> Segment -> m Builder
-processSegment _ (TextBlock txt) = return $ B.fromText txt
-processSegment handlers (Command name txt) =
-    case Map.lookup name handlers of
-      Nothing -> return $ "<span class='preprocessor-error'>Invalid processor name: " `mappend`
-                             (B.fromText name) `mappend`
-                          "</span>"
-      (Just cmd) ->
-          cmd txt
-
-processSegments :: (Functor m, MonadIO m) => Map T.Text (T.Text -> m Builder) -> [Segment] -> m Builder
-processSegments handlers segments =
-    mconcat <$> mapM (processSegment handlers) segments
-
-process :: (Functor m, MonadIO m) => Map T.Text (T.Text -> m Builder) -> T.Text -> m T.Text
-process handlers txt =
-    case parseOnly segments txt of
-      Left e -> error e
-      Right segs ->
-          (TL.toStrict . B.toLazyText) <$> processSegments handlers segs
+-- * Require Role
 
 requiresRole_ :: (Happstack  m) => (ClckURL -> [(T.Text, Maybe T.Text)] -> T.Text) -> Set Role -> url -> ClckT u m url
 requiresRole_ showFn role url =
