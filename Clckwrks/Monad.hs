@@ -122,8 +122,6 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJQueryUIPath    :: FilePath -- ^ path to @jquery-ui.js@ on disk
     , clckJSTreePath      :: FilePath -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath -- ^ path to @JSON2.js@ on disk
---    , clckThemeDir        :: FilePath -- ^ path to theme directory
---    , clckPluginDir       :: Map T.Text FilePath -- ^ map of paths to to plugin directories
     , clckStaticDir       :: FilePath            -- ^ path to 'static' directory
     , clckTopDir          :: Maybe FilePath      -- ^ path to top-level directory for all acid-state files/file uploads/etc
     , clckEnableAnalytics :: Bool                -- ^ enable google analytics
