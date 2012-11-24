@@ -3,18 +3,19 @@ module Clckwrks.Menu.API where
 
 import Clckwrks.Menu.Types (Menu(..), MenuItem(..), MenuName(..), MenuLink(..))
 import Clckwrks.Menu.Acid  (AskMenu(..))
-import Clckwrks.Monad      (Clck, getPrefix, getUnique, query)
+import Clckwrks.Monad      (Clck, getUnique, query)
+import Clckwrks.Types      (Prefix(..))
 import Clckwrks.URL        (ClckURL)
-import Data.Text           (Text)
+import Data.Text           (Text, pack)
 import Data.Tree           (Forest, Tree(..))
 import HSP                 hiding (escape)
 import Web.Routes          (showURL)
 
 mkMenuName :: Text -> Clck url MenuName
 mkMenuName name =
-    do p <- getPrefix
+    do -- p <- getPrefix
        u <- getUnique
-       return $ MenuName { menuPrefix = p
+       return $ MenuName { menuPrefix = Prefix (pack "clckwrks")
                          , menuTag    = name
                          , menuUnique = u
                          }

@@ -25,7 +25,7 @@ module Clckwrks.Monad
     , addPluginPath
     , addPreProc
     , setCurrentPage
-    , getPrefix
+--     , getPrefix
     , getEnableAnalytics
     , getUnique
     , setUnique
@@ -112,43 +112,32 @@ data Theme = Theme
                      -> headers -- ^ extra elements to add to \<head\>
                      -> body    -- ^ elements to insert in \<body\>
                      -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
-{-
-    , _themeTemplate :: ( EmbedAsChild (ServerPartT IO) headers
-                        , EmbedAsChild (ServerPartT IO) body) =>
-                       T.Text    -- ^ page title
-                     -> headers -- ^ extra elements to add to \<head\>
-                     -> body    -- ^ elements to insert in \<body\>
-                     -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
--}
     }
 
 data ClckwrksConfig = ClckwrksConfig
-    { clckHostname        :: String
-    , clckPort            :: Int
---    , clckURL             :: ClckURL -> url
-    , clckJQueryPath      :: FilePath
-    , clckJQueryUIPath    :: FilePath
-    , clckJSTreePath      :: FilePath
-    , clckJSON2Path       :: FilePath
-    , clckThemeDir        :: FilePath
-    , clckPluginDir       :: Map T.Text FilePath
-    , clckStaticDir       :: FilePath
---     , clckPageHandler     :: Clck ClckURL Response
---    , clckBlogHandler     :: Clck ClckURL Response
-    , clckTopDir          :: Maybe FilePath
-    , clckEnableAnalytics :: Bool
-    , clckInitHook        :: ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig)
+    { clckHostname        :: String   -- ^ external name of the host
+    , clckPort            :: Int      -- ^ port to listen on
+    , clckHidePort        :: Bool     -- ^ hide port number in URL (useful when running behind a reverse proxy)
+    , clckJQueryPath      :: FilePath -- ^ path to @jquery.js@ on disk
+    , clckJQueryUIPath    :: FilePath -- ^ path to @jquery-ui.js@ on disk
+    , clckJSTreePath      :: FilePath -- ^ path to @jstree.js@ on disk
+    , clckJSON2Path       :: FilePath -- ^ path to @JSON2.js@ on disk
+    , clckThemeDir        :: FilePath -- ^ path to theme directory
+    , clckPluginDir       :: Map T.Text FilePath -- ^ map of paths to to plugin directories
+    , clckStaticDir       :: FilePath            -- ^ path to 'static' directory
+    , clckTopDir          :: Maybe FilePath      -- ^ path to top-level directory for all acid-state files/file uploads/etc
+    , clckEnableAnalytics :: Bool                -- ^ enable google analytics
+    , clckInitHook        :: ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
     }
 
 
+-- | FIXME: themePath and pluginPath shouldn't be part of ClckState since that information can change when plugins/themes are loaded/unloaded
 data ClckState
     = ClckState { acidState        :: Acid
                 , currentPage      :: PageId
                 , themePath        :: FilePath
                 , pluginPath       :: Map T.Text FilePath
-                , componentPrefix  :: Prefix
                 , uniqueId         :: TVar Integer -- only unique for this request
---                , preProcessorCmds :: forall m url. (Functor m, MonadIO m, Happstack m) => Map T.Text (T.Text -> ClckT url m Builder) -- TODO: should this be a TVar?
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
                 , plugins          :: ClckPlugins -- Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
@@ -219,8 +208,8 @@ setCurrentPage :: PageId -> Clck url ()
 setCurrentPage pid =
     modify $ \s -> s { currentPage = pid }
 
-getPrefix :: Clck url Prefix
-getPrefix = componentPrefix <$> get
+-- getPrefix :: Clck url Prefix
+-- getPrefix = componentPrefix <$> get
 
 setUnique :: Integer -> Clck url ()
 setUnique i =
@@ -240,12 +229,7 @@ getUnique =
 -- | get the 'Bool' value indicating if Google Analytics should be enabled or not
 getEnableAnalytics :: (Functor m, MonadState ClckState m) => m Bool
 getEnableAnalytics = enableAnalytics <$> get
-{-
-addPreProcessor :: (Monad n) => T.Text -> (forall url m. (Functor m, MonadIO m, Happstack m) => T.Text -> ClckT url m Builder) -> ClckT u n ()
-addPreProcessor name action =
-    modify $ \cs ->
-        cs { preProcessorCmds = Map.insert name action (preProcessorCmds cs) }
--}
+
 addAdminMenu :: (Monad m) => (T.Text, [(T.Text, T.Text)]) -> ClckT url m ()
 addAdminMenu (category, entries) =
     modify $ \cs ->

@@ -30,25 +30,7 @@ import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack        (implSite)
 import Web.Plugin.Core             (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
-{-
-data ClckwrksConfig = ClckwrksConfig
-    { clckHostname        :: String
-    , clckPort            :: Int
---    , clckURL             :: ClckURL -> url
-    , clckJQueryPath      :: FilePath
-    , clckJQueryUIPath    :: FilePath
-    , clckJSTreePath      :: FilePath
-    , clckJSON2Path       :: FilePath
-    , clckThemeDir        :: FilePath
-    , clckPluginDir       :: Map Text FilePath
-    , clckStaticDir       :: FilePath
---     , clckPageHandler     :: Clck ClckURL Response
---    , clckBlogHandler     :: Clck ClckURL Response
-    , clckTopDir          :: Maybe FilePath
-    , clckEnableAnalytics :: Bool
-    , clckInitHook        :: ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig)
-    }
--}
+
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
     withPlugins cc [] $ \plugins ->
@@ -58,9 +40,7 @@ withClckwrks cc action =
                                         , currentPage      = PageId 0
                                         , themePath        = clckThemeDir cc
                                         , pluginPath       = clckPluginDir cc
-                                        , componentPrefix  = Prefix (fromString "clckwrks")
                                         , uniqueId         = u
---                                        , preProcessorCmds = Map.empty
                                         , adminMenus       = []
                                         , enableAnalytics  = clckEnableAnalytics cc
                                         , plugins          = plugins
@@ -88,7 +68,6 @@ simpleClckwrks cc =
             , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
             , nullDir >> seeOther ("/clck/view-page/1" :: String) (toResponse ())
             , clckSite cc clckState
---            , implSite (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) (Text.pack "") (clckSite cc clckState)
             ]
 
 jsHandlers :: (Happstack m) => ClckwrksConfig -> m Response
@@ -113,60 +92,7 @@ checkAuth url =
       Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
       Profile CreateNewProfileData -> return url
-{-
-routeClck :: ClckwrksConfig u -> ClckURL -> Clck ClckURL Response
-routeClck cc url' =
-    do url <- checkAuth url'
-       setUnique 0
-       case url of
-         (ViewPage pid) ->
-           do r <- query (GetPageTitle pid)
-              case r of
-                Nothing ->
-                    notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
-                (Just (title, slug)) ->
-                    seeOtherURL (ViewPageSlug pid (toSlug title slug))
 
-         (ViewPageSlug pid _slug) ->
-           do published <- query (IsPublishedPage pid)
-              if published
-                 then do setCurrentPage pid
-                         clckState <- get
-                         (pageHandler clckState)
-                 else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
---         (Blog) ->
---           do pageHandler cc
-         AtomFeed ->
-             do handleAtomFeed
-         (ThemeData fp')  ->
-             do fp <- themePath <$> get
-                let fp'' = makeRelative "/" (unEscapeString fp')
-                if not (isSafePath (splitDirectories fp''))
-                   then notFound (toResponse ())
-                   else serveFile (guessContentTypeM mimeTypes) (fp </> "data" </> fp'')
-         (PluginData plugin fp')  ->
-             do ppm <- pluginPath <$> get
-                case Map.lookup plugin ppm of
-                  Nothing -> notFound (toResponse ())
-                  (Just pp) ->
-                      do let fp'' = makeRelative "/" (unEscapeString fp')
-                         if not (isSafePath (splitDirectories fp''))
-                           then notFound (toResponse ())
-                           else serveFile (guessContentTypeM mimeTypes) (pp </> "data" </> fp'')
-         (Admin adminURL) ->
-             do clckState <- get
-                routeAdmin (pageHandler clckState) adminURL
-         (Profile profileDataURL) ->
-             do nestURL Profile $ routeProfileData profileDataURL
-         (Auth apURL) ->
-             do Acid{..} <- acidState <$> get
-                u <- showURL $ Profile CreateNewProfileData
-                nestURL Auth $ handleAuthProfile acidAuth acidProfile basicTemplate Nothing Nothing u apURL
-
-routeClck' :: ClckwrksConfig u -> ClckState -> ClckURL -> RouteT ClckURL (ServerPartT IO) Response
-routeClck' cc clckState url =
-    mapRouteT (\m -> evalStateT m clckState) $ (unClckT $ routeClck cc url)
--}
 clckSite :: ClckwrksConfig -> ClckState -> ServerPart Response
 clckSite cc clckState =
     do (Just clckShowFn) <- getPluginRouteFn (plugins clckState) (Text.pack "clck")
@@ -184,27 +110,3 @@ pluginsHandler plugins =
                   (Right c) -> c
                   (Left e) -> notFound $ toResponse e
          _ -> notFound (toResponse ())
-
-
-
---    where
---      showFn u p = (Text.pack $ "http://" ++ clckHostname cc ++ ":" ++ show (clckPort cc)) <> toPathInfoParams u p
-{-
-clckSite :: ClckwrksConfig u -> ClckState -> Site ClckURL (ServerPart Response)
-clckSite cc clckState = setDefault (ViewPageSlug (PageId 1) (Slug Text.empty)) $ mkSitePI route'
-    where
-      route' f u = unRouteT (routeClck' cc clckState u) f
--}
-{-
-pageHandler :: (Functor m, ServerMonad m, FilterMonad Response m, MonadIO m) =>
-     Plugins theme (m Response) -> m Response
-pageHandler plugins =
-    do paths <- (map Text.pack . rqPaths) <$> askRq
-       case paths of
-         (p : ps) ->
-             do e <- liftIO $ serve plugins p ps
-                case e of
-                  (Right c) -> c
-                  (Left e) -> notFound $ toResponse e
-         _ -> notFound (toResponse ())
--}
