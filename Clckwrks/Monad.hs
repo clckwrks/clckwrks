@@ -22,7 +22,6 @@ module Clckwrks.Monad
     , markupToContent
 --    , addPreProcessor
     , addAdminMenu
-    , addPluginPath
     , addPreProc
     , setCurrentPage
 --     , getPrefix
@@ -123,7 +122,7 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJSTreePath      :: FilePath -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath -- ^ path to @JSON2.js@ on disk
     , clckThemeDir        :: FilePath -- ^ path to theme directory
-    , clckPluginDir       :: Map T.Text FilePath -- ^ map of paths to to plugin directories
+--    , clckPluginDir       :: Map T.Text FilePath -- ^ map of paths to to plugin directories
     , clckStaticDir       :: FilePath            -- ^ path to 'static' directory
     , clckTopDir          :: Maybe FilePath      -- ^ path to top-level directory for all acid-state files/file uploads/etc
     , clckEnableAnalytics :: Bool                -- ^ enable google analytics
@@ -136,7 +135,7 @@ data ClckState
     = ClckState { acidState        :: Acid
                 , currentPage      :: PageId
                 , themePath        :: FilePath
-                , pluginPath       :: Map T.Text FilePath
+--                , pluginPath       :: Map T.Text FilePath
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
@@ -236,11 +235,6 @@ addAdminMenu (category, entries) =
         let oldMenus = adminMenus cs
             newMenus = Map.toAscList $ Map.insertWith List.union category entries $ Map.fromList oldMenus
         in cs { adminMenus = newMenus }
-
-addPluginPath :: (Monad m) => T.Text -> FilePath -> ClckT url m ()
-addPluginPath plugin fp =
-    modify $ \cs  ->
-        cs { pluginPath = Map.insert plugin fp (pluginPath cs) }
 
 -- | change the route url
 withRouteClckT :: ((url' -> [(T.Text, Maybe T.Text)] -> T.Text) -> url -> [(T.Text, Maybe T.Text)] -> T.Text)

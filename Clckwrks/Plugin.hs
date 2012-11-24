@@ -27,6 +27,7 @@ import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes                  hiding (nestURL)
 import Web.Plugins.Core            (Plugin(..), addHandler, getTheme, getPluginRouteFn, initPlugin)
+import Paths_clckwrks              (getDataDir)
 
 themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
                  , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
@@ -90,14 +91,11 @@ routeClck url' =
                    else serveFile (guessContentTypeM mimeTypes) (fp </> "data" </> fp'')
 
          (PluginData plugin fp')  ->
-             do ppm <- pluginPath <$> get
-                case Map.lookup plugin ppm of
-                  Nothing -> notFound (toResponse ())
-                  (Just pp) ->
-                      do let fp'' = makeRelative "/" (unEscapeString fp')
-                         if not (isSafePath (splitDirectories fp''))
-                           then notFound (toResponse ())
-                           else serveFile (guessContentTypeM mimeTypes) (pp </> "data" </> fp'')
+             do pp <- liftIO getDataDir
+                let fp'' = makeRelative "/" (unEscapeString fp')
+                if not (isSafePath (splitDirectories fp''))
+                  then notFound (toResponse ())
+                  else serveFile (guessContentTypeM mimeTypes) (pp </> "data" </> fp'')
 
          (Admin adminURL) ->
              routeAdmin adminURL

@@ -39,7 +39,7 @@ withClckwrks cc action =
               let clckState = ClckState { acidState        = acid
                                         , currentPage      = PageId 0
                                         , themePath        = clckThemeDir cc
-                                        , pluginPath       = clckPluginDir cc
+--                                        , pluginPath       = clckPluginDir cc
                                         , uniqueId         = u
                                         , adminMenus       = []
                                         , enableAnalytics  = clckEnableAnalytics cc
