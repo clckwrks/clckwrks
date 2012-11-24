@@ -38,8 +38,6 @@ withClckwrks cc action =
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
                                         , currentPage      = PageId 0
-                                        , themePath        = clckThemeDir cc
---                                        , pluginPath       = clckPluginDir cc
                                         , uniqueId         = u
                                         , adminMenus       = []
                                         , enableAnalytics  = clckEnableAnalytics cc

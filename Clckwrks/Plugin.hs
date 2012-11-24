@@ -47,12 +47,13 @@ clckHandler :: (ClckURL -> [(Text, Maybe Text)] -> Text)
             -> ClckPlugins
             -> [Text]
             -> ClckT ClckURL (ServerPartT IO) Response
-clckHandler showRouteFn plugins paths =
+clckHandler showRouteFn _plugins paths =
     case parseSegments fromPathSegments paths of
       (Left e) -> notFound $ toResponse (show e)
       (Right u) -> routeClck u
 
-routeClck :: ClckURL -> Clck ClckURL Response
+routeClck :: ClckURL
+          -> Clck ClckURL Response
 routeClck url' =
     do url <- checkAuth url'
        setUnique 0
@@ -73,8 +74,6 @@ routeClck url' =
                          ttl <- getPageTitle
                          bdy <- getPageContent
                          themeTemplate (plugins cs) ttl () bdy
---                         ok $ toResponse (show pid)
---                         (clckPageHandler cc)
                  else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
 {-
          (Blog) ->  -- FIXME
@@ -84,11 +83,16 @@ routeClck url' =
              do handleAtomFeed
 
          (ThemeData fp')  ->
-             do fp <- themePath <$> get
-                let fp'' = makeRelative "/" (unEscapeString fp')
-                if not (isSafePath (splitDirectories fp''))
-                   then notFound (toResponse ())
-                   else serveFile (guessContentTypeM mimeTypes) (fp </> "data" </> fp'')
+             do p      <- plugins <$> get
+                mTheme <- getTheme p
+                case mTheme of
+                  Nothing -> notFound $ toResponse ("No theme package is loaded." :: Text)
+                  (Just theme) ->
+                      do fp    <- liftIO $ themeDataDir theme
+                         let fp'' = makeRelative "/" (unEscapeString fp')
+                         if not (isSafePath (splitDirectories fp''))
+                           then notFound (toResponse ())
+                           else serveFile (guessContentTypeM mimeTypes) (fp </> "data" </> fp'')
 
          (PluginData plugin fp')  ->
              do pp <- liftIO getDataDir

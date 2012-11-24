@@ -111,6 +111,7 @@ data Theme = Theme
                      -> headers -- ^ extra elements to add to \<head\>
                      -> body    -- ^ elements to insert in \<body\>
                      -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
+    , themeDataDir   :: IO FilePath
     }
 
 data ClckwrksConfig = ClckwrksConfig
@@ -121,7 +122,7 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJQueryUIPath    :: FilePath -- ^ path to @jquery-ui.js@ on disk
     , clckJSTreePath      :: FilePath -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath -- ^ path to @JSON2.js@ on disk
-    , clckThemeDir        :: FilePath -- ^ path to theme directory
+--    , clckThemeDir        :: FilePath -- ^ path to theme directory
 --    , clckPluginDir       :: Map T.Text FilePath -- ^ map of paths to to plugin directories
     , clckStaticDir       :: FilePath            -- ^ path to 'static' directory
     , clckTopDir          :: Maybe FilePath      -- ^ path to top-level directory for all acid-state files/file uploads/etc
@@ -129,13 +130,9 @@ data ClckwrksConfig = ClckwrksConfig
     , clckInitHook        :: ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
     }
 
-
--- | FIXME: themePath and pluginPath shouldn't be part of ClckState since that information can change when plugins/themes are loaded/unloaded
 data ClckState
     = ClckState { acidState        :: Acid
                 , currentPage      :: PageId
-                , themePath        :: FilePath
---                , pluginPath       :: Map T.Text FilePath
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
