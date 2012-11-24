@@ -95,7 +95,7 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.String    (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
-import Web.Plugin.Core               (Plugins, getPluginsSt, modifyPluginsSt)
+import Web.Plugins.Core              (Plugins, getPluginsSt, modifyPluginsSt)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here

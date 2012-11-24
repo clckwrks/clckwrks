@@ -26,31 +26,15 @@ import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath,
 import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes                  hiding (nestURL)
-import Web.Plugin.Core
-{-
-themeTemplate :: ( EmbedAsChild (ServerPartT IO) headers
-                 , EmbedAsChild (ServerPartT IO) body
-                 ) =>
-                 Plugins Theme (ClckT ClckURL (ServerPartT IO) XML)
+import Web.Plugins.Core            (Plugin(..), addHandler, getTheme, getPluginRouteFn, initPlugin)
+
+themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
+                 , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
+                 ClckPlugins
               -> Text
               -> headers
               -> body
               -> ClckT ClckURL (ServerPartT IO) Response
-themeTemplate plugins title headers body =
-    do mTheme <- getTheme plugins
-       case mTheme of
-         Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: Text)
-         (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme) title headers body
--}
-
-themeTemplate
-  :: (EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers,
-      EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
-     ClckPlugins
-  -> Text
-  -> headers
-  -> body
-  -> ClckT ClckURL (ServerPartT IO) Response
 themeTemplate plugins ttl hdrs bdy =
     do mTheme <- getTheme plugins
        case mTheme of
@@ -66,13 +50,6 @@ clckHandler showRouteFn plugins paths =
     case parseSegments fromPathSegments paths of
       (Left e) -> notFound $ toResponse (show e)
       (Right u) -> routeClck u
-{-
-      (Right (ViewPage _)) ->
-          do pps <- liftIO $ getPreProcs plugins
-             txt <- liftIO $ foldM (\txt pp -> pp txt) "I like cheese." (Map.elems pps)
---             themeTemplate plugins "cheese." () <p><% txt %></p>
-             ok $ toResponse txt
--}
 
 routeClck :: ClckURL -> Clck ClckURL Response
 routeClck url' =
@@ -99,7 +76,7 @@ routeClck url' =
 --                         (clckPageHandler cc)
                  else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
 {-
-         (Blog) ->
+         (Blog) ->  -- FIXME
            do clckBlogHandler cc
 -}
          AtomFeed ->

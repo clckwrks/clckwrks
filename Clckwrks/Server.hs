@@ -29,7 +29,7 @@ import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath,
 import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack        (implSite)
-import Web.Plugin.Core             (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
+import Web.Plugins.Core            (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
 
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
