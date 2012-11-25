@@ -75,10 +75,14 @@ routeClck url' =
                          bdy <- getPageContent
                          themeTemplate (plugins cs) ttl () bdy
                  else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
-{-
-         (Blog) ->  -- FIXME
-           do clckBlogHandler cc
--}
+
+         (Blog) ->
+           do p <- plugins <$> get
+              mTheme <- getTheme p
+              case mTheme of
+                Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: Text)
+                (Just theme) -> fmap toResponse $ unXMLGenT $ themeBlog theme
+
          AtomFeed ->
              do handleAtomFeed
 

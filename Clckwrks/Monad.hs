@@ -111,6 +111,7 @@ data Theme = Theme
                      -> headers -- ^ extra elements to add to \<head\>
                      -> body    -- ^ elements to insert in \<body\>
                      -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
+    , themeBlog      :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
     , themeDataDir   :: IO FilePath
     }
 
