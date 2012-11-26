@@ -1,16 +1,18 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 module Clckwrks.Page.PreProcess where
-import Control.Monad.Trans (MonadIO)
+
+import Control.Monad.Trans (MonadIO(..))
 import Control.Applicative ((<*>), (*>), (<$>), (<|>), optional)
-import Clckwrks.Monad (ClckT, ClckState, query)
+import Clckwrks.Monad (ClckT, ClckState, transform, query, segments)
 import Clckwrks.Page.Acid (GetPageTitle(..))
 import Clckwrks.URL   (ClckURL(ViewPageSlug))
 import Clckwrks.Page.Types (PageId(..), slugify, toSlug)
-import Data.Attoparsec.Text (Parser, anyChar, char, decimal, parseOnly, space, stringCI, try)
+import Data.Attoparsec.Text.Lazy        (Parser, Result(..), anyChar, char, choice, decimal, parse, skipMany, space, stringCI, skipMany, try)
 import Data.Attoparsec.Combinator (many1, manyTill, skipMany)
 import Data.String (fromString)
 import           Data.Text (Text, pack)
+import qualified Data.Text.Lazy         as TL
 import           Data.Text.Lazy.Builder (Builder)
 import qualified Data.Text.Lazy.Builder as B
 import HSP
@@ -45,22 +47,24 @@ pageId = LinkPage <$> (parseAttr (fromString "id") *> (PageId <$> decimal)) <*> 
 parseCmd :: Parser PageCmd
 parseCmd = pageId
 
-pageCmd :: (Functor m, MonadIO m) => (ClckURL -> [(Text, Maybe Text)] -> Text) -> Text -> ClckT url m Builder
-pageCmd showURLFn txt =
-    do let mi = parseOnly parseCmd txt
-       case mi of
-         (Left e) ->
-               return $ B.fromString e -- FIXME: format the error more nicely or something?
+pageCmd :: (Functor m, MonadIO m) =>
+           (ClckURL -> [(Text, Maybe Text)] -> Text)
+        -> TL.Text
+        -> ClckT url m TL.Text
+pageCmd clckShowURL txt =
+    case parse (segments "page" parseCmd) txt of
+      (Fail _ _ e) -> return (TL.pack e)
+      (Done _ segments) ->
+          do b <- transform (applyCmd clckShowURL) segments
+             return $ B.toLazyText b
 
-         (Right cmd) ->
-             case cmd of
-               (LinkPage pid mTitle) ->
-                   do (ttl, slug) <-
-                          case mTitle of
-                              (Just t) -> return (t, Just $ slugify t)
-                              Nothing  -> do mttl <- query (GetPageTitle pid)
-                                             case mttl of
-                                               Nothing -> return $ (pack "Untitled", Nothing)
-                                               (Just ttlSlug) -> return ttlSlug
-                      html <- unXMLGenT $ <a href=(showURLFn (ViewPageSlug pid (toSlug ttl slug)) [])><% ttl %></a>
-                      return $ B.fromString $ concat $ lines $ renderAsHTML html
+applyCmd clckShowURL l@(LinkPage pid mTitle) =
+    do (ttl, slug) <-
+           case mTitle of
+             (Just t) -> return (t, Just $ slugify t)
+             Nothing  -> do mttl <- query (GetPageTitle pid)
+                            case mttl of
+                              Nothing -> return $ (pack "Untitled", Nothing)
+                              (Just ttlSlug) -> return ttlSlug
+       html <- unXMLGenT $ <a href=(clckShowURL (ViewPageSlug pid (toSlug ttl slug)) [])><% ttl %></a>
+       return $ B.fromString $ concat $ lines $ renderAsHTML html

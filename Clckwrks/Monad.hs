@@ -481,7 +481,10 @@ markupToContent Markup{..} =
        transformers <- liftIO $ getPluginsSt (plugins clckState)
        (markup', clckState') <- liftIO $ runClckT undefined clckState (foldM (\txt pp -> pp txt) (TL.fromStrict markup) transformers)
        put clckState'
-       return (TrustedHtml $ TL.toStrict markup')
+       e <- liftIO $ runPreProcessors preProcessors trust (TL.toStrict markup')
+       case e of
+         (Left err)   -> return (PlainText err)
+         (Right html) -> return (TrustedHtml html)
 
 addPreProc :: (MonadIO m) =>
               Plugins theme n hook config [TL.Text -> ClckT ClckURL IO TL.Text]
@@ -495,6 +498,11 @@ addPreProc plugins p =
 data Segment cmd
     = TextBlock T.Text
     | Cmd cmd
+      deriving Show
+
+instance Functor Segment where
+    fmap f (TextBlock t) = TextBlock t
+    fmap f (Cmd c)       = Cmd (f c)
 
 transform :: (Monad m) =>
              (cmd -> m Builder)
@@ -519,13 +527,15 @@ segments name p =
 
 cmd :: T.Text -> Parser cmd -> Parser (Segment cmd)
 cmd n p =
-    try $ do char '{'
---             cmd <- takeWhile1 (\c -> notElem c "|}")
-             stringCI n
-             char '|'
-             r <- p
-             char '}'
-             return (Cmd r)
+    do char '{'
+       ((try $ do stringCI n
+                  char '|'
+                  r <- p
+                  char '}'
+                  return (Cmd r))
+             <|>
+             (do t <- takeWhile1 (/= '{')
+                 return $ TextBlock (T.cons '{' t)))
 
 plainText :: Parser (Segment cmd)
 plainText =

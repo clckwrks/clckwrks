@@ -1,31 +1,21 @@
 {-# LANGUAGE RecordWildCards, FlexibleContexts, Rank2Types, OverloadedStrings #-}
 module Clckwrks.Plugin where
 
-import Control.Applicative ((<$>))
-import Control.Monad.State (MonadState(get))
 import Clckwrks
-import Clckwrks.Acid
 import Clckwrks.Admin.Route        (routeAdmin)
-import Clckwrks.Admin.Template     (defaultAdminMenu)
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
 import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.ProfileData.Route  (routeProfileData)
-import Clckwrks.Monad
-import Clckwrks.URL
-import Clckwrks.Server (checkAuth)
-import Control.Monad
-import Control.Monad.Trans
-import Data.Text (Text)
+import Clckwrks.Page.PreProcess    (pageCmd)
+import Clckwrks.Server             (checkAuth)
+import Control.Monad.State         (MonadState(get))
+import Data.Text                   (Text)
 import qualified Data.Text.Lazy as TL
-import qualified Data.Map as Map
-import Data.Monoid ((<>))
-import Happstack.Server
 import Happstack.Auth              (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
-import Web.Routes                  hiding (nestURL)
 import Web.Plugins.Core            (Plugin(..), addHandler, getTheme, getPluginRouteFn, initPlugin)
 import Paths_clckwrks              (getDataDir)
 
@@ -119,10 +109,9 @@ routeClck url' =
 clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
-    do (Just clckShowFn) <- getPluginRouteFn plugins "clck"
---       evalClckT defaultAdminMenu clckShowFn
---       addPreProc plugins "clck" (clckPreProcessor clckShowFn)
-       addHandler (plugins :: ClckPlugins) "clck" (clckHandler clckShowFn)
+    do (Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
+       addPreProc plugins (pageCmd clckShowFn)
+       addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing
 
 
