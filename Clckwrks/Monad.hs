@@ -11,6 +11,7 @@ module Clckwrks.Monad
     , AttributeType(..)
     , Theme(..)
     , ThemeName
+    , calcBaseURI
     , evalClckT
     , execClckT
     , runClckT
@@ -123,11 +124,14 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJQueryUIPath    :: FilePath -- ^ path to @jquery-ui.js@ on disk
     , clckJSTreePath      :: FilePath -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath -- ^ path to @JSON2.js@ on disk
-    , clckStaticDir       :: FilePath            -- ^ path to 'static' directory
     , clckTopDir          :: Maybe FilePath      -- ^ path to top-level directory for all acid-state files/file uploads/etc
     , clckEnableAnalytics :: Bool                -- ^ enable google analytics
-    , clckInitHook        :: ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
+    , clckInitHook        :: T.Text -> ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
     }
+
+-- | calculate the baseURI from the 'clckHostname', 'clckPort' and 'clckHidePort' options
+calcBaseURI :: ClckwrksConfig -> T.Text
+calcBaseURI c = Text.pack $ "http://" ++ (clckHostname c) ++ if ((clckPort c /= 80) && (clckHidePort c == False)) then (':' : show (clckPort c)) else ""
 
 data ClckState
     = ClckState { acidState        :: Acid

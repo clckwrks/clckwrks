@@ -30,6 +30,7 @@ import Network.URI                 (unEscapeString)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack        (implSite)
 import Web.Plugins.Core            (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
+import qualified Paths_clckwrks    as Clckwrks
 
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
@@ -48,7 +49,7 @@ withClckwrks cc action =
 simpleClckwrks :: ClckwrksConfig -> IO ()
 simpleClckwrks cc =
   withClckwrks cc $ \clckState ->
-      do (clckState', cc') <- (clckInitHook cc) clckState cc
+      do (clckState', cc') <- (clckInitHook cc) (calcBaseURI cc) clckState cc
          let p = plugins clckState'
          hooks <- getPostHooks p
          (Just clckShowFn) <- getPluginRouteFn p "clck"
@@ -63,7 +64,7 @@ simpleClckwrks cc =
           msum $
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
-            , dir "static"      $ serveDirectory DisableBrowsing [] (clckStaticDir cc)
+            , dir "static"      $ (liftIO $ Clckwrks.getDataFileName "static") >>= serveDirectory DisableBrowsing []
             , nullDir >> seeOther ("/clck/view-page/1" :: String) (toResponse ())
             , clckSite cc clckState
             ]
