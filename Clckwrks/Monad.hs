@@ -108,9 +108,9 @@ data Theme = Theme
     { themeName      :: ThemeName
     , _themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
                         , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
-                        T.Text  -- ^ page title
-                     -> headers -- ^ extra elements to add to \<head\>
-                     -> body    -- ^ elements to insert in \<body\>
+                        T.Text
+                     -> headers
+                     -> body
                      -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
     , themeBlog      :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
     , themeDataDir   :: IO FilePath

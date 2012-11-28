@@ -33,9 +33,6 @@ clckwrksOpts def =
     , Option [] ["jstree-path"]   (ReqArg setJSTreePath   "path") ("path to jstree directory, default: " ++ show (clckJSTreePath def))
     , Option [] ["json2-path"]    (ReqArg setJSON2Path    "path") ("path to json2 directory, default: " ++ show (clckJSON2Path def))
     , Option [] ["top"]           (ReqArg setTopDir       "path") ("path to directory that holds the state directory, uploads, etc")
-    , Option [] ["static"]        (ReqArg noop "ignored")         "unused"
-    , Option [] ["logs"]          (ReqArg noop "ignored")         "unimplemented"
-    , Option [] ["log-mode"]      (ReqArg noop "ignored")         "unimplemented"
     , Option [] ["enable-analytics"] (NoArg setAnalytics)         "enable google analytics tracking"
     ]
     where
