@@ -1,7 +1,16 @@
 Name:                clckwrks
 Version:             0.13.0
-Synopsis:            A secure, reliable CMS
--- Description:
+Synopsis:            A secure, reliable content management system (CMS) and blogging platform
+Description:         clckwrks (pronounced, clockworks) aims to compete
+                     directly with popular PHP-based blogging and CMS
+                     platforms. Clckwrks aims to support one-click
+                     installation of plugins and themes. End users
+                     should be able to use it with zero Haskell
+                     knowledge. Haskell developers can extend clckwrks
+                     by creating new plugins or by building sites
+                     around the existing clckwrks core and plugins.
+                     .
+                     clckwrks is still in very early development. Not all features have been implement yet.
 Homepage:            http://www.clckwrks.com/
 License:             BSD3
 License-file:        LICENSE
@@ -11,10 +20,14 @@ Copyright:           2012 SeeReason Partners LLC, Jeremy Shaw
 Stability:           Experimental
 Category:            Clckwrks
 Build-type:          Custom
--- Extra-source-files:
 Cabal-version:       >=1.6
 Data-Files:
     static/admin.css
+
+source-repository head
+    type:     darcs
+    subdir:   clckwrks
+    location: http://hub.darcs.net/stepcut/clckwrks
 
 Library
   Build-tools:     trhsx
