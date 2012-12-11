@@ -22,7 +22,7 @@ routeAdmin url =
       EditFeedConfig    -> editFeedConfig (Admin url)
       EditSettings      -> editSettings   (Admin url)
       NewPage           -> nestURL Admin $ newPage PlainPage
---      (PreviewPage pid) -> previewPage pageHandler pid -- FIXME
+      (PreviewPage pid) -> previewPage pid -- FIXME
       NewPost           -> nestURL Admin $ newPage Post
       Pages             -> nestURL Admin $ pages
       EditMenu          ->
