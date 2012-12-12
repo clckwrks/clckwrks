@@ -55,7 +55,6 @@ import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
 import Control.Monad.Trans           (MonadIO(liftIO), lift)
 import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
-import Data.Aeson                    (Value(..))
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
 import Data.Acid.Advanced            (query', update')
 import Data.Attoparsec.Text.Lazy     (Parser, parseOnly, char, stringCI, try, takeWhile, takeWhile1)
@@ -246,15 +245,6 @@ type Clck url = ClckT url (ServerPartT IO)
 
 instance IntegerSupply (Clck url) where
     nextInteger = getUnique
-
-instance ToJExpr Value where
-    toJExpr (Object obj)  = ValExpr $ JHash   $ Map.fromList $ map (\(k,v) -> (T.unpack k, toJExpr v)) (HashMap.toList obj)
-    toJExpr (Array vs)    = ValExpr $ JList   $ map toJExpr (Vector.toList vs)
-    toJExpr (String s)    = ValExpr $ JStr    $ T.unpack s
-    toJExpr (Number n)    = ValExpr $ JDouble $ realToFrac n
-    toJExpr (Bool True)   = ValExpr $ JVar    $ StrI "true"
-    toJExpr (Bool False)  = ValExpr $ JVar    $ StrI "false"
-    toJExpr Null          = ValExpr $ JVar    $ StrI "null"
 
 instance ToJExpr Text.Text where
   toJExpr t = ValExpr $ JStr $ T.unpack t

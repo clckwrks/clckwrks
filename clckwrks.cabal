@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.13.1
+Version:             0.13.2
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -88,9 +88,9 @@ Library
      happstack-server             >= 7.0 && < 7.2,
      hsp                          == 0.7.*,
      hsx                          == 0.10.*,
-     hsx-jmacro                   == 7.1.*,
+     hsx-jmacro                   == 7.2.*,
      ixset                        == 1.0.*,
-     jmacro                       == 0.5.*,
+     jmacro                       == 0.6.*,
      mtl                          >= 2.0 && < 2.3,
      network                      >= 2.3 && < 2.5,
      old-locale                   ==  1.0.*,
