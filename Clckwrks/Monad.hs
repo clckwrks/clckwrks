@@ -57,7 +57,7 @@ import Control.Monad.Trans           (MonadIO(liftIO), lift)
 import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
 import Data.Acid.Advanced            (query', update')
-import Data.Attoparsec.Text.Lazy     (Parser, parseOnly, char, stringCI, try, takeWhile, takeWhile1)
+import Data.Attoparsec.Text.Lazy     (Parser, parseOnly, char, asciiCI, try, takeWhile, takeWhile1)
 import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.List           as List
 import qualified Data.Map            as Map
@@ -202,14 +202,14 @@ type ClckFormT error m = Form m  [Input] error [XMLGenT m XML] ()
 type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [XMLGenT (ClckT url (ServerPartT IO)) XML] ()
 
 -- | update the 'currentPage' field of 'ClckState'
-setCurrentPage :: PageId -> Clck url ()
+setCurrentPage :: (MonadIO m) => PageId -> ClckT url m ()
 setCurrentPage pid =
     modify $ \s -> s { currentPage = pid }
 
 -- getPrefix :: Clck url Prefix
 -- getPrefix = componentPrefix <$> get
 
-setUnique :: Integer -> Clck url ()
+setUnique :: (Functor m, MonadIO m) => Integer -> ClckT url m ()
 setUnique i =
     do u <- uniqueId <$> get
        liftIO $ atomically $ writeTVar u i
@@ -217,7 +217,7 @@ setUnique i =
 -- | get a unique 'Integer'.
 --
 -- Only unique for the current request
-getUnique :: Clck url Integer
+getUnique :: (Functor m, MonadIO m) => ClckT url m Integer
 getUnique =
     do u <- uniqueId <$> get
        liftIO $ atomically $ do i <- readTVar u
@@ -243,7 +243,7 @@ withRouteClckT f (ClckT routeT) = (ClckT $ withRouteT f routeT)
 
 type Clck url = ClckT url (ServerPartT IO)
 
-instance IntegerSupply (Clck url) where
+instance (Functor m, MonadIO m) => IntegerSupply (ClckT url m) where
     nextInteger = getUnique
 
 instance ToJExpr Text.Text where
@@ -522,7 +522,7 @@ segments name p =
 cmd :: T.Text -> Parser cmd -> Parser (Segment cmd)
 cmd n p =
     do char '{'
-       ((try $ do stringCI n
+       ((try $ do asciiCI n
                   char '|'
                   r <- p
                   char '}'
