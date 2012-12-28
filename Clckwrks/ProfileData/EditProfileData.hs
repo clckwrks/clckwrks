@@ -10,7 +10,7 @@ import Data.Maybe               (fromMaybe)
 import qualified Data.Text      as Text
 import Happstack.Auth           (UserId)
 import Text.Reform              ((++>), transformEitherM)
-import Text.Reform.HSP.Text     (form, inputText, inputSubmit, label, fieldset, ol, li)
+import Text.Reform.HSP.Text     (form, inputText, inputSubmit, label, fieldset, ol, li, errorList)
 import Text.Reform.Happstack    (reform)
 
 -- FIXME: this currently uses the admin template. Which is sort of right, and sort of not.
@@ -38,19 +38,17 @@ editProfileDataPage here =
 
 profileDataFormlet :: ProfileData -> ClckForm ProfileDataURL ()
 profileDataFormlet pd@ProfileData{..} =
-    ((,) <$> (li $ label "username:" )        ++> (li $ inputText username)
+    errorList ++> ((,) <$> (li $ label "username:" )        ++> (li $ inputText username)
          <*> (li $ label" email (optional):") ++> (li $ inputText (fromMaybe Text.empty email))
          <* inputSubmit (pack "update"))
     `transformEitherM` updateProfileData
     where
       updateProfileData :: (Text, Text) -> Clck ProfileDataURL (Either ClckFormError ())
       updateProfileData (usrnm, eml) =
-              if Text.null usrnm
-                 then do return (Left EmptyUsername)
-                 else do let newPd = pd { username = usrnm
-                                        , email    = if Text.null eml then Nothing else (Just eml)
-                                        }
-                         merr <- update (SetProfileData newPd)
-                         case merr of
-                           Nothing    -> return $ Right ()
-                           (Just err) -> return $ Left (PDE err)
+          do let newPd = pd { username = usrnm
+                            , email    = if Text.null eml then Nothing else (Just eml)
+                            }
+             merr <- update (SetProfileData newPd)
+             case merr of
+               Nothing    -> return $ Right ()
+               (Just err) -> return $ Left (PDE err)
