@@ -20,7 +20,8 @@ import Web.Plugins.Core            (Plugin(..), addHandler, getTheme, getPluginR
 import Paths_clckwrks              (getDataDir)
 
 themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
-                 , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
+                 , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body
+                 ) =>
                  ClckPlugins
               -> Text
               -> headers
@@ -31,7 +32,6 @@ themeTemplate plugins ttl hdrs bdy =
        case mTheme of
          Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: Text)
          (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme ttl hdrs bdy)
-
 
 clckHandler :: (ClckURL -> [(Text, Maybe Text)] -> Text)
             -> ClckPlugins
