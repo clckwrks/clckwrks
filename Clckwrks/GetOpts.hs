@@ -1,10 +1,12 @@
+{-# LANGUAGE RecordWildCards #-}
 module Clckwrks.GetOpts where
 
-import Clckwrks.Monad
-import System.Console.GetOpt -- (Permute, OptDescr, getOpt)
-import System.Environment
-import System.Exit
-
+import Control.Applicative   ((<$>))
+import Clckwrks.Monad        (ClckwrksConfig(..), TLSSettings(..))
+import Data.Maybe            (fromMaybe)
+import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
+import System.Directory      (doesFileExist)
+import System.Exit           (exitFailure, exitSuccess)
 
 ------------------------------------------------------------------------------
 -- Command line options
@@ -26,6 +28,9 @@ clckwrksOpts :: ClckwrksConfig -> [OptDescr Flag]
 clckwrksOpts def =
     [ Option [] ["help"]          (NoArg Help)                    "Display this help message"
     , Option [] ["http-port"]     (ReqArg setPort "port")         ("Port to bind http server, default: " ++ show (clckPort def))
+    , Option [] ["https-port"]    (ReqArg setTLSPort "port")      ("Port to bind https server, default:" ++ maybe "disabled." show (clckTLSPort <$> (clckTLS def)))
+    , Option [] ["tls-cert"]      (ReqArg setTLSCert "path")      ("Path to tls .cert file. (required for https).")
+    , Option [] ["tls-key"]       (ReqArg setTLSKey "path")      ("Path to tls .key file. (required for https).")
     , Option [] ["hide-port"]     (NoArg setHidePort)             "Do not show the port number in the URL"
     , Option [] ["hostname"]      (ReqArg setHostname "hostname") ("Server hostename, default: " ++ show (clckHostname def))
     , Option [] ["jquery-path"]   (ReqArg setJQueryPath   "path") ("path to jquery directory, default: " ++ show (clckJQueryPath def))
@@ -36,8 +41,19 @@ clckwrksOpts def =
     , Option [] ["enable-analytics"] (NoArg setAnalytics)         "enable google analytics tracking"
     ]
     where
+      nullTLSSettings     = TLSSettings { clckTLSPort = 443
+                                        , clckTLSCert = ""
+                                        , clckTLSKey  = ""
+                                        }
+      modifyTLS f cc =
+          Just $ case clckTLS cc of
+            Nothing -> f nullTLSSettings
+            (Just tls) -> f tls
       noop            _   = ModifyConfig $ id
       setPort         str = ModifyConfig $ \c -> c { clckPort         = read str }
+      setTLSPort      str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSPort = read str }) c }
+      setTLSCert      str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSCert = str }) c }
+      setTLSKey       str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSKey = str }) c }
       setHostname     str = ModifyConfig $ \c -> c { clckHostname     = str      }
       setHidePort         = ModifyConfig $ \c -> c { clckHidePort     = True     }
       setJQueryPath   str = ModifyConfig $ \c -> c { clckJQueryPath   = str      }
@@ -49,20 +65,44 @@ clckwrksOpts def =
 
 -- | Parse the command line arguments into a list of flags. Exits with usage
 -- message, in case of failure.
-parseArgs :: [OptDescr Flag] -> [String] -> IO (ClckwrksConfig -> ClckwrksConfig)
+parseArgs :: [OptDescr Flag] -> [String] -> IO (ClckwrksConfig -> IO ClckwrksConfig)
 parseArgs opts args =
     do case getOpt Permute opts args of
          (flags,_,[]) ->
              if any isHelp flags
              then do putStr (helpMessage opts)
                      exitSuccess
-             else do let f config = foldr (.) id [f | (ModifyConfig f) <- flags ] config
+             else do let f config = checkTLS $ foldr (.) id [f | (ModifyConfig f) <- flags ] config
                      return f
          (_,_,errs)   ->
              do putStr ("Failure while parsing command line:\n"++unlines errs)
                 putStr (helpMessage opts)
                 exitFailure
-
+    where
+      checkTLS cc =
+          case clckTLS cc of
+            Nothing -> return cc
+            (Just TLSSettings{..}) ->
+                do mCertError <-
+                       if null clckTLSCert
+                          then return (Just "--tls-cert not set.")
+                          else do b <- doesFileExist clckTLSCert
+                                  if b
+                                     then return Nothing
+                                     else return (Just $ "Can not find the file " ++ clckTLSCert)
+                   mKeyError <-
+                       if null clckTLSKey
+                          then return (Just "--tls-key not set.")
+                          else do b <- doesFileExist clckTLSKey
+                                  if b
+                                     then return Nothing
+                                     else return (Just $ "Can not find the file " ++ clckTLSKey)
+                   case (mCertError, mKeyError) of
+                     (Nothing, Nothing) -> return cc
+                     _ -> do putStrLn "It seems you are trying to enable https support. To do that you need to use both the --tls-cert and --tls-key flags."
+                             putStrLn $ unlines [fromMaybe "" mCertError, fromMaybe "" mKeyError]
+                             putStrLn $ helpMessage opts
+                             exitFailure
 
 -- | A simple usage message listing all flags possible.
 helpMessage :: [OptDescr Flag] -> String

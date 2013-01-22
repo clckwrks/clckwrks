@@ -2,35 +2,36 @@
 module Clckwrks.Server where
 
 import Clckwrks
-import Clckwrks.BasicTemplate      (basicTemplate)
-import Clckwrks.Admin.Route        (routeAdmin)
-import Clckwrks.Admin.Template     (defaultAdminMenu)
-import Clckwrks.Monad              (ClckwrksConfig(..))
-import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
-import Clckwrks.Page.Atom          (handleAtomFeed)
-import Clckwrks.Page.PreProcess    (pageCmd)
-import Clckwrks.ProfileData.Route  (routeProfileData)
-import Clckwrks.ProfileData.Types  (Role(..))
-import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
-import Control.Arrow               (second)
-import Control.Concurrent.STM      (atomically, newTVar)
-import Control.Monad.State         (get, evalStateT)
-import           Data.Map          (Map)
-import qualified Data.Map          as Map
-import Data.Maybe                  (fromJust)
-import Data.Monoid                 ((<>))
-import qualified Data.Set          as Set
-import Data.String                 (fromString)
-import           Data.Text         (Text)
-import qualified Data.Text         as Text
-import qualified Data.UUID         as UUID
-import Happstack.Auth              (handleAuthProfile)
+import Clckwrks.BasicTemplate       (basicTemplate)
+import Clckwrks.Admin.Route         (routeAdmin)
+import Clckwrks.Admin.Template      (defaultAdminMenu)
+import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..))
+import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
+import Clckwrks.Page.Atom           (handleAtomFeed)
+import Clckwrks.Page.PreProcess     (pageCmd)
+import Clckwrks.ProfileData.Route   (routeProfileData)
+import Clckwrks.ProfileData.Types   (Role(..))
+import Clckwrks.ProfileData.URL     (ProfileDataURL(..))
+import Control.Arrow                (second)
+import Control.Concurrent           (forkIO, killThread)
+import Control.Concurrent.STM       (atomically, newTVar)
+import Control.Monad.State          (get, evalStateT)
+import           Data.Map           (Map)
+import qualified Data.Map           as Map
+import Data.Maybe                   (fromJust)
+import Data.Monoid                  ((<>))
+import Data.String                  (fromString)
+import           Data.Text          (Text)
+import qualified Data.Text          as Text
+import qualified Data.UUID          as UUID
+import Happstack.Auth               (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
-import Network.URI                 (unEscapeString)
-import System.FilePath             ((</>), makeRelative, splitDirectories)
-import Web.Routes.Happstack        (implSite)
-import Web.Plugins.Core            (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
-import qualified Paths_clckwrks    as Clckwrks
+import Happstack.Server.SimpleHTTPS (TLSConf(..), nullTLSConf, simpleHTTPS)
+import Network.URI                  (unEscapeString)
+import System.FilePath              ((</>), makeRelative, splitDirectories)
+import Web.Routes.Happstack         (implSite)
+import Web.Plugins.Core             (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
+import qualified Paths_clckwrks     as Clckwrks
 
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
@@ -57,7 +58,23 @@ simpleClckwrks cc =
          clckState'' <- execClckT showFn clckState' $ do sequence_ hooks
                                                          dm <- defaultAdminMenu
                                                          mapM_ addAdminMenu dm
-         simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
+         httpTID  <- forkIO $ simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
+
+         mHttpsTID <-
+             case clckTLS cc' of
+               Nothing -> return Nothing
+               (Just TLSSettings{..}) ->
+                   do let tlsConf = nullTLSConf { tlsPort = clckTLSPort
+                                                , tlsCert = clckTLSCert
+                                                , tlsKey  = clckTLSKey
+                                                }
+                      tid <- forkIO $ simpleHTTPS tlsConf (handlers cc' clckState'')
+                      return (Just tid)
+         -- putStrLn "Server Now Listening For Requests."
+         waitForTermination
+         killThread httpTID
+         maybe (return ()) killThread mHttpsTID
+
     where
     handlers cc clckState =
        do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
@@ -76,21 +93,6 @@ jsHandlers c =
        , dir "jstree"      $ serveDirectory DisableBrowsing [] (clckJSTreePath c)
        , dir "json2"       $ serveDirectory DisableBrowsing [] (clckJSON2Path c)
        ]
-
-checkAuth :: (Happstack m, Monad m) => ClckURL -> ClckT ClckURL m ClckURL
-checkAuth url =
-    case url of
-      ViewPage{}           -> return url
-      ViewPageSlug{}       -> return url
-      Blog{}               -> return url
-      AtomFeed{}           -> return url
-      ThemeData{}          -> return url
-      PluginData{}         -> return url
-      Admin{}              -> requiresRole (Set.singleton Administrator) url
-      Auth{}               -> return url
-      Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
-      Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
-      Profile CreateNewProfileData -> return url
 
 clckSite :: ClckwrksConfig -> ClckState -> ServerPart Response
 clckSite cc clckState =

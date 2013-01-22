@@ -39,9 +39,9 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "page")        ips)                     (createArchiveCheckpointAndClose) $ \page ->
     bracket (openLocalStateFrom (basePath </> "menu")        initialMenuState)        (createArchiveCheckpointAndClose) $ \menu ->
-        bracket (forkIO $ tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket"))
-                (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
-                (const $ f (Acid auth profile profileData page menu))
+    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket")))
+            (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
+            (const $ f (Acid auth profile profileData page menu))
     where
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)
       createArchiveCheckpointAndClose acid =

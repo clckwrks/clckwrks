@@ -8,10 +8,12 @@ module Clckwrks.Monad
     , ClckFormError(..)
     , ChildType(..)
     , ClckwrksConfig(..)
+    , TLSSettings(..)
     , AttributeType(..)
     , Theme(..)
     , ThemeName
     , calcBaseURI
+    , calcTLSBaseURI
     , evalClckT
     , execClckT
     , runClckT
@@ -34,6 +36,8 @@ module Clckwrks.Monad
     , query
     , update
     , nestURL
+    , withAbs
+    , withAbs'
     , segments
     , transform
     )
@@ -61,13 +65,14 @@ import Data.Attoparsec.Text.Lazy     (Parser, parseOnly, char, asciiCI, try, tak
 import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.List           as List
 import qualified Data.Map            as Map
-import Data.Monoid                   (mappend, mconcat)
+import Data.Monoid                   ((<>), mappend, mconcat)
 import qualified Data.Text           as Text
 import qualified Data.Vector         as Vector
 import Data.ByteString.Lazy          as LB (ByteString)
 import Data.ByteString.Lazy.UTF8     as LB (toString)
 import Data.Data                     (Data, Typeable)
 import Data.Map                      (Map)
+import Data.Maybe                    (fromJust)
 import Data.SafeCopy                 (SafeCopy(..))
 import Data.Set                      (Set)
 import qualified Data.Text           as T
@@ -79,7 +84,7 @@ import Data.Time.Format              (formatTime)
 import Happstack.Auth                (AuthProfileURL(..), AuthURL(..), AuthState, ProfileState, UserId)
 import qualified Happstack.Auth      as Auth
 
-import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT, escape)
+import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Request(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT, escape)
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
@@ -94,7 +99,7 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.String    (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
-import Web.Plugins.Core              (Plugins, getPluginsSt, modifyPluginsSt)
+import Web.Plugins.Core              (Plugins, getConfig, getPluginsSt, modifyPluginsSt)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
@@ -115,22 +120,37 @@ data Theme = Theme
     , themeDataDir   :: IO FilePath
     }
 
+data TLSSettings = TLSSettings
+    { clckTLSPort :: Int
+    , clckTLSCert :: FilePath
+    , clckTLSKey  :: FilePath
+    }
+
 data ClckwrksConfig = ClckwrksConfig
-    { clckHostname        :: String   -- ^ external name of the host
-    , clckPort            :: Int      -- ^ port to listen on
-    , clckHidePort        :: Bool     -- ^ hide port number in URL (useful when running behind a reverse proxy)
-    , clckJQueryPath      :: FilePath -- ^ path to @jquery.js@ on disk
-    , clckJQueryUIPath    :: FilePath -- ^ path to @jquery-ui.js@ on disk
-    , clckJSTreePath      :: FilePath -- ^ path to @jstree.js@ on disk
-    , clckJSON2Path       :: FilePath -- ^ path to @JSON2.js@ on disk
-    , clckTopDir          :: Maybe FilePath      -- ^ path to top-level directory for all acid-state files/file uploads/etc
-    , clckEnableAnalytics :: Bool                -- ^ enable google analytics
+    { clckHostname        :: String         -- ^ external name of the host
+    , clckPort            :: Int            -- ^ port to listen on
+    , clckTLS             :: Maybe TLSSettings -- ^ HTTPS
+    , clckHidePort        :: Bool           -- ^ hide port number in URL (useful when running behind a reverse proxy)
+    , clckJQueryPath      :: FilePath       -- ^ path to @jquery.js@ on disk
+    , clckJQueryUIPath    :: FilePath       -- ^ path to @jquery-ui.js@ on disk
+    , clckJSTreePath      :: FilePath       -- ^ path to @jstree.js@ on disk
+    , clckJSON2Path       :: FilePath       -- ^ path to @JSON2.js@ on disk
+    , clckTopDir          :: Maybe FilePath -- ^ path to top-level directory for all acid-state files/file uploads/etc
+    , clckEnableAnalytics :: Bool           -- ^ enable google analytics
     , clckInitHook        :: T.Text -> ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
     }
 
 -- | calculate the baseURI from the 'clckHostname', 'clckPort' and 'clckHidePort' options
 calcBaseURI :: ClckwrksConfig -> T.Text
-calcBaseURI c = Text.pack $ "http://" ++ (clckHostname c) ++ if ((clckPort c /= 80) && (clckHidePort c == False)) then (':' : show (clckPort c)) else ""
+calcBaseURI c =
+    Text.pack $ "http://" ++ (clckHostname c) ++ if ((clckPort c /= 80) && (clckHidePort c == False)) then (':' : show (clckPort c)) else ""
+
+calcTLSBaseURI  :: ClckwrksConfig -> Maybe T.Text
+calcTLSBaseURI c =
+    case clckTLS c of
+      Nothing -> Nothing
+      (Just tlsSettings) ->
+          Just $ Text.pack $ "https://" ++ (clckHostname c) ++ if ((clckPort c /= 443) && (clckHidePort c == False)) then (':' : show (clckTLSPort tlsSettings)) else ""
 
 data ClckState
     = ClckState { acidState        :: Acid
@@ -138,7 +158,7 @@ data ClckState
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
-                , plugins          :: ClckPlugins -- Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
+                , plugins          :: ClckPlugins
                 }
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
@@ -251,6 +271,21 @@ instance ToJExpr Text.Text where
 
 nestURL :: (url1 -> url2) -> ClckT url1 m a -> ClckT url2 m a
 nestURL f (ClckT r) = ClckT $ R.nestURL f r
+
+withAbs :: (Happstack m) => ClckT url m a -> ClckT url m a
+withAbs m =
+    do secure <- rqSecure <$> askRq
+       clckState <- get
+       cc <- getConfig (plugins clckState)
+       let base = if secure then (fromJust $ calcTLSBaseURI cc) else calcBaseURI cc
+       withAbs' base m
+
+withAbs' :: T.Text
+      -> ClckT url m a
+      -> ClckT url m a
+withAbs' prefix (ClckT (RouteT r)) =
+    ClckT $ RouteT $ \showFn ->
+        r (\url params -> prefix <> showFn url params)
 
 instance (Monad m) => MonadRoute (ClckT url m) where
     type URL (ClckT url m) = url
