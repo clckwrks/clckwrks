@@ -2,7 +2,6 @@
 module Clckwrks.Server where
 
 import Clckwrks
-import Clckwrks.BasicTemplate       (basicTemplate)
 import Clckwrks.Admin.Route         (routeAdmin)
 import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..))
 -- import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
@@ -79,7 +78,7 @@ simpleClckwrks cc =
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ (liftIO $ Clckwrks.getDataFileName "static") >>= serveDirectory DisableBrowsing []
-            , nullDir >> seeOther ("/clck/view-page/1" :: String) (toResponse ())
+            , nullDir >> seeOther ("/page/view-page/1" :: String) (toResponse ())
             , clckSite cc clckState
             ]
 

@@ -45,7 +45,7 @@ data ClckURL
     | Profile ProfileDataURL
     | Auth AuthProfileURL
       deriving (Eq, Ord, Data, Typeable, Read, Show)
-$(deriveSafeCopy 2 'base ''ClckURL)
+(deriveSafeCopy 3 'base ''ClckURL)
 {-
 instance Migrate ClckURL where
     type MigrateFrom ClckURL   = ClckURL_1
@@ -58,6 +58,7 @@ instance Migrate ClckURL where
     migrate (Profile_1 pdu)    = Profile pdu
     migrate (Auth_1 apu)       = Auth apu
 -}
+
 -- TODO: move upstream
 $(deriveSafeCopy 1 'base ''AuthURL)
 $(deriveSafeCopy 1 'base ''ProfileURL)
@@ -65,6 +66,5 @@ $(deriveSafeCopy 1 'base ''AuthProfileURL)
 $(deriveSafeCopy 1 'base ''OpenIdURL)
 $(deriveSafeCopy 1 'base ''AuthMode)
 $(deriveSafeCopy 1 'base ''OpenIdProvider)
-
 
 $(derivePathInfo ''ClckURL)

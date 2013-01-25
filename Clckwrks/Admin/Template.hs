@@ -39,31 +39,6 @@ template title headers body =
      </body>
     </html>)
 
-m :: (Monad m) => (b -> m c) -> (a, b) -> m (a, c)
-m f x = l $ second f x
-
-l :: (Monad m) => (a, m b) -> m (a, b)
-l (a, m) =
-    do b <- m
-       return (a ,b)
-
-instance (Monoid a) => Monad ((,) a) where
-    return b = (mempty, b)
-    (a, b) >>= f = let (a', b') = f b in (a `mappend` a', b')
-
-instance Foldable ((,) a) where
-    fold = snd
-    foldMap f (b, a) = f a
-
-instance Traversable ((,) a) where
-    traverse f (c, a) = fmap (\b -> (c, b)) $ f a
-    sequenceA (c, fa) = fmap (\a -> (c, a)) fa
-    mapM f (c, a) =
-        do b <- f a
-           return (c, b)
-    sequence (a, m) = do b <- m
-                         return (a, b)
-
 sidebar :: (Functor m, Monad m) => XMLGenT (ClckT url m) XML
 sidebar =
     <div id="admin-sidebar">

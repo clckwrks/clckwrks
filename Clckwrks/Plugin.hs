@@ -21,7 +21,6 @@ clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
     do (Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
---       addPreProc plugins (pageCmd clckShowFn)
        addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing
 

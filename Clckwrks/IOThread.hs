@@ -29,7 +29,7 @@ startIOThread f =
                        putMVar mvar b
 
 -- |kill the IOThread
--- 
+--
 -- WARNING: no attempt is made to wait for the queue to empty... we should probably have safer version that waits for the operations to complete?
 killIOThread :: IOThread a b -> IO ()
 killIOThread iot = killThread (ioThreadId iot)
@@ -40,7 +40,7 @@ ioRequest :: (IOThread a b) -- ^ handle to the IOThread
           -> a -- ^ argument to the function in the IOThread
           -> IO b -- ^ value returned by the function in the IOThread
 ioRequest iot a =
-    do resp <- newEmptyMVar 
+    do resp <- newEmptyMVar
        writeChan (ioThreadChan iot) (a, resp)
        e <- readMVar resp
        case e of

@@ -44,7 +44,7 @@ module Clckwrks.Monad
 where
 
 import Clckwrks.Admin.URL            (AdminURL(..))
-import Clckwrks.Acid                 (Acid(..), GetAcidState(..))
+import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..))
 -- import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
 import Clckwrks.Menu.Acid            (MenuState)
 -- import Clckwrks.Page.Acid            (PageState, PageId)
@@ -237,9 +237,6 @@ instance FormError ClckFormError where
 type ClckFormT error m = Form m  [Input] error [XMLGenT m XML] ()
 type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [XMLGenT (ClckT url (ServerPartT IO)) XML] ()
 
--- getPrefix :: Clck url Prefix
--- getPrefix = componentPrefix <$> get
-
 setUnique :: (Functor m, MonadIO m) => Integer -> ClckT url m ()
 setUnique i =
     do u <- uniqueId <$> get
@@ -323,12 +320,12 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) AuthState where
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileState where
     getAcidState = (acidProfile . acidState) <$> get
 
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) CoreState where
+    getAcidState = (acidCore . acidState) <$> get
+
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) (MenuState ClckURL) where
     getAcidState = (acidMenu . acidState) <$> get
-{-
-instance (Functor m, Monad m) => GetAcidState (ClckT url m) PageState where
-    getAcidState = (acidPage . acidState) <$> get
--}
+
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
 
@@ -405,14 +402,6 @@ instance (IsName n) => EmbedAsAttr (Clck AdminURL) (Attr n AdminURL) where
         do url <- showURL u
            asAttr $ MkAttr (toName n, pAttrVal (T.unpack url))
 
-
-{-
-instance EmbedAsAttr Clck (Attr String AuthURL) where
-    asAttr (n := u) =
-        do url <- showURL (W_Auth u)
-           asAttr $ MkAttr (toName n, pAttrVal url)
--}
-
 instance (Functor m, Monad m, IsName n) => (EmbedAsAttr (ClckT url m) (Attr n TL.Text)) where
     asAttr (n := a) = asAttr $ MkAttr (toName n, pAttrVal $ TL.unpack a)
 
@@ -453,20 +442,12 @@ instance (Functor m, MonadIO m, EmbedAsChild (ClckT url m) a) => EmbedAsChild (C
         do a <- XMLGenT (liftIO c)
            asChild a
 
-
-{-
-instance EmbedAsChild Clck TextHtml where
-    asChild = XMLGenT . return . (:[]) . ClckChild . cdata . T.unpack . unTextHtml
--}
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) XML where
     asChild = XMLGenT . return . (:[]) . ClckChild
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
-{-
-instance (Functor m, Monad m, Happstack m) => EmbedAsChild (ClckT url m) Markup where
-    asChild mrkup = asChild =<< (XMLGenT $ markupToContent mrkup)
--}
+
 instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckFormError where
     asChild formError = asChild (show formError)
 
@@ -510,22 +491,7 @@ data Content
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
-{-
--- | convert 'Markup' to 'Content' that can be embedded. Generally by running the pre-processors needed.
--- markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m Content
-markupToContent :: (Functor m, MonadIO m, Happstack m) =>
-                   Markup
-                -> ClckT url m Content
-markupToContent Markup{..} =
-    do clckState <- get
-       transformers <- liftIO $ getPluginsSt (plugins clckState)
-       (markup', clckState') <- liftIO $ runClckT undefined clckState (foldM (\txt pp -> pp txt) (TL.fromStrict markup) transformers)
-       put clckState'
-       e <- liftIO $ runPreProcessors preProcessors trust (TL.toStrict markup')
-       case e of
-         (Left err)   -> return (PlainText err)
-         (Right html) -> return (TrustedHtml html)
--}
+
 addPreProc :: (MonadIO m) =>
               Plugins theme n hook config [TL.Text -> ClckT ClckURL IO TL.Text]
            -> (TL.Text -> ClckT ClckURL IO TL.Text)

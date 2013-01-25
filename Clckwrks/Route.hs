@@ -5,8 +5,6 @@ import Clckwrks
 import Clckwrks.Admin.Route        (routeAdmin)
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Monad              (calcTLSBaseURI, withAbs)
--- import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
--- import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Control.Monad.State         (MonadState(get))
 import Data.Maybe                  (fromJust)
@@ -26,10 +24,6 @@ checkAuth :: (Happstack m, Monad m) =>
           -> ClckT ClckURL m ClckURL
 checkAuth url =
     case url of
---      ViewPage{}           -> return url
---      ViewPageSlug{}       -> return url
---      Blog{}               -> return url
---      AtomFeed{}           -> return url
       ThemeData{}          -> return url
       PluginData{}         -> return url
       Admin{}              -> requiresRole (Set.singleton Administrator) url
@@ -44,36 +38,6 @@ routeClck url' =
     do url <- checkAuth url'
        setUnique 0
        case url of
-{-
-         (ViewPage pid) ->
-           do r <- query (GetPageTitle pid)
-              case r of
-                Nothing ->
-                    notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
-                (Just (title, slug)) ->
-                    seeOtherURL (ViewPageSlug pid (toSlug title slug))
-
-         (ViewPageSlug pid _slug) ->
-           do published <- query (IsPublishedPage pid)
-              if published
-                 then do setCurrentPage pid
-                         cs <- get
-                         ttl <- getPageTitle
-                         bdy <- getPageContent
-                         themeTemplate (plugins cs) ttl () bdy
-                 else do notFound $ toResponse ("Invalid PageId " ++ show (unPageId pid))
-
-         (Blog) ->
-           do p <- plugins <$> get
-              mTheme <- getTheme p
-              case mTheme of
-                Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: Text)
-                (Just theme) -> fmap toResponse $ unXMLGenT $ themeBlog theme
-
-         AtomFeed ->
-             do handleAtomFeed
-
--}
          (ThemeData fp')  ->
              do p      <- plugins <$> get
                 mTheme <- getTheme p
