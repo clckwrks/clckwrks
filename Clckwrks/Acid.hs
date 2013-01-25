@@ -2,7 +2,7 @@
 module Clckwrks.Acid where
 
 import Clckwrks.Menu.Acid          (MenuState       , initialMenuState)
-import Clckwrks.Page.Acid          (PageState       , initialPageState)
+-- import Clckwrks.Page.Acid          (PageState       , initialPageState)
 import Clckwrks.ProfileData.Acid   (ProfileDataState, initialProfileDataState)
 import Clckwrks.URL                (ClckURL)
 import Control.Exception           (bracket, catch, throw)
@@ -23,7 +23,7 @@ data Acid = Acid
     { acidAuth        :: AcidState AuthState
     , acidProfile     :: AcidState ProfileState
     , acidProfileData :: AcidState ProfileDataState
-    , acidPage        :: AcidState PageState
+--    , acidPage        :: AcidState PageState
     , acidMenu        :: AcidState (MenuState ClckURL)
     }
 
@@ -33,15 +33,15 @@ class GetAcidState m st where
 withAcid :: Maybe FilePath -> (Acid -> IO a) -> IO a
 withAcid mBasePath f =
     let basePath = fromMaybe "_state" mBasePath in
-    initialPageState >>= \ips ->
+--    initialPageState >>= \ips ->
     bracket (openLocalStateFrom (basePath </> "auth")        initialAuthState)        (createArchiveCheckpointAndClose) $ \auth ->
     bracket (openLocalStateFrom (basePath </> "profile")     initialProfileState)     (createArchiveCheckpointAndClose) $ \profile ->
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
-    bracket (openLocalStateFrom (basePath </> "page")        ips)                     (createArchiveCheckpointAndClose) $ \page ->
+--    bracket (openLocalStateFrom (basePath </> "page")        ips)                     (createArchiveCheckpointAndClose) $ \page ->
     bracket (openLocalStateFrom (basePath </> "menu")        initialMenuState)        (createArchiveCheckpointAndClose) $ \menu ->
     bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket")))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
-            (const $ f (Acid auth profile profileData page menu))
+            (const $ f (Acid auth profile profileData {- page -} menu))
     where
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)
       createArchiveCheckpointAndClose acid =

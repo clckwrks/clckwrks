@@ -6,9 +6,9 @@ import Clckwrks.BasicTemplate       (basicTemplate)
 import Clckwrks.Admin.Route         (routeAdmin)
 import Clckwrks.Admin.Template      (defaultAdminMenu)
 import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..))
-import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
-import Clckwrks.Page.Atom           (handleAtomFeed)
-import Clckwrks.Page.PreProcess     (pageCmd)
+-- import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
+-- import Clckwrks.Page.Atom           (handleAtomFeed)
+-- import Clckwrks.Page.PreProcess     (pageCmd)
 import Clckwrks.ProfileData.Route   (routeProfileData)
 import Clckwrks.ProfileData.Types   (Role(..))
 import Clckwrks.ProfileData.URL     (ProfileDataURL(..))
@@ -39,7 +39,7 @@ withClckwrks cc action =
        withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
-                                        , currentPage      = PageId 0
+--                                        , currentPage      = PageId 0
                                         , uniqueId         = u
                                         , adminMenus       = []
                                         , enableAnalytics  = clckEnableAnalytics cc

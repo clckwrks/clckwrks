@@ -12,6 +12,7 @@ module Clckwrks.Monad
     , AttributeType(..)
     , Theme(..)
     , ThemeName
+    , themeTemplate
     , calcBaseURI
     , calcTLSBaseURI
     , evalClckT
@@ -22,11 +23,10 @@ module Clckwrks.Monad
     , ClckState(..)
     , getUserId
     , Content(..)
-    , markupToContent
+--    , markupToContent
 --    , addPreProcessor
     , addAdminMenu
     , addPreProc
-    , setCurrentPage
 --     , getPrefix
     , getEnableAnalytics
     , getUnique
@@ -45,9 +45,9 @@ where
 
 import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), GetAcidState(..))
-import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
+-- import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
 import Clckwrks.Menu.Acid            (MenuState)
-import Clckwrks.Page.Acid            (PageState, PageId)
+-- import Clckwrks.Page.Acid            (PageState, PageId)
 import Clckwrks.ProfileData.Acid     (ProfileDataState, ProfileDataError(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
 import Clckwrks.Types                (Prefix, Trust(Trusted))
@@ -84,7 +84,7 @@ import Data.Time.Format              (formatTime)
 import Happstack.Auth                (AuthProfileURL(..), AuthURL(..), AuthState, ProfileState, UserId)
 import qualified Happstack.Auth      as Auth
 
-import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Request(..), Response, HasRqData(..), ServerPartT, UnWebT, mapServerPartT, escape)
+import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Request(..), Response, HasRqData(..), ServerPartT, UnWebT, internalServerError, mapServerPartT, escape, toResponse)
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
@@ -99,7 +99,7 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.String    (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
-import Web.Plugins.Core              (Plugins, getConfig, getPluginsSt, modifyPluginsSt)
+import Web.Plugins.Core              (Plugins, getConfig, getPluginsSt, modifyPluginsSt, getTheme)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
@@ -119,6 +119,23 @@ data Theme = Theme
     , themeBlog      :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
     , themeDataDir   :: IO FilePath
     }
+
+
+themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
+                 , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body
+                 ) =>
+                 ClckPlugins
+              -> T.Text
+              -> headers
+              -> body
+              -> ClckT ClckURL (ServerPartT IO) Response
+themeTemplate plugins ttl hdrs bdy =
+    do mTheme <- getTheme plugins
+       case mTheme of
+         Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: T.Text)
+         (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme ttl hdrs bdy)
+
+
 
 data TLSSettings = TLSSettings
     { clckTLSPort :: Int
@@ -154,7 +171,6 @@ calcTLSBaseURI c =
 
 data ClckState
     = ClckState { acidState        :: Acid
-                , currentPage      :: PageId
                 , uniqueId         :: TVar Integer -- only unique for this request
                 , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
@@ -220,11 +236,6 @@ instance FormError ClckFormError where
 -- | ClckForm - type for reform forms
 type ClckFormT error m = Form m  [Input] error [XMLGenT m XML] ()
 type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [XMLGenT (ClckT url (ServerPartT IO)) XML] ()
-
--- | update the 'currentPage' field of 'ClckState'
-setCurrentPage :: (MonadIO m) => PageId -> ClckT url m ()
-setCurrentPage pid =
-    modify $ \s -> s { currentPage = pid }
 
 -- getPrefix :: Clck url Prefix
 -- getPrefix = componentPrefix <$> get
@@ -314,10 +325,10 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileState where
 
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) (MenuState ClckURL) where
     getAcidState = (acidMenu . acidState) <$> get
-
+{-
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) PageState where
     getAcidState = (acidPage . acidState) <$> get
-
+-}
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
 
@@ -452,10 +463,10 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) XML where
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
-
+{-
 instance (Functor m, Monad m, Happstack m) => EmbedAsChild (ClckT url m) Markup where
     asChild mrkup = asChild =<< (XMLGenT $ markupToContent mrkup)
-
+-}
 instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckFormError where
     asChild formError = asChild (show formError)
 
@@ -499,7 +510,7 @@ data Content
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
-
+{-
 -- | convert 'Markup' to 'Content' that can be embedded. Generally by running the pre-processors needed.
 -- markupToContent :: (Functor m, MonadIO m, Happstack m) => Markup -> ClckT url m Content
 markupToContent :: (Functor m, MonadIO m, Happstack m) =>
@@ -514,7 +525,7 @@ markupToContent Markup{..} =
        case e of
          (Left err)   -> return (PlainText err)
          (Right html) -> return (TrustedHtml html)
-
+-}
 addPreProc :: (MonadIO m) =>
               Plugins theme n hook config [TL.Text -> ClckT ClckURL IO TL.Text]
            -> (TL.Text -> ClckT ClckURL IO TL.Text)

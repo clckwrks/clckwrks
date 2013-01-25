@@ -16,7 +16,7 @@ import Data.Tree (Tree(..))
 import qualified Data.Text as Text
 
 
-data MenuState url  = MenuState 
+data MenuState url  = MenuState
     { menu      :: Menu url
     }
     deriving (Eq, Read, Show, Data, Typeable)

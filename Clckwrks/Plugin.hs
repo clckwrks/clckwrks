@@ -2,7 +2,7 @@
 module Clckwrks.Plugin where
 
 import Clckwrks
-import Clckwrks.Page.PreProcess    (pageCmd)
+-- import Clckwrks.Page.PreProcess    (pageCmd)
 import Clckwrks.Route              (routeClck)
 import Data.Text                   (Text)
 import qualified Data.Text.Lazy as TL
@@ -21,10 +21,9 @@ clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
     do (Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
-       addPreProc plugins (pageCmd clckShowFn)
+--       addPreProc plugins (pageCmd clckShowFn)
        addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing
-
 
 clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
 clckPlugin = Plugin

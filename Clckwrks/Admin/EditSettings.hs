@@ -4,14 +4,15 @@ module Clckwrks.Admin.EditSettings where
 
 import Clckwrks
 import Clckwrks.Admin.Template  (template)
-import Clckwrks.Page.Acid       (GetUACCT(..), SetUACCT(..))
+-- import Clckwrks.Page.Acid       (GetUACCT(..), SetUACCT(..))
 import HSP.Google.Analytics     (UACCT(..))
 import Text.Reform
 import Text.Reform.Happstack
 import Text.Reform.HSP.String
 
 editSettings :: ClckURL -> Clck ClckURL Response
-editSettings here =
+editSettings here = ok $ toResponse "not implemented"
+{-
     do muacct <- query $ GetUACCT
        action <- showURL here
        template "Edit Settings" () $
@@ -37,3 +38,4 @@ editSettingsForm muacct =
       toMUACCT :: String -> Either ClckFormError (Maybe UACCT)
       toMUACCT []  = Right $ Nothing
       toMUACCT str = Right $ Just (UACCT str)
+-}

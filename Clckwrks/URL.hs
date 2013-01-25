@@ -9,9 +9,9 @@ module Clckwrks.URL
      ) where
 
 import Clckwrks.Admin.URL          (AdminURL(..))
-import Clckwrks.Page.Acid          (PageId(..))
+-- import Clckwrks.Page.Acid          (PageId(..))
+-- import Clckwrks.Page.Types         (Slug(..))
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
-import Clckwrks.Page.Types         (Slug(..))
 import Control.Applicative         ((<$>))
 import Data.Data                   (Data, Typeable)
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, deriveSafeCopy, extension)
@@ -19,7 +19,7 @@ import Data.Text                   (Text)
 import Happstack.Auth              (AuthURL(..), ProfileURL(..), AuthProfileURL(..), UserId)
 import Happstack.Auth.Core.AuthURL (OpenIdURL, AuthMode, OpenIdProvider)
 import Web.Routes.TH               (derivePathInfo)
-
+{-
 data ClckURL_1
     = ViewPage_1 PageId
     | Blog_1
@@ -31,20 +31,22 @@ data ClckURL_1
     | Auth_1 AuthProfileURL
       deriving (Eq, Ord, Data, Typeable, Read, Show)
 $(deriveSafeCopy 1 'base ''ClckURL_1)
-
+-}
 data ClckURL
+{-
     = ViewPage PageId
     | ViewPageSlug PageId Slug
     | Blog
     | AtomFeed
-    | ThemeData FilePath
+-}
+    = ThemeData FilePath
     | PluginData Text FilePath
     | Admin AdminURL
     | Profile ProfileDataURL
     | Auth AuthProfileURL
       deriving (Eq, Ord, Data, Typeable, Read, Show)
-$(deriveSafeCopy 2 'extension ''ClckURL)
-
+$(deriveSafeCopy 2 'base ''ClckURL)
+{-
 instance Migrate ClckURL where
     type MigrateFrom ClckURL   = ClckURL_1
     migrate (ViewPage_1 pid)   = ViewPage pid
@@ -55,7 +57,7 @@ instance Migrate ClckURL where
     migrate (Admin_1 u)        = Admin u
     migrate (Profile_1 pdu)    = Profile pdu
     migrate (Auth_1 apu)       = Auth apu
-
+-}
 -- TODO: move upstream
 $(deriveSafeCopy 1 'base ''AuthURL)
 $(deriveSafeCopy 1 'base ''ProfileURL)

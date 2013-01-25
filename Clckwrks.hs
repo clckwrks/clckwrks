@@ -3,8 +3,8 @@ module Clckwrks
     ( module Clckwrks.Acid
     , module Clckwrks.Menu.API
     , module Clckwrks.Monad
-    , module Clckwrks.Page.API
-    , module Clckwrks.Page.Types
+--    , module Clckwrks.Page.API
+--    , module Clckwrks.Page.Types
     , module Clckwrks.ProfileData.API
     , module Clckwrks.ProfileData.Types
     , module Clckwrks.Types
@@ -26,8 +26,8 @@ import Clckwrks.Acid
 import Clckwrks.Admin.URL
 import Clckwrks.Menu.API
 import Clckwrks.Monad
-import Clckwrks.Page.API
-import Clckwrks.Page.Types
+--import Clckwrks.Page.API
+-- import Clckwrks.Page.Types
 import Clckwrks.ProfileData.API
 import Clckwrks.ProfileData.Types
 import Clckwrks.Types

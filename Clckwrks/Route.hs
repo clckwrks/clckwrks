@@ -5,8 +5,8 @@ import Clckwrks
 import Clckwrks.Admin.Route        (routeAdmin)
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Monad              (calcTLSBaseURI, withAbs)
-import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
-import Clckwrks.Page.Atom          (handleAtomFeed)
+-- import Clckwrks.Page.Acid          (GetPageTitle(..), IsPublishedPage(..))
+-- import Clckwrks.Page.Atom          (handleAtomFeed)
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Control.Monad.State         (MonadState(get))
 import Data.Maybe                  (fromJust)
@@ -21,30 +21,15 @@ import Paths_clckwrks              (getDataDir)
 import System.FilePath             ((</>), makeRelative, splitDirectories)
 import Web.Plugins.Core            (Plugin(..), addHandler, getConfig, getTheme, getPluginRouteFn, initPlugin)
 
-themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
-                 , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body
-                 ) =>
-                 ClckPlugins
-              -> Text
-              -> headers
-              -> body
-              -> ClckT ClckURL (ServerPartT IO) Response
-themeTemplate plugins ttl hdrs bdy =
-    do mTheme <- getTheme plugins
-       case mTheme of
-         Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: Text)
-         (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme ttl hdrs bdy)
-
-
 checkAuth :: (Happstack m, Monad m) =>
              ClckURL
           -> ClckT ClckURL m ClckURL
 checkAuth url =
     case url of
-      ViewPage{}           -> return url
-      ViewPageSlug{}       -> return url
-      Blog{}               -> return url
-      AtomFeed{}           -> return url
+--      ViewPage{}           -> return url
+--      ViewPageSlug{}       -> return url
+--      Blog{}               -> return url
+--      AtomFeed{}           -> return url
       ThemeData{}          -> return url
       PluginData{}         -> return url
       Admin{}              -> requiresRole (Set.singleton Administrator) url
@@ -59,6 +44,7 @@ routeClck url' =
     do url <- checkAuth url'
        setUnique 0
        case url of
+{-
          (ViewPage pid) ->
            do r <- query (GetPageTitle pid)
               case r of
@@ -87,6 +73,7 @@ routeClck url' =
          AtomFeed ->
              do handleAtomFeed
 
+-}
          (ThemeData fp')  ->
              do p      <- plugins <$> get
                 mTheme <- getTheme p

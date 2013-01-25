@@ -69,9 +69,9 @@ defaultAdminMenu =
     do links <- sequence $ map sequence $ map (second (showURL . Admin))
                  [ (fromString "Console"         , Console)
                  , (fromString "Edit Settings"   , EditSettings)
-                 , (fromString "Edit Feed Config", EditFeedConfig)
-                 , (fromString "Edit Page/Post"  , Pages)
-                 , (fromString "New Page/Post"   , NewPage)
+--                 , (fromString "Edit Feed Config", EditFeedConfig)
+--                 , (fromString "Edit Page/Post"  , Pages)
+--                 , (fromString "New Page/Post"   , NewPage)
                  , (fromString "Edit Menu"       , EditMenu)
                  ]
        return [(fromString "Admin", links)]

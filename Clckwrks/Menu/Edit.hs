@@ -6,8 +6,8 @@ import Clckwrks.Admin.Template (template)
 import Clckwrks.Menu.Types     (Menu(..), MenuItem(..), MenuLink(..), MenuName(..))
 import Clckwrks.Menu.Acid      (SetMenu(..))
 import Clckwrks.Monad          (Clck, query, update)
-import Clckwrks.Page.Acid      (PageId(..), PagesSummary(..))
-import Clckwrks.Page.Types     (Slug(..), slugify)
+--import Clckwrks.Page.Acid      (PageId(..), PagesSummary(..))
+-- import Clckwrks.Page.Types     (Slug(..), slugify)
 import Clckwrks.Types          (Prefix(..))
 import Clckwrks.URL            (ClckURL(..), AdminURL(..))
 import Control.Applicative     ((<$>), (<|>), optional, pure)
@@ -28,8 +28,9 @@ import Web.Routes              (PathInfo, showURL, toPathInfo, fromPathInfo)
 
 editMenu :: (PathInfo url) => Menu url -> Clck ClckURL Response
 editMenu menu =
-    do summaries <- query PagesSummary
-       let clckLinks = [ (toPathInfo Blog, fromString "Blog")
+    do -- summaries <- query PagesSummary
+       let summaries = undefined
+       let clckLinks = [ -- (toPathInfo Blog, fromString "Blog")
                        ]
        template "edit menu" (headers summaries clckLinks) $
          <%>
@@ -59,7 +60,7 @@ editMenu menu =
                          }
                         });
                         `(saveChanges menuUpdate)`;
-                        `(addPageMenu summaries)`;
+ /* -- FIXME                        `(addPageMenu summaries)`;*/
                         `(addClckwrksMenu clckLinks)`;
                         `(addSubMenu)`;
                         `(removeItem)`;
@@ -106,7 +107,7 @@ addClckwrksMenu linkInfos =
                                                     ]
                  ]
 
-
+{-
 addPageMenu :: [(PageId, Text, Maybe Slug)] -> JStat
 addPageMenu pageSummaries =
     [$jmacro|
@@ -145,7 +146,7 @@ addPageMenu pageSummaries =
                  , fromString "metadata"  .= object [ fromString "pid" .= pid ]
                  ]
       data_ = map summaryData pageSummaries
-
+-}
 addSubMenu :: JStat
 addSubMenu =
     [$jmacro|
@@ -320,7 +321,7 @@ updateToMenu (MenuUpdate t) =
                                   , menuTitle = Text.pack ttl
                                   , menuLink =
                                       case mPageId of
-                                        (Just pid) -> LinkURL (ViewPage (PageId pid))
+--                                        (Just pid) -> LinkURL (ViewPage (PageId pid))
                                         Nothing ->
                                             case mLink of
                                               Nothing -> LinkText (fromString "updateToMenu failed") -- Text.empty -- FIXME: this is really an error..

@@ -37,12 +37,12 @@ Library
                    Clckwrks.Admin.URL
                    Clckwrks.Admin.Console
                    Clckwrks.Admin.Route
-                   Clckwrks.Admin.NewPage
-                   Clckwrks.Admin.Pages
-                   Clckwrks.Admin.EditPage
-                   Clckwrks.Admin.EditFeedConfig
+--                   Clckwrks.Admin.NewPage
+--                   Clckwrks.Admin.Pages
+--                   Clckwrks.Admin.EditPage
+--                   Clckwrks.Admin.EditFeedConfig
                    Clckwrks.Admin.EditSettings
-                   Clckwrks.Admin.PreviewPage
+--                   Clckwrks.Admin.PreviewPage
                    Clckwrks.BasicTemplate
                    Clckwrks.GetOpts
                    Clckwrks.IOThread
@@ -54,11 +54,6 @@ Library
                    Clckwrks.Menu.API
                    Clckwrks.Menu.Edit
                    Clckwrks.Menu.Types
-                   Clckwrks.Page.Types
-                   Clckwrks.Page.Acid
-                   Clckwrks.Page.API
-                   Clckwrks.Page.Atom
-                   Clckwrks.Page.PreProcess
                    Clckwrks.Plugin
                    Clckwrks.ProfileData.URL
                    Clckwrks.ProfileData.Route
