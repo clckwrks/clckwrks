@@ -4,7 +4,6 @@ module Clckwrks.Server where
 import Clckwrks
 import Clckwrks.BasicTemplate       (basicTemplate)
 import Clckwrks.Admin.Route         (routeAdmin)
-import Clckwrks.Admin.Template      (defaultAdminMenu)
 import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..))
 -- import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
 -- import Clckwrks.Page.Atom           (handleAtomFeed)
@@ -55,9 +54,7 @@ simpleClckwrks cc =
          hooks <- getPostHooks p
          (Just clckShowFn) <- getPluginRouteFn p "clck"
          let showFn = \url params -> clckShowFn url []
-         clckState'' <- execClckT showFn clckState' $ do sequence_ hooks
-                                                         dm <- defaultAdminMenu
-                                                         mapM_ addAdminMenu dm
+         clckState'' <- execClckT showFn clckState' $ sequence_ hooks
          httpTID  <- forkIO $ simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
 
          mHttpsTID <-

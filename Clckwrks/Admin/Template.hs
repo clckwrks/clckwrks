@@ -64,18 +64,6 @@ instance Traversable ((,) a) where
     sequence (a, m) = do b <- m
                          return (a, b)
 
-defaultAdminMenu :: (Monad m) => ClckT ClckURL m [(Text, [(Text, Text)])]
-defaultAdminMenu =
-    do links <- sequence $ map sequence $ map (second (showURL . Admin))
-                 [ (fromString "Console"         , Console)
-                 , (fromString "Edit Settings"   , EditSettings)
---                 , (fromString "Edit Feed Config", EditFeedConfig)
---                 , (fromString "Edit Page/Post"  , Pages)
---                 , (fromString "New Page/Post"   , NewPage)
-                 , (fromString "Edit Menu"       , EditMenu)
-                 ]
-       return [(fromString "Admin", links)]
-
 sidebar :: (Functor m, Monad m) => XMLGenT (ClckT url m) XML
 sidebar =
     <div id="admin-sidebar">
