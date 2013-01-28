@@ -116,7 +116,7 @@ data Theme = Theme
                      -> headers
                      -> body
                      -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
-    , themeBlog      :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
+--    , themeBlog      :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
     , themeDataDir   :: IO FilePath
     }
 
