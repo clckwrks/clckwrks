@@ -5,6 +5,7 @@ import Clckwrks
 import Clckwrks.Route              (routeClck)
 import Control.Monad.State         (get)
 import Data.Text                   (Text)
+import qualified Data.Set          as Set
 import qualified Data.Text.Lazy as TL
 import Web.Plugins.Core            (Plugin(..), addHandler, getPluginRouteFn, initPlugin)
 
@@ -28,10 +29,15 @@ addClckAdminMenu :: ClckT url IO ()
 addClckAdminMenu =
     do p <- plugins <$> get
        (Just clckShowURL) <- getPluginRouteFn p (pluginName clckPlugin)
+       addAdminMenu ( "Profile"
+                    , [ (Set.fromList [Administrator, Visitor], "Edit Your Profile"      , clckShowURL (Profile EditProfileData) [])
+                      ]
+                    )
+
        addAdminMenu ( "Clckwrks"
-                    , [ ("Console"      , clckShowURL (Admin Console)      [])
-                      , ("Edit Settings", clckShowURL (Admin EditSettings) [])
-                      , ("Edit Menu"    , clckShowURL (Admin EditMenu)     [])
+                    , [ (Set.singleton Administrator, "Console"      , clckShowURL (Admin Console)      [])
+                      , (Set.singleton Administrator, "Edit Settings", clckShowURL (Admin EditSettings) [])
+                      , (Set.singleton Administrator, "Edit Menu"    , clckShowURL (Admin EditMenu)     [])
                       ]
                     )
 

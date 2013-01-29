@@ -2,22 +2,16 @@
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
 module Clckwrks.Admin.Template where
 
-import Clckwrks hiding (mapM, sequence)
-import Control.Arrow       (second)
+import Clckwrks
 import Control.Monad.State (get)
-import Data.String (fromString)
-import           Data.Text (Text)
-import qualified Data.Text as T
-import Control.Monad.Instances
-import Prelude hiding (mapM, sequence)
+import Data.Maybe          (mapMaybe)
+import qualified           Data.Text as T
+import Data.Set            (Set)
+import qualified Data.Set  as Set
 
-import Data.Monoid
-import Data.Foldable
-import Data.Traversable
 
 template ::
-    ( Functor m
-    , Monad m
+    ( Happstack m
     , EmbedAsChild (ClckT url m) headers
     , EmbedAsChild (ClckT url m) body
     ) => String -> headers -> body -> ClckT url m Response
@@ -39,26 +33,37 @@ template title headers body =
      </body>
     </html>)
 
-sidebar :: (Functor m, Monad m) => XMLGenT (ClckT url m) XML
+sidebar :: (Happstack m) => XMLGenT (ClckT url m) XML
 sidebar =
     <div id="admin-sidebar">
       <% adminMenuXML %>
     </div>
 
-adminMenuXML :: (Functor m, Monad m) => XMLGenT (ClckT url m) XML
+adminMenuXML :: (Happstack m) => XMLGenT (ClckT url m) XML
 adminMenuXML =
-    do menu <- adminMenus <$> get
+    do allMenus <- adminMenus <$> get
+       usersMenus <- filterByRole allMenus
        <ul id="admin-menu">
-          <% mapM mkMenu menu %>
+          <% mapM mkMenu usersMenus %>
         </ul>
     where
-      mkMenu :: (Functor m, Monad m) => (T.Text, [(T.Text, T.Text)]) -> XMLGenT (ClckT url m) XML
+--       filterByRole :: [(T.Text, [(Set Role, T.Text, T.Text)])] -> [(T.Text, [(Set Role, T.Text, T.Text)])]
+      filterByRole menus =
+          do userRoles <- lift getUserRoles
+             return $ mapMaybe (sectionFilter userRoles) menus
+      sectionFilter userRoles (title, items) =
+          case filter (itemFilter userRoles) items of
+            [] -> Nothing
+            items' -> Just (title, items')
+      itemFilter userRoles (visibleRoles, _, _) = not (Set.null (Set.intersection userRoles visibleRoles))
+
+      mkMenu :: (Functor m, Monad m) => (T.Text, [(Set Role, T.Text, T.Text)]) -> XMLGenT (ClckT url m) XML
       mkMenu (category, links) =
           <li class="admin-menu-category"><span class="admin-menu-category-title"><% category %></span>
               <ul id="admin-menu-links">
                <% mapM mkLink links %>
               </ul>
           </li>
-      mkLink :: (Functor m, Monad m) => (T.Text, T.Text) -> XMLGenT (ClckT url m) XML
-      mkLink (title, url) =
+      mkLink :: (Functor m, Monad m) => (Set Role, T.Text, T.Text) -> XMLGenT (ClckT url m) XML
+      mkLink (visible, title, url) =
           <li class="admin-menu-link"><a href=url><% title %></a></li>

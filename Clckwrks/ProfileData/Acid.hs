@@ -10,6 +10,7 @@ module Clckwrks.ProfileData.Acid
     , GetUsername(..)
     , GetUserIdUsernames(..)
     , HasRole(..)
+    , GetRoles(..)
     , AddRole(..)
     , RemoveRole(..)
     , UsernameForId(..)
@@ -115,6 +116,15 @@ getUserIdUsernames =
     do pds <- profileData <$> ask
        return $ map (\pd -> (dataFor pd, username pd)) (toList pds)
 
+getRoles :: UserId
+         -> Query ProfileDataState (Maybe (Set Role))
+getRoles uid =
+    do mp <- getProfileData uid
+       case mp of
+         Nothing -> return Nothing
+         (Just profile) ->
+             return (Just $ roles profile)
+
 hasRole :: UserId
         -> Set Role
         -> Query ProfileDataState Bool
@@ -161,6 +171,7 @@ $(makeAcidic ''ProfileDataState
   , 'newProfileData
   , 'getUsername
   , 'getUserIdUsernames
+  , 'getRoles
   , 'hasRole
   , 'addRole
   , 'removeRole

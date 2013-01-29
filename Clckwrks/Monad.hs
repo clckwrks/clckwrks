@@ -33,6 +33,7 @@ module Clckwrks.Monad
     , setUnique
     , requiresRole
     , requiresRole_
+    , getUserRoles
     , query
     , update
     , nestURL
@@ -48,7 +49,7 @@ import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..))
 -- import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
 import Clckwrks.Menu.Acid            (MenuState)
 -- import Clckwrks.Page.Acid            (PageState, PageId)
-import Clckwrks.ProfileData.Acid     (ProfileDataState, ProfileDataError(..), HasRole(..))
+import Clckwrks.ProfileData.Acid     (ProfileDataState, ProfileDataError(..), GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
 import Clckwrks.Types                (Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
@@ -75,6 +76,7 @@ import Data.Map                      (Map)
 import Data.Maybe                    (fromJust)
 import Data.SafeCopy                 (SafeCopy(..))
 import Data.Set                      (Set)
+import qualified Data.Set            as Set
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import           Data.Text.Lazy.Builder (Builder, fromText)
@@ -172,7 +174,7 @@ calcTLSBaseURI c =
 data ClckState
     = ClckState { acidState        :: Acid
                 , uniqueId         :: TVar Integer -- only unique for this request
-                , adminMenus       :: [(T.Text, [(T.Text, T.Text)])]
+                , adminMenus       :: [(T.Text, [(Set Role, T.Text, T.Text)])]
                 , enableAnalytics  :: Bool -- ^ enable Google Analytics
                 , plugins          :: ClckPlugins
                 }
@@ -256,7 +258,7 @@ getUnique =
 getEnableAnalytics :: (Functor m, MonadState ClckState m) => m Bool
 getEnableAnalytics = enableAnalytics <$> get
 
-addAdminMenu :: (Monad m) => (T.Text, [(T.Text, T.Text)]) -> ClckT url m ()
+addAdminMenu :: (Monad m) => (T.Text, [(Set Role, T.Text, T.Text)]) -> ClckT url m ()
 addAdminMenu (category, entries) =
     modify $ \cs ->
         let oldMenus = adminMenus cs
@@ -564,3 +566,14 @@ requiresRole role url =
                 if r
                    then return url
                    else escape $ unauthorizedPage ("You do not have permission to view this page." :: T.Text)
+
+getUserRoles :: (Happstack m, MonadIO m) => ClckT u m (Set Role)
+getUserRoles =
+    do mu <- getUserId
+       case mu of
+         Nothing -> return (Set.singleton Visitor)
+         (Just u) ->
+             do mr <- query (GetRoles u)
+                case mr of
+                  Nothing  -> return Set.empty
+                  (Just r) -> return r
