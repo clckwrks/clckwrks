@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies #-}
 module Clckwrks
     ( module Clckwrks.Acid
-    , module Clckwrks.Menu.API
+--    , module Clckwrks.Menu.API
     , module Clckwrks.Monad
     , module Clckwrks.ProfileData.API
     , module Clckwrks.ProfileData.Types
@@ -22,7 +22,7 @@ module Clckwrks
 
 import Clckwrks.Acid
 import Clckwrks.Admin.URL
-import Clckwrks.Menu.API
+-- import Clckwrks.Menu.API
 import Clckwrks.Monad
 import Clckwrks.ProfileData.API
 import Clckwrks.ProfileData.Types

@@ -1,45 +1,29 @@
-{-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies, RecordWildCards #-}
-module Clckwrks.Menu.Acid
-    where
+{-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies #-}
+module Clckwrks.Menu.Acid where
 
-import Clckwrks.Menu.Types
-import Control.Applicative ((<$>))
+import Clckwrks.Menu.Types  (Menu(..), MenuItem(..))
+import Control.Applicative  ((<$>))
 import Control.Monad.Reader (ask)
-import Control.Monad.State (get, put)
-import Control.Monad.Trans (liftIO)
-import Data.Acid (AcidState, Query, Update, makeAcidic)
-import Data.Data (Data, Typeable)
-import Data.IxSet (Indexable, IxSet, (@=), empty, fromList, getOne, ixSet, ixFun, insert, toList, updateIx)
-import Data.SafeCopy
-import Data.Text (Text)
-import Data.Tree (Tree(..))
-import qualified Data.Text as Text
+import Control.Monad.State  (modify)
+import Data.Acid            (Update, Query, makeAcidic)
+import Data.Data            (Data, Typeable)
+import Data.SafeCopy        (base, deriveSafeCopy)
 
-
-data MenuState url  = MenuState
-    { menu      :: Menu url
+data MenuState = MenuState
+    { menu :: Menu
     }
     deriving (Eq, Read, Show, Data, Typeable)
-$(deriveSafeCopy 1 'base ''MenuState)
+$(deriveSafeCopy 2 'base ''MenuState)
 
-initialMenuState :: MenuState url
-initialMenuState = MenuState { menu = Menu [] }
+initialMenuState :: MenuState
+initialMenuState =
+    MenuState { menu = Menu [] }
 
-askMenu :: Query (MenuState url) (Menu url)
-askMenu =
-    do MenuState{..} <- ask
-       return menu
+setMenu :: Menu
+        -> Update MenuState ()
+setMenu m = modify $ \ms -> ms { menu = m }
 
-addItem :: MenuItem url -> Update (MenuState url) (Menu url)
-addItem item =
-    do ms@MenuState{..} <- get
-       let menu' = Menu $ (menuItems menu) ++ [Node item []]
-       put $ ms { menu = menu' }
-       return menu'
+getMenu :: Query MenuState Menu
+getMenu = menu <$> ask
 
-setMenu :: Menu url -> Update (MenuState url) ()
-setMenu newMenu =
-    do ms <- get
-       put $ ms { menu = newMenu }
-
-$(makeAcidic ''MenuState ['askMenu, 'addItem, 'setMenu])
+$(makeAcidic ''MenuState ['getMenu, 'setMenu])

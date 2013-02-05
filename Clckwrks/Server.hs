@@ -3,7 +3,7 @@ module Clckwrks.Server where
 
 import Clckwrks
 import Clckwrks.Admin.Route         (routeAdmin)
-import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..))
+import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), initialClckPluginsSt)
 -- import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
 -- import Clckwrks.Page.Atom           (handleAtomFeed)
 -- import Clckwrks.Page.PreProcess     (pageCmd)
@@ -33,7 +33,7 @@ import qualified Paths_clckwrks     as Clckwrks
 
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
-    withPlugins cc [] $ \plugins ->
+    withPlugins cc initialClckPluginsSt $ \plugins ->
        withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
@@ -78,7 +78,7 @@ simpleClckwrks cc =
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ (liftIO $ Clckwrks.getDataFileName "static") >>= serveDirectory DisableBrowsing []
-            , nullDir >> seeOther ("/page/view-page/1" :: String) (toResponse ())
+            , nullDir >> seeOther ("/page/view-page/1" :: String) (toResponse ()) -- FIXME: get redirect location from database
             , clckSite cc clckState
             ]
 

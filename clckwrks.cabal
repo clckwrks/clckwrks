@@ -37,12 +37,7 @@ Library
                    Clckwrks.Admin.URL
                    Clckwrks.Admin.Console
                    Clckwrks.Admin.Route
---                   Clckwrks.Admin.NewPage
---                   Clckwrks.Admin.Pages
---                   Clckwrks.Admin.EditPage
---                   Clckwrks.Admin.EditFeedConfig
                    Clckwrks.Admin.EditSettings
---                   Clckwrks.Admin.PreviewPage
                    Clckwrks.BasicTemplate
                    Clckwrks.GetOpts
                    Clckwrks.IOThread
@@ -52,7 +47,7 @@ Library
                    Clckwrks.Markup.Markdown
                    Clckwrks.Menu.Acid
                    Clckwrks.Menu.API
-                   Clckwrks.Menu.Edit
+                   Clckwrks.Menu.EditMenu
                    Clckwrks.Menu.Types
                    Clckwrks.Plugin
                    Clckwrks.ProfileData.URL

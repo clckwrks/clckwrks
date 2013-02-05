@@ -70,7 +70,7 @@ data Acid = Acid
     , acidProfile     :: AcidState ProfileState
     , acidProfileData :: AcidState ProfileDataState
     , acidCore        :: AcidState CoreState
-    , acidMenu        :: AcidState (MenuState ClckURL)
+    , acidMenu        :: AcidState MenuState
     }
 
 class GetAcidState m st where

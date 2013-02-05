@@ -2,6 +2,8 @@
 module Clckwrks.Monad
     ( Clck
     , ClckPlugins
+    , ClckPluginsSt
+    , initialClckPluginsSt
     , ClckT(..)
     , ClckForm
     , ClckFormT
@@ -27,6 +29,9 @@ module Clckwrks.Monad
 --    , addPreProcessor
     , addAdminMenu
     , addPreProc
+    , addMenuCallback
+    , getMenuLinks
+    , getPreProcessors
 --     , getPrefix
     , getEnableAnalytics
     , getUnique
@@ -51,6 +56,7 @@ import Clckwrks.Menu.Acid            (MenuState)
 -- import Clckwrks.Page.Acid            (PageState, PageId)
 import Clckwrks.ProfileData.Acid     (ProfileDataState, ProfileDataError(..), GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
+import Clckwrks.Menu.Types           (MenuLink(..), MenuLinks(..))
 import Clckwrks.Types                (Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
 import Clckwrks.URL                  (ClckURL(..))
@@ -68,6 +74,7 @@ import qualified Data.List           as List
 import qualified Data.Map            as Map
 import Data.Monoid                   ((<>), mappend, mconcat)
 import qualified Data.Text           as Text
+import Data.Traversable              (sequenceA)
 import qualified Data.Vector         as Vector
 import Data.ByteString.Lazy          as LB (ByteString)
 import Data.ByteString.Lazy.UTF8     as LB (toString)
@@ -106,7 +113,21 @@ import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
 
-type ClckPlugins = Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
+data ClckPluginsSt = ClckPluginsSt
+    { cpsPreProcessors :: [TL.Text -> ClckT ClckURL IO TL.Text]
+    , cpsMenuLinks     :: [ClckT ClckURL IO (String, [MenuLink])]
+    }
+
+initialClckPluginsSt :: ClckPluginsSt
+initialClckPluginsSt = ClckPluginsSt
+    { cpsPreProcessors = []
+    , cpsMenuLinks     = []
+    }
+
+-- | ClckPlugins
+--
+--     newtype Plugins theme m hook config st
+type ClckPlugins = Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ClckPluginsSt
 
 type ThemeName = T.Text
 
@@ -325,7 +346,7 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileState where
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) CoreState where
     getAcidState = (acidCore . acidState) <$> get
 
-instance (Functor m, Monad m) => GetAcidState (ClckT url m) (MenuState ClckURL) where
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) MenuState where
     getAcidState = (acidMenu . acidState) <$> get
 
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
@@ -495,11 +516,11 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
     asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
 
 addPreProc :: (MonadIO m) =>
-              Plugins theme n hook config [TL.Text -> ClckT ClckURL IO TL.Text]
+              Plugins theme n hook config ClckPluginsSt
            -> (TL.Text -> ClckT ClckURL IO TL.Text)
            -> m ()
 addPreProc plugins p =
-    modifyPluginsSt plugins $ \ps -> p : ps
+    modifyPluginsSt plugins $ \cps -> cps { cpsPreProcessors = p : (cpsPreProcessors cps) }
 
 -- * Preprocess
 
@@ -577,3 +598,29 @@ getUserRoles =
                 case mr of
                   Nothing  -> return Set.empty
                   (Just r) -> return r
+
+------------------------------------------------------------------------------
+-- Menu callback
+------------------------------------------------------------------------------
+
+addMenuCallback :: (MonadIO m) =>
+                   Plugins theme n hook config ClckPluginsSt
+                -> ClckT ClckURL IO (String, [MenuLink])
+                -> m ()
+addMenuCallback plugins ml =
+    modifyPluginsSt plugins $ \cps -> cps { cpsMenuLinks = (cpsMenuLinks cps) ++ [ml] }
+
+getMenuLinks :: (MonadIO m) =>
+                Plugins theme n hook config ClckPluginsSt
+             -> ClckT ClckURL m MenuLinks
+getMenuLinks plugins =
+    mapClckT liftIO $
+      do genMenus <- (cpsMenuLinks <$> getPluginsSt plugins)
+         MenuLinks <$> sequenceA genMenus
+
+getPreProcessors :: (MonadIO m) =>
+                Plugins theme n hook config ClckPluginsSt
+             -> ClckT url m [TL.Text -> ClckT ClckURL IO TL.Text]
+getPreProcessors plugins =
+    mapClckT liftIO $
+      (cpsPreProcessors <$> getPluginsSt plugins)

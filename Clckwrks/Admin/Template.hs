@@ -19,6 +19,8 @@ template title headers body =
    toResponse <$> (unXMLGenT $
     <html>
      <head>
+      <link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/css/bootstrap.min.css"        rel="stylesheet" media="screen" />
+      <link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/css/bootstrap-responsive.css" rel="stylesheet" />
       <link type="text/css" href="/static/admin.css" rel="stylesheet" />
       <script type="text/javascript" src="/jquery/jquery.js" ></script>
       <script type="text/javascript" src="/json2/json2.js" ></script>

@@ -9,7 +9,7 @@ data AdminURL
     = Console
     | EditSettings
     | EditMenu
-    | MenuPOST
+    | MenuPost
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 $(derivePathInfo ''AdminURL)

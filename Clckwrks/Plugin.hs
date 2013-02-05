@@ -2,6 +2,7 @@
 module Clckwrks.Plugin where
 
 import Clckwrks
+import Clckwrks.Menu.Types (MenuLink(..))
 import Clckwrks.Route              (routeClck)
 import Control.Monad.State         (get)
 import Data.Text                   (Text)
@@ -18,10 +19,16 @@ clckHandler showRouteFn _plugins paths =
       (Left e)  -> notFound $ toResponse (show e)
       (Right u) -> routeClck u
 
+clckMenuCallback :: ClckT ClckURL IO (String, [MenuLink])
+clckMenuCallback =
+    do adminURL <- showURL (Admin Console)
+       return ("Clck", [MenuLink "Admin" adminURL])
+
 clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
     do (Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
+       addMenuCallback plugins clckMenuCallback
        addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing
 
@@ -41,7 +48,7 @@ addClckAdminMenu =
                       ]
                     )
 
-clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ([TL.Text -> ClckT ClckURL IO TL.Text])
+clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ClckPluginsSt
 clckPlugin = Plugin
     { pluginName       = "clck"
     , pluginInit       = clckInit
