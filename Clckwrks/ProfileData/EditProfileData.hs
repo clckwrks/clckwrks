@@ -9,8 +9,8 @@ import Data.Text                (Text, pack)
 import Data.Maybe               (fromMaybe)
 import qualified Data.Text      as Text
 import Happstack.Auth           (UserId)
-import Text.Reform              ((++>), transformEitherM)
-import Text.Reform.HSP.Text     (form, inputText, inputSubmit, label, fieldset, ol, li, errorList)
+import Text.Reform              ((++>), mapView, transformEitherM)
+import Text.Reform.HSP.Text     (form, inputText, inputSubmit, label, fieldset, ol, li, errorList, setAttrs)
 import Text.Reform.Happstack    (reform)
 
 -- FIXME: this currently uses the admin template. Which is sort of right, and sort of not.
@@ -38,11 +38,18 @@ editProfileDataPage here =
 
 profileDataFormlet :: ProfileData -> ClckForm ProfileDataURL ()
 profileDataFormlet pd@ProfileData{..} =
-    errorList ++> ((,) <$> (li $ label "username:" )        ++> (li $ inputText username)
-         <*> (li $ label" email (optional):") ++> (li $ inputText (fromMaybe Text.empty email))
-         <* inputSubmit (pack "update"))
+    divHorizontal $
+     errorList ++>
+          ((,) <$> (divControlGroup (label' "Username" ++> (divControls (inputText username))))
+               <*> (divControlGroup (label'" Email (optional)" ++> (divControls (inputText (fromMaybe Text.empty email)))))
+               <*  (divControlGroup (divControls (inputSubmit (pack "Update") `setAttrs` ("class" := "btn")))))
     `transformEitherM` updateProfileData
     where
+      label' str      = (label str `setAttrs` [("class":="control-label")])
+      divHorizontal   = mapView (\xml -> [<div class="form-horizontal"><% xml %></div>])
+      divControlGroup = mapView (\xml -> [<div class="control-group"><% xml %></div>])
+      divControls     = mapView (\xml -> [<div class="controls"><% xml %></div>])
+
       updateProfileData :: (Text, Text) -> Clck ProfileDataURL (Either ClckFormError ())
       updateProfileData (usrnm, eml) =
           do let newPd = pd { username = usrnm

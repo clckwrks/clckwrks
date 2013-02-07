@@ -27,14 +27,21 @@ editSettings here =
 
 editSettingsForm :: Maybe UACCT -> ClckForm ClckURL (Maybe UACCT)
 editSettingsForm muacct =
-    fieldset $
-     ol $
-      ((li $ label "Google Analytics UACCT:") ++> (li $ (inputText (unUACCT muacct)) `transformEither` toMUACCT)) <*
-      inputSubmit "update"
+    divHorizontal $
+     fieldset $
+        (divControlGroup $
+         (label "Google Analytics UACCT" `setAttrs` [("class":="control-label")]) ++>
+          (divControls (inputText (unUACCT muacct)) `transformEither` toMUACCT)) <*
+        (divControlGroup $ divControls $ inputSubmit "Update" `setAttrs` [("class" := "btn")])
     where
+      divHorizontal   = mapView (\xml -> [<div class="form-horizontal"><% xml %></div>])
+      divControlGroup = mapView (\xml -> [<div class="control-group"><% xml %></div>])
+      divControls     = mapView (\xml -> [<div class="controls"><% xml %></div>])
       unUACCT (Just (UACCT str)) = str
       unUACCT Nothing            = ""
 
       toMUACCT :: String -> Either ClckFormError (Maybe UACCT)
       toMUACCT []  = Right $ Nothing
       toMUACCT str = Right $ Just (UACCT str)
+
+

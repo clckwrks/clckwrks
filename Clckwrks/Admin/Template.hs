@@ -30,26 +30,31 @@ template title headers body =
       <% headers %>
      </head>
      <body>
-      <% sidebar %>
-      <div id="admin-body">
-       <% body %>
+      <div class="container-fluid">
+       <div class="row-fluid">
+        <div class="span2">
+         <% sidebar %>
+        </div>
+        <div class="span10">
+         <% body %>
+        </div>
+       </div>
       </div>
      </body>
     </html>)
 
 sidebar :: (Happstack m) => XMLGenT (ClckT url m) XML
-sidebar =
-    <div id="admin-sidebar">
-      <% adminMenuXML %>
-    </div>
+sidebar = adminMenuXML
 
 adminMenuXML :: (Happstack m) => XMLGenT (ClckT url m) XML
 adminMenuXML =
     do allMenus <- adminMenus <$> get
        usersMenus <- filterByRole allMenus
-       <ul id="admin-menu">
-          <% mapM mkMenu usersMenus %>
+       <div class="well">
+        <ul class="nav nav-list">
+         <% mapM mkMenu usersMenus %>
         </ul>
+       </div>
     where
 --       filterByRole :: [(T.Text, [(Set Role, T.Text, T.Text)])] -> [(T.Text, [(Set Role, T.Text, T.Text)])]
       filterByRole menus =
@@ -61,13 +66,12 @@ adminMenuXML =
             items' -> Just (title, items')
       itemFilter userRoles (visibleRoles, _, _) = not (Set.null (Set.intersection userRoles visibleRoles))
 
-      mkMenu :: (Functor m, Monad m) => (T.Text, [(Set Role, T.Text, T.Text)]) -> XMLGenT (ClckT url m) XML
+--      mkMenu :: (Functor m, Monad m) => (T.Text, [(Set Role, T.Text, T.Text)]) -> XMLGenT (ClckT url m) XML
       mkMenu (category, links) =
-          <li class="admin-menu-category"><span class="admin-menu-category-title"><% category %></span>
-              <ul id="admin-menu-links">
-               <% mapM mkLink links %>
-              </ul>
-          </li>
+          <%>
+           <li class="nav-header"><% category %></li>
+           <% mapM mkLink links %>
+          </%>
       mkLink :: (Functor m, Monad m) => (Set Role, T.Text, T.Text) -> XMLGenT (ClckT url m) XML
-      mkLink (visible, title, url) =
-          <li class="admin-menu-link"><a href=url><% title %></a></li>
+      mkLink (_visible, title, url) =
+          <li><a href=url><% title %></a></li>

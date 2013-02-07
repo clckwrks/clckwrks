@@ -24,7 +24,7 @@ editMenu :: Clck ClckURL Response
 editMenu =
     do p     <- plugins <$> get
        links <- getMenuLinks p
-       liftIO $ print (toJSON links)
+--       liftIO $ print (toJSON links)
        currentMenu <- query GetMenu
        template "Edit Menu" (headers currentMenu links) $
                 <%>
@@ -222,8 +222,8 @@ menuPost :: Clck ClckURL Response
 menuPost =
   do t <- lookBS "tree"
      let mu = decode t :: Maybe MenuUpdate
-     liftIO $ print t
-     liftIO $ print mu
+--     liftIO $ print t
+--     liftIO $ print mu
      case mu of
        Nothing ->
            do internalServerError $ toResponse ("menuPost: failed to decode JSON data" :: Text)
