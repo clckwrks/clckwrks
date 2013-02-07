@@ -34,6 +34,7 @@ module Clckwrks.Monad
     , getPreProcessors
 --     , getPrefix
     , getEnableAnalytics
+    , googleAnalytics
     , getUnique
     , setUnique
     , requiresRole
@@ -50,7 +51,7 @@ module Clckwrks.Monad
 where
 
 import Clckwrks.Admin.URL            (AdminURL(..))
-import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..))
+import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), GetUACCT(..))
 -- import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
 import Clckwrks.Menu.Acid            (MenuState)
 -- import Clckwrks.Page.Acid            (PageState, PageId)
@@ -97,7 +98,7 @@ import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.Internal.Monads (FilterFun)
 import HSP                           hiding (Request, escape)
-import HSP.Google.Analytics          (UACCT)
+import HSP.Google.Analytics          (UACCT, analyticsAsync)
 import HSP.ServerPartT               ()
 import HSX.XMLGenerator              (XMLGen(..))
 import HSX.JMacro                    (IntegerSupply(..))
@@ -624,3 +625,23 @@ getPreProcessors :: (MonadIO m) =>
 getPreProcessors plugins =
     mapClckT liftIO $
       (cpsPreProcessors <$> getPluginsSt plugins)
+
+
+-- | create a google analytics tracking code block
+--
+-- This will under two different conditions:
+--
+--  * the 'enableAnalytics' field in 'ClckState' is 'False'
+--
+--  * the 'uacct' field in 'PageState' is 'Nothing'
+googleAnalytics :: XMLGenT (Clck url) XML
+googleAnalytics =
+    do enabled <- getEnableAnalytics
+       case enabled of
+         False -> return $ cdata ""
+         True ->
+             do muacct <- query GetUACCT
+                case muacct of
+                  Nothing -> return $ cdata ""
+                  (Just uacct) ->
+                      analyticsAsync uacct
