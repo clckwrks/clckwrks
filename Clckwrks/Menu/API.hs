@@ -5,6 +5,9 @@ import Clckwrks
 import Clckwrks.Menu.Acid
 import Clckwrks.Menu.Types
 
+getMenuData :: (Functor m, MonadIO m) => ClckT url m Menu
+getMenuData = query GetMenu
+
 getMenu :: GenXML (Clck ClckURL)
 getMenu =
     do menu <- query GetMenu
@@ -23,28 +26,3 @@ navBarHTML (Menu menuItems) =
 mkMenuItem :: MenuItem -> GenXML (Clck ClckURL)
 mkMenuItem (MILink (MenuLink ttl lnk)) =
     <li><a href=lnk><% ttl %></a></li>
-
-{-
--- menuForestHTML :: Forest (MenuItem url) -> GenXML (Clck url)
-menuForestHTML [] = return $ cdata ""
-menuForestHTML forest =
-    <ul class="page-menu">
-     <% mapM menuTreeHTML forest %>
-    </ul>
-
--- menuTreeHTML :: Tree (MenuItem url) -> GenXML (Clck url)
-menuTreeHTML (Node menuItem subMenus) =
-    case menuLink menuItem of
-      (LinkURL url) ->
-          do u <- showURL url
-             <li>
-              <a href=u><% menuTitle menuItem %></a>
-              <% menuForestHTML subMenus %>
-              </li>
-      LinkMenu ->  -- FIXME: add real support for sub menus
-          <li>sub-menu (fixme)</li>
-      LinkText txt ->
-          <li>LinkText not implemented: <% txt %></li>
-
-
--}
