@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.Acid where
 
-import Clckwrks.Menu.Acid          (MenuState       , initialMenuState)
+import Clckwrks.NavBar.Acid          (NavBarState       , initialNavBarState)
 import Clckwrks.ProfileData.Acid   (ProfileDataState, initialProfileDataState)
 import Clckwrks.Types              (UUID)
 import Clckwrks.URL                (ClckURL)
@@ -70,7 +70,7 @@ data Acid = Acid
     , acidProfile     :: AcidState ProfileState
     , acidProfileData :: AcidState ProfileDataState
     , acidCore        :: AcidState CoreState
-    , acidMenu        :: AcidState MenuState
+    , acidNavBar        :: AcidState NavBarState
     }
 
 class GetAcidState m st where
@@ -83,10 +83,10 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profile")     initialProfileState)     (createArchiveCheckpointAndClose) $ \profile ->
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "core")        initialCoreState)        (createArchiveCheckpointAndClose) $ \core ->
-    bracket (openLocalStateFrom (basePath </> "menu")        initialMenuState)        (createArchiveCheckpointAndClose) $ \menu ->
+    bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
     bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket")))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
-            (const $ f (Acid auth profile profileData core menu))
+            (const $ f (Acid auth profile profileData core navBar))
     where
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)
       createArchiveCheckpointAndClose acid =

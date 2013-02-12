@@ -1,13 +1,14 @@
 {-# LANGUAGE FlexibleInstances, OverloadedStrings, QuasiQuotes, RecordWildCards #-}
 {-# OPTIONS_GHC -F -pgmFtrhsx #-}
-module Clckwrks.Menu.EditMenu where
+module Clckwrks.NavBar.EditNavBar where
 
 import Clckwrks.Admin.Template (template)
 import Control.Applicative     ((<$>))
 import Clckwrks                (query, update)
-import Clckwrks.Menu.Acid      (GetMenu(..), SetMenu(..))
-import Clckwrks.Menu.Types     (Menu(..), MenuLink(..), MenuLinks(..), MenuItem(..))
-import Clckwrks.Monad          (Clck(..), ClckState(..), getMenuLinks, mapClckT)
+import Clckwrks.NavBar.Acid      (GetNavBar(..), SetNavBar(..))
+import Clckwrks.NavBar.Types     (NavBar(..), NavBarLinks(..), NavBarItem(..))
+import Clckwrks.Monad          (Clck(..), ClckState(..), getNavBarLinks, mapClckT)
+import Clckwrks.Types          (NamedLink(..))
 import Clckwrks.URL            (ClckURL(..), AdminURL(..))
 import Control.Monad.State     (get)
 import Control.Monad.Trans     (lift, liftIO)
@@ -20,15 +21,15 @@ import HSP
 import Language.Javascript.JMacro
 import Web.Routes              (showURL)
 
-editMenu :: Clck ClckURL Response
-editMenu =
+editNavBar :: Clck ClckURL Response
+editNavBar =
     do p     <- plugins <$> get
-       links <- getMenuLinks p
+       links <- getNavBarLinks p
 --       liftIO $ print (toJSON links)
-       currentMenu <- query GetMenu
-       template "Edit Menu" (headers currentMenu links) $
+       currentNavBar <- query GetNavBar
+       template "Edit NavBar" (headers currentNavBar links) $
                 <%>
-                 <h1>Menu Editor</h1>
+                 <h1>NavBar Editor</h1>
                    <div id="alert">
                    </div>
                    <div class="form-horizontal">
@@ -41,16 +42,16 @@ editMenu =
                       </div>
                      </div>
                      <div class="control-group">
-                      <label class="control-label" for="menu-item-list">then select a link</label>
+                      <label class="control-label" for="navBar-item-list">then select a link</label>
                       <div class="controls">
                        <div class="input-append">
-                        <select id="menu-item-list"></select>
+                        <select id="navBar-item-list"></select>
                         <button class="btn" id="add-link">Add Link</button>
                        </div>
                       </div>
                      </div>
                     </fieldset>
-                    -- <button id="add-sub-menu">Add Sub-Menu</button><br />
+                    -- <button id="add-sub-navBar">Add Sub-NavBar</button><br />
                     <fieldset>
                      <legend>Other Actions</legend>
                      <div class="control-group">
@@ -68,27 +69,27 @@ editMenu =
                     </fieldset>
 
                     <fieldset>
-                     <legend>Menu</legend>
+                     <legend>NavBar</legend>
                      <p><i>Drag and Drop to rearrange. Click to rename.</i></p>
-                     <div id="menu"></div>
+                     <div id="navBar"></div>
                     </fieldset>
                    </div>
                 </%>
     where
-      headers currentMenu menuLinks
-           = do menuUpdate <- showURL (Admin MenuPost)
+      headers currentNavBar navBarLinks
+           = do navBarUpdate <- showURL (Admin NavBarPost)
                 <%>
                  <script type="text/javascript" src="/jstree/jquery.jstree.js" ></script>
                  <% [$jmacro|
                       function !doubleClickCB(e, dt) {
                         alert(dt.rslt.o);
-//                        menu.rename(d.rslt);
+//                        navBar.rename(d.rslt);
                       };
 
                       $(document).ready(function ()
-                                         { $("#menu").jstree(`(jstree currentMenu)`);
-                                            var !menu = $.jstree._reference("#menu");
-                                            $("#menu").bind("select_node.jstree",  function(e, d) { $("#menu").jstree("rename", d.inst.o); } );
+                                         { $("#navBar").jstree(`(jstree currentNavBar)`);
+                                            var !navBar = $.jstree._reference("#navBar");
+                                            $("#navBar").bind("select_node.jstree",  function(e, d) { $("#navBar").jstree("rename", d.inst.o); } );
 
                                             // click elsewhere in document to unselect nodes
                                             $(document).bind("click", function (e) {
@@ -97,34 +98,34 @@ editMenu =
                                               }
                                              });
 
-                                            `(initializeDropDowns menuLinks)`;
+                                            `(initializeDropDowns navBarLinks)`;
                                             `(removeItem)`;
-                                            `(saveChanges menuUpdate)`;
+                                            `(saveChanges navBarUpdate)`;
                                          });
 
                     |]
                   %>
                  </%>
 
-initializeDropDowns :: MenuLinks -> JStat
-initializeDropDowns menuLinks' =
+initializeDropDowns :: NavBarLinks -> JStat
+initializeDropDowns navBarLinks' =
     [jmacro|
-             var !menuLinks = `(toJSON menuLinks')`;
+             var !navBarLinks = `(toJSON navBarLinks')`;
              var pluginList = $('#plugin-list');
-             var menuItemList = $('#menu-item-list');
+             var navBarItemList = $('#navBar-item-list');
 
              function populateLinks (pluginIndex) {
-               menuItemList.empty();
-               for (var i = 0; i < menuLinks[pluginIndex].pluginLinks.length; i++) {
-                 var option = $('<option></option>', { value : [pluginIndex,i] }).text(menuLinks[pluginIndex].pluginLinks[i].menuItemName);
-                 option.data("menuItem", menuLinks[pluginIndex].pluginLinks[i].menuItemName);
-                 menuItemList.append(option);
+               navBarItemList.empty();
+               for (var i = 0; i < navBarLinks[pluginIndex].pluginLinks.length; i++) {
+                 var option = $('<option></option>', { value : [pluginIndex,i] }).text(navBarLinks[pluginIndex].pluginLinks[i].navBarItemName);
+                 option.data("navBarItem", navBarLinks[pluginIndex].pluginLinks[i].navBarItemName);
+                 navBarItemList.append(option);
                }
              }
 
-             for (var p = 0; p < menuLinks.length; p++) {
-               var option = $('<option></option>', { 'value' : p }).text(menuLinks[p].pluginName);
-               option.text(menuLinks[p].pluginName);
+             for (var p = 0; p < navBarLinks.length; p++) {
+               var option = $('<option></option>', { 'value' : p }).text(navBarLinks[p].pluginName);
+               option.text(navBarLinks[p].pluginName);
                pluginList.append(option);
              }
              populateLinks(0);
@@ -132,30 +133,30 @@ initializeDropDowns menuLinks' =
 
              // add handler to add-link button
              $("#add-link").click(function () {
-               var indexes = menuItemList.val().split(',');
-               var menuItem = menuLinks[indexes[0]].pluginLinks[indexes[1]];
+               var indexes = navBarItemList.val().split(',');
+               var navBarItem = navBarLinks[indexes[0]].pluginLinks[indexes[1]];
                var entry = { 'state' : 'open'
-                           , 'data'  : { 'title' : menuItem.menuItemName }
+                           , 'data'  : { 'title' : navBarItem.navBarItemName }
                            , 'attr'  : { 'rel' : 'target' }
                            , 'metadata'
-                                     : { 'link' : { 'menuName' : menuItem.menuItemName
-                                                  , 'menuLink' : menuItem.menuItemLink
+                                     : { 'link' : { 'navBarName' : navBarItem.navBarItemName
+                                                  , 'navBarLink' : navBarItem.navBarItemLink
                                                   }
                                        }
                            };
-               menu.create(null, 0,  entry , false, true);
+               navBar.create(null, 0,  entry , false, true);
              });
 
            |]
 
 saveChanges :: Text -> JStat
-saveChanges menuUpdateURL =
+saveChanges navBarUpdateURL =
     [$jmacro|
      $("#saveChanges").click(function () {
-       var tree = $("#menu").jstree("get_json", -1);
+       var tree = $("#navBar").jstree("get_json", -1);
        var json = JSON.stringify(tree);
        console.log(json);
-       $.post(`(menuUpdateURL)`, { tree : json });
+       $.post(`(navBarUpdateURL)`, { tree : json });
        var alert = $('<div class="alert alert-success"><button type="button" class="close" data-dismiss="alert">×</button><span>Changes Saved!</span></div>');
 //       alert.alert();
        $("#alert").append(alert);
@@ -167,18 +168,18 @@ removeItem :: JStat
 removeItem =
   [$jmacro|
    $("#remove-item").click(function() {
-       menu.remove(menu.get_selected());
+       navBar.remove(navBar.get_selected());
    });
   |]
 
-jstree :: Menu -> Value
-jstree menu =
+jstree :: NavBar -> Value
+jstree navBar =
     object [ "types" .=
              object [ "types" .=
                       object [ "root" .=
                                object [ "max_children" .= (-1 :: Int)
                                       ]
-                             , "menu" .=
+                             , "navBar" .=
                                object [ "max_children" .= (-1 :: Int)
                                       ]
                              , "target" .=
@@ -194,53 +195,53 @@ jstree menu =
            , "ui" .=
                  object [ "initially_select" .= ([ "tree-root" ] :: [String])
                         ]
-           , "json_data" .= menuToJSTree menu
+           , "json_data" .= navBarToJSTree navBar
            , "plugins"   .= ([ "themes", "ui", "crrm", "types", "json_data", "dnd" ] :: [String])
            ]
 
-menuToJSTree :: Menu -> Value
-menuToJSTree (Menu items) =
-    object  [ "data" .= (toJSON $ map menuItemToJSTree items)
+navBarToJSTree :: NavBar -> Value
+navBarToJSTree (NavBar items) =
+    object  [ "data" .= (toJSON $ map navBarItemToJSTree items)
             ]
 
-menuItemToJSTree :: MenuItem -> Value
-menuItemToJSTree (MILink MenuLink{..}) =
+navBarItemToJSTree :: NavBarItem -> Value
+navBarItemToJSTree (NBLink NamedLink{..}) =
     object [ "data" .=
-               object [ "title" .= menuItemName
+               object [ "title" .= namedLinkTitle
                       ]
            , "attr" .=
                object [ "rel" .= ("target" :: String)
                       ]
            , "metadata" .=
                object [ "link" .=
-                          object [ "menuLink" .= menuItemLink
+                          object [ "navBarLink" .= namedLinkURL
                                  ]
                       ]
            ]
 
-menuPost :: Clck ClckURL Response
-menuPost =
+navBarPost :: Clck ClckURL Response
+navBarPost =
   do t <- lookBS "tree"
-     let mu = decode t :: Maybe MenuUpdate
+     let mu = decode t :: Maybe NavBarUpdate
 --     liftIO $ print t
 --     liftIO $ print mu
      case mu of
        Nothing ->
-           do internalServerError $ toResponse ("menuPost: failed to decode JSON data" :: Text)
-       (Just (MenuUpdate u)) ->
-           do update (SetMenu u)
+           do internalServerError $ toResponse ("navBarPost: failed to decode JSON data" :: Text)
+       (Just (NavBarUpdate u)) ->
+           do update (SetNavBar u)
               ok $ toResponse ()
 
-newtype MenuUpdate     = MenuUpdate Menu deriving (Show)
+newtype NavBarUpdate     = NavBarUpdate NavBar deriving (Show)
 
-instance FromJSON MenuUpdate where
-  parseJSON (Array a) = (MenuUpdate . Menu) <$> mapM parseJSON (Vector.toList a)
+instance FromJSON NavBarUpdate where
+  parseJSON (Array a) = (NavBarUpdate . NavBar) <$> mapM parseJSON (Vector.toList a)
 
-instance FromJSON MenuItem where
+instance FromJSON NavBarItem where
   parseJSON (Object o) =
       do ttl      <- o .: "data"
          meta     <- o .: "metadata"
          link     <- meta .: "link"
-         menuLink <- link .: "menuLink"
-         let ml = MenuLink ttl menuLink
-         return (MILink ml)
+         navBarLink <- link .: "navBarLink"
+         let nl = NamedLink ttl navBarLink
+         return (NBLink nl)

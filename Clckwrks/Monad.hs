@@ -28,9 +28,9 @@ module Clckwrks.Monad
 --    , markupToContent
 --    , addPreProcessor
     , addAdminMenu
+    , getNavBarLinks
     , addPreProc
     , addMenuCallback
-    , getMenuLinks
     , getPreProcessors
 --     , getPrefix
     , getEnableAnalytics
@@ -52,13 +52,11 @@ where
 
 import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), GetUACCT(..))
--- import Clckwrks.Page.Types           (Markup(..), runPreProcessors)
-import Clckwrks.Menu.Acid            (MenuState)
--- import Clckwrks.Page.Acid            (PageState, PageId)
 import Clckwrks.ProfileData.Acid     (ProfileDataState, ProfileDataError(..), GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
-import Clckwrks.Menu.Types           (MenuLink(..), MenuLinks(..))
-import Clckwrks.Types                (Prefix, Trust(Trusted))
+import Clckwrks.NavBar.Acid          (NavBarState)
+import Clckwrks.NavBar.Types         (NavBarLinks(..))
+import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
@@ -116,7 +114,7 @@ import Web.Routes.XMLGenT            () -- imported so that instances are scope 
 
 data ClckPluginsSt = ClckPluginsSt
     { cpsPreProcessors :: [TL.Text -> ClckT ClckURL IO TL.Text]
-    , cpsMenuLinks     :: [ClckT ClckURL IO (String, [MenuLink])]
+    , cpsMenuLinks     :: [ClckT ClckURL IO (String, [NamedLink])]
     }
 
 initialClckPluginsSt :: ClckPluginsSt
@@ -347,8 +345,8 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileState where
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) CoreState where
     getAcidState = (acidCore . acidState) <$> get
 
-instance (Functor m, Monad m) => GetAcidState (ClckT url m) MenuState where
-    getAcidState = (acidMenu . acidState) <$> get
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) NavBarState where
+    getAcidState = (acidNavBar . acidState) <$> get
 
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
@@ -606,18 +604,18 @@ getUserRoles =
 
 addMenuCallback :: (MonadIO m) =>
                    Plugins theme n hook config ClckPluginsSt
-                -> ClckT ClckURL IO (String, [MenuLink])
+                -> ClckT ClckURL IO (String, [NamedLink])
                 -> m ()
 addMenuCallback plugins ml =
     modifyPluginsSt plugins $ \cps -> cps { cpsMenuLinks = (cpsMenuLinks cps) ++ [ml] }
 
-getMenuLinks :: (MonadIO m) =>
+getNavBarLinks :: (MonadIO m) =>
                 Plugins theme n hook config ClckPluginsSt
-             -> ClckT ClckURL m MenuLinks
-getMenuLinks plugins =
+             -> ClckT ClckURL m NavBarLinks
+getNavBarLinks plugins =
     mapClckT liftIO $
       do genMenus <- (cpsMenuLinks <$> getPluginsSt plugins)
-         MenuLinks <$> sequenceA genMenus
+         NavBarLinks <$> sequenceA genMenus
 
 getPreProcessors :: (MonadIO m) =>
                 Plugins theme n hook config ClckPluginsSt

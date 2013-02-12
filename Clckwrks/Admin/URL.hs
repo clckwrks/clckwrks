@@ -8,8 +8,8 @@ import Web.Routes.TH       (derivePathInfo)
 data AdminURL
     = Console
     | EditSettings
-    | EditMenu
-    | MenuPost
+    | EditNavBar
+    | NavBarPost
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 $(derivePathInfo ''AdminURL)

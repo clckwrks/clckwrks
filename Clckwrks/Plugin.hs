@@ -2,7 +2,7 @@
 module Clckwrks.Plugin where
 
 import Clckwrks
-import Clckwrks.Menu.Types (MenuLink(..))
+import Clckwrks.Types              (NamedLink(..))
 import Clckwrks.Route              (routeClck)
 import Control.Monad.State         (get)
 import Data.Text                   (Text)
@@ -19,10 +19,10 @@ clckHandler showRouteFn _plugins paths =
       (Left e)  -> notFound $ toResponse (show e)
       (Right u) -> routeClck u
 
-clckMenuCallback :: ClckT ClckURL IO (String, [MenuLink])
+clckMenuCallback :: ClckT ClckURL IO (String, [NamedLink])
 clckMenuCallback =
     do adminURL <- showURL (Admin Console)
-       return ("Clck", [MenuLink "Admin" adminURL])
+       return ("Clck", [NamedLink "Admin" adminURL])
 
 clckInit :: ClckPlugins
          -> IO (Maybe Text)
@@ -44,7 +44,7 @@ addClckAdminMenu =
        addAdminMenu ( "Clckwrks"
                     , [ (Set.singleton Administrator, "Console"      , clckShowURL (Admin Console)      [])
                       , (Set.singleton Administrator, "Edit Settings", clckShowURL (Admin EditSettings) [])
-                      , (Set.singleton Administrator, "Edit Menu"    , clckShowURL (Admin EditMenu)     [])
+                      , (Set.singleton Administrator, "Edit Nav Bar" , clckShowURL (Admin EditNavBar)   [])
                       ]
                     )
 

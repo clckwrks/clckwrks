@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.15.0
+Version:             0.15.1
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -45,10 +45,10 @@ Library
                    Clckwrks.Server
                    Clckwrks.Markup.HsColour
                    Clckwrks.Markup.Markdown
-                   Clckwrks.Menu.Acid
-                   Clckwrks.Menu.API
-                   Clckwrks.Menu.EditMenu
-                   Clckwrks.Menu.Types
+                   Clckwrks.NavBar.Acid
+                   Clckwrks.NavBar.API
+                   Clckwrks.NavBar.EditNavBar
+                   Clckwrks.NavBar.Types
                    Clckwrks.Plugin
                    Clckwrks.ProfileData.URL
                    Clckwrks.ProfileData.Route
