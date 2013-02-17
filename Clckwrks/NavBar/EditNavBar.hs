@@ -5,8 +5,8 @@ module Clckwrks.NavBar.EditNavBar where
 import Clckwrks.Admin.Template (template)
 import Control.Applicative     ((<$>))
 import Clckwrks                (query, update)
-import Clckwrks.NavBar.Acid      (GetNavBar(..), SetNavBar(..))
-import Clckwrks.NavBar.Types     (NavBar(..), NavBarLinks(..), NavBarItem(..))
+import Clckwrks.NavBar.Acid    (GetNavBar(..), SetNavBar(..))
+import Clckwrks.NavBar.Types   (NavBar(..), NavBarLinks(..), NavBarItem(..))
 import Clckwrks.Monad          (Clck(..), ClckState(..), getNavBarLinks, mapClckT)
 import Clckwrks.Types          (NamedLink(..))
 import Clckwrks.URL            (ClckURL(..), AdminURL(..))
@@ -144,7 +144,7 @@ initializeDropDowns navBarLinks' =
                                                   }
                                        }
                            };
-               navBar.create(null, 0,  entry , false, true);
+               navBar.create(null, "last",  entry , null, true);
              });
 
            |]

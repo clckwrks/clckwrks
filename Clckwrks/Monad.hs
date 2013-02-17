@@ -30,7 +30,7 @@ module Clckwrks.Monad
     , addAdminMenu
     , getNavBarLinks
     , addPreProc
-    , addMenuCallback
+    , addNavBarCallback
     , getPreProcessors
 --     , getPrefix
     , getEnableAnalytics
@@ -114,13 +114,13 @@ import Web.Routes.XMLGenT            () -- imported so that instances are scope 
 
 data ClckPluginsSt = ClckPluginsSt
     { cpsPreProcessors :: [TL.Text -> ClckT ClckURL IO TL.Text]
-    , cpsMenuLinks     :: [ClckT ClckURL IO (String, [NamedLink])]
+    , cpsNavBarLinks     :: [ClckT ClckURL IO (String, [NamedLink])]
     }
 
 initialClckPluginsSt :: ClckPluginsSt
 initialClckPluginsSt = ClckPluginsSt
     { cpsPreProcessors = []
-    , cpsMenuLinks     = []
+    , cpsNavBarLinks     = []
     }
 
 -- | ClckPlugins
@@ -599,23 +599,23 @@ getUserRoles =
                   (Just r) -> return r
 
 ------------------------------------------------------------------------------
--- Menu callback
+-- NavBar callback
 ------------------------------------------------------------------------------
 
-addMenuCallback :: (MonadIO m) =>
+addNavBarCallback :: (MonadIO m) =>
                    Plugins theme n hook config ClckPluginsSt
                 -> ClckT ClckURL IO (String, [NamedLink])
                 -> m ()
-addMenuCallback plugins ml =
-    modifyPluginsSt plugins $ \cps -> cps { cpsMenuLinks = (cpsMenuLinks cps) ++ [ml] }
+addNavBarCallback plugins ml =
+    modifyPluginsSt plugins $ \cps -> cps { cpsNavBarLinks = (cpsNavBarLinks cps) ++ [ml] }
 
 getNavBarLinks :: (MonadIO m) =>
                 Plugins theme n hook config ClckPluginsSt
              -> ClckT ClckURL m NavBarLinks
 getNavBarLinks plugins =
     mapClckT liftIO $
-      do genMenus <- (cpsMenuLinks <$> getPluginsSt plugins)
-         NavBarLinks <$> sequenceA genMenus
+      do genNavBarLinks <- (cpsNavBarLinks <$> getPluginsSt plugins)
+         NavBarLinks <$> sequenceA genNavBarLinks
 
 getPreProcessors :: (MonadIO m) =>
                 Plugins theme n hook config ClckPluginsSt
