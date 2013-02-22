@@ -30,6 +30,14 @@ template title headers body =
       <% headers %>
      </head>
      <body>
+      <div class="navbar">
+       <div class="navbar-inner">
+        <div class="container-fluid">
+         <a href="/" class="brand">Back to Your Site</a>
+        </div>
+       </div>
+      </div>
+
       <div class="container-fluid">
        <div class="row-fluid">
         <div class="span2">
