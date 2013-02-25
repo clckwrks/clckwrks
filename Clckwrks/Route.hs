@@ -10,7 +10,7 @@ import Control.Monad.State         (MonadState(get))
 import Data.Maybe                  (fromJust)
 import Data.Monoid                 ((<>))
 import qualified Data.Set          as Set
-import Data.Text                   (Text)
+import Data.Text                   (Text, pack)
 import qualified Data.Text         as Text
 import Happstack.Auth              (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
@@ -68,7 +68,10 @@ routeClck url' =
                 cc <- getConfig (plugins clckState)
                 let go = do let Acid{..} = acidState clckState
                             u <- showURL $ Profile CreateNewProfileData
-                            withAbs $ nestURL Auth $ handleAuthProfile acidAuth acidProfile basicTemplate Nothing Nothing u apURL
+                            showClckURL <- askRouteFn
+                            cs <- get
+                            let template'  ttl hdr bdy = withRouteClckT (const showClckURL) $ themeTemplate (plugins cs) (pack ttl) hdr bdy
+                            withAbs $ nestURL Auth $ handleAuthProfile acidAuth acidProfile template' Nothing Nothing u apURL
                 case clckTLS cc of
                   Nothing -> go
                   (Just tlsSettings) ->
