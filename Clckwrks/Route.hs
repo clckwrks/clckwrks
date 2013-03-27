@@ -25,6 +25,7 @@ checkAuth :: (Happstack m, Monad m) =>
 checkAuth url =
     case url of
       ThemeData{}          -> return url
+      ThemeDataNoEscape{}  -> return url
       PluginData{}         -> return url
       Admin{}              -> requiresRole (Set.singleton Administrator) url
       Auth{}               -> return url
@@ -48,7 +49,19 @@ routeClck url' =
                          let fp'' = makeRelative "/" (unEscapeString fp')
                          if not (isSafePath (splitDirectories fp''))
                            then notFound (toResponse ())
-                           else serveFile (guessContentTypeM mimeTypes) (fp </> "data" </> fp'')
+                           else serveFile (guessContentTypeM mimeTypes) (fp </> fp'')
+
+         (ThemeDataNoEscape (NoEscape fp'))  ->
+             do p      <- plugins <$> get
+                mTheme <- getTheme p
+                case mTheme of
+                  Nothing -> notFound $ toResponse ("No theme package is loaded." :: Text)
+                  (Just theme) ->
+                      do fp    <- liftIO $ themeDataDir theme
+                         let fp'' = makeRelative "/" fp'
+                         if not (isSafePath (splitDirectories fp''))
+                           then notFound (toResponse ())
+                           else serveFile (guessContentTypeM mimeTypes) (fp </> fp'')
 
          (PluginData plugin fp')  ->
              do pp <- liftIO getDataDir

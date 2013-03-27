@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.URL
      ( ClckURL(..)
      , AdminURL(..)
@@ -6,58 +6,40 @@ module Clckwrks.URL
      , ProfileURL(..)
      , AuthProfileURL(..)
      , ProfileDataURL(..)
+     , NoEscape(..)
      ) where
 
 import Clckwrks.Admin.URL          (AdminURL(..))
 -- import Clckwrks.Page.Acid          (PageId(..))
 -- import Clckwrks.Page.Types         (Slug(..))
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
-import Control.Applicative         ((<$>))
+import Control.Applicative         ((<$>), many)
 import Data.Data                   (Data, Typeable)
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, deriveSafeCopy, extension)
-import Data.Text                   (Text)
+import Data.Text                   (Text, pack, unpack)
 import Happstack.Auth              (AuthURL(..), ProfileURL(..), AuthProfileURL(..), UserId)
 import Happstack.Auth.Core.AuthURL (OpenIdURL, AuthMode, OpenIdProvider)
+import System.FilePath             (joinPath, splitDirectories)
+import Web.Routes                  (PathInfo(..), anySegment)
 import Web.Routes.TH               (derivePathInfo)
-{-
-data ClckURL_1
-    = ViewPage_1 PageId
-    | Blog_1
-    | AtomFeed_1
-    | ThemeData_1 FilePath
-    | PluginData_1 Text FilePath
-    | Admin_1 AdminURL
-    | Profile_1 ProfileDataURL
-    | Auth_1 AuthProfileURL
+
+newtype NoEscape a = NoEscape a
       deriving (Eq, Ord, Data, Typeable, Read, Show)
-$(deriveSafeCopy 1 'base ''ClckURL_1)
--}
+
+instance PathInfo (NoEscape String) where
+    toPathSegments (NoEscape s) = map pack $ splitDirectories s
+    fromPathSegments =
+        do ps <- many anySegment
+           return (NoEscape (joinPath $ map unpack ps))
+
 data ClckURL
-{-
-    = ViewPage PageId
-    | ViewPageSlug PageId Slug
-    | Blog
-    | AtomFeed
--}
-    = ThemeData FilePath
+    = ThemeData String
+    | ThemeDataNoEscape (NoEscape FilePath)
     | PluginData Text FilePath
     | Admin AdminURL
     | Profile ProfileDataURL
     | Auth AuthProfileURL
       deriving (Eq, Ord, Data, Typeable, Read, Show)
-(deriveSafeCopy 3 'base ''ClckURL)
-{-
-instance Migrate ClckURL where
-    type MigrateFrom ClckURL   = ClckURL_1
-    migrate (ViewPage_1 pid)   = ViewPage pid
-    migrate Blog_1             = Blog
-    migrate AtomFeed_1         = AtomFeed
-    migrate (ThemeData_1 fp)   = ThemeData fp
-    migrate (PluginData_1 t f) = PluginData t f
-    migrate (Admin_1 u)        = Admin u
-    migrate (Profile_1 pdu)    = Profile pdu
-    migrate (Auth_1 apu)       = Auth apu
--}
 
 -- TODO: move upstream
 $(deriveSafeCopy 1 'base ''AuthURL)
