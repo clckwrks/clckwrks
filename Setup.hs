@@ -5,9 +5,9 @@ module Main where
 import Distribution.Simple
 import Distribution.Simple.Program
 
-trhsxProgram = simpleProgram "trhsx"
+hsx2hsProgram = simpleProgram "hsx2hs"
 
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks {
-         hookedPrograms = [trhsxProgram]
+         hookedPrograms = [hsx2hsProgram]
        }

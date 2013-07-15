@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.18.0
+Version:             0.18.1
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -30,7 +30,7 @@ source-repository head
     location: http://hub.darcs.net/stepcut/clckwrks
 
 Library
-  Build-tools:     trhsx
+  Build-tools:     hsx2hs
   Exposed-modules: Clckwrks
                    Clckwrks.Acid
                    Clckwrks.Admin.Template
