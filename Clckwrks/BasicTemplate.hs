@@ -1,19 +1,20 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# OPTIONS_GHC -F -pgmFhsx2hs #-}
 module Clckwrks.BasicTemplate (basicTemplate) where
 
 import Control.Applicative ((<$>))
 import Clckwrks.Monad
+import Data.Text.Lazy (Text)
 import Happstack.Server (Response, toResponse)
-import Happstack.Server.HSP.HTML ()
-import HSP
+import HSP.XMLGenerator
+import HSP.XML
 
-basicTemplate :: 
+basicTemplate ::
     ( Functor m
     , Monad m
     , EmbedAsChild (ClckT url m) headers
     , EmbedAsChild (ClckT url m) body
-    ) => String -> headers -> body -> ClckT url m Response
+    ) => Text -> headers -> body -> ClckT url m Response
 basicTemplate title headers body =
    toResponse <$> (unXMLGenT $
     <html>

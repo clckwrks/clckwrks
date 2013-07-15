@@ -1,9 +1,13 @@
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -F -pgmFhsx2hs #-}
 module Clckwrks.NavBar.API where
 
 import Clckwrks
 import Clckwrks.NavBar.Acid
 import Clckwrks.NavBar.Types
+import Data.Text.Lazy (Text)
+import HSP.XMLGenerator
+import HSP.XML
 
 getNavBarData :: (Functor m, MonadIO m) => ClckT url m NavBar
 getNavBarData = query GetNavBar

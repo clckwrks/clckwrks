@@ -1,5 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
+{-# OPTIONS_GHC -F -pgmFhsx2hs #-}
 module Clckwrks.ProfileData.EditProfileDataFor where
 
 import Clckwrks
@@ -10,9 +10,11 @@ import Data.Set                 as Set
 import Data.Text                (Text, pack)
 import qualified Data.Text      as Text
 import Happstack.Auth           (UserId)
+import HSP.XMLGenerator
+import HSP.XML
 import Text.Reform              ((++>), transformEitherM)
 import Text.Reform.Happstack    (reform)
-import Text.Reform.HSP.Text     (inputCheckboxes, inputText, label, inputSubmit, fieldset, ol, li, form)
+import Text.Reform.HSP.Text     (inputCheckboxes, inputText, labelText, inputSubmit, fieldset, ol, li, form)
 
 editProfileDataForPage :: ProfileDataURL -> UserId -> Clck ProfileDataURL Response
 editProfileDataForPage here uid =
@@ -36,9 +38,9 @@ profileDataFormlet :: ProfileData -> ClckForm ProfileDataURL ()
 profileDataFormlet pd@ProfileData{..} =
     (fieldset $
       ol $
-       ((,,) <$> (li $ label "username:")         ++> (li $ inputText username)
-             <*> (li $ label "email (optional):") ++> (li $ inputText (fromMaybe Text.empty email))
-             <*> (li $ label "roles:")            ++> (li $ inputCheckboxes [ (r, show r) | r <- [minBound .. maxBound]] (\r -> Set.member r roles))
+       ((,,) <$> (li $ labelText "username:")         ++> (li $ inputText username)
+             <*> (li $ labelText "email (optional):") ++> (li $ inputText (fromMaybe Text.empty email))
+             <*> (li $ labelText "roles:")            ++> (li $ inputCheckboxes [ (r, show r) | r <- [minBound .. maxBound]] (\r -> Set.member r roles))
              <*  inputSubmit (pack "update")
        )
     ) `transformEitherM` updateProfileData

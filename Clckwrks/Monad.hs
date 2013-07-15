@@ -47,6 +47,8 @@ module Clckwrks.Monad
     , withAbs'
     , segments
     , transform
+    , module HSP.XML
+    , module HSP.XMLGenerator
     )
 where
 
@@ -94,17 +96,19 @@ import qualified Happstack.Auth      as Auth
 
 import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Request(..), Response, HasRqData(..), ServerPartT, UnWebT, internalServerError, mapServerPartT, escape, toResponse)
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
+import Happstack.Server.XMLGenT      () -- instance Happstack XMLGenT
 import Happstack.Server.Internal.Monads (FilterFun)
-import HSP                           hiding (Request, escape)
+-- import HSP                           hiding (Request, escape)
 import HSP.Google.Analytics          (UACCT, analyticsAsync)
-import HSP.ServerPartT               ()
-import HSX.XMLGenerator              (XMLGen(..))
-import HSX.JMacro                    (IntegerSupply(..))
+-- import HSP.ServerPartT               ()
+import HSP.XML                       hiding (Name)
+import HSP.XMLGenerator
+import HSP.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro
 import Prelude                       hiding (takeWhile)
 import System.Locale                 (defaultTimeLocale)
 import Text.Blaze.Html               (Html)
-import Text.Blaze.Html.Renderer.String    (renderHtml)
+import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
 import Web.Plugins.Core              (Plugins, getConfig, getPluginsSt, modifyPluginsSt, getTheme)
@@ -362,6 +366,7 @@ getUserId =
 
 instance (Functor m, Monad m) => XMLGen (ClckT url m) where
     type XMLType          (ClckT url m) = XML
+    type StringType       (ClckT url m) = TL.Text
     newtype ChildType     (ClckT url m) = ClckChild { unClckChild :: XML }
     newtype AttributeType (ClckT url m) = ClckAttr { unClckAttr :: Attribute }
     genElement n attrs children =
@@ -386,67 +391,67 @@ flattenCDATA cxml =
         flP [] bs = reverse bs
         flP [x] bs = reverse (x:bs)
         flP (x:y:xs) bs = case (x,y) of
-                           (CDATA e1 s1, CDATA e2 s2) | e1 == e2 -> flP (CDATA e1 (s1++s2) : xs) bs
+                           (CDATA e1 s1, CDATA e2 s2) | e1 == e2 -> flP (CDATA e1 (s1<>s2) : xs) bs
                            _ -> flP (y:xs) (x:bs)
-
+{-
 instance (Functor m, Monad m) => IsAttrValue (ClckT url m) T.Text where
     toAttrValue = toAttrValue . T.unpack
 
 instance (Functor m, Monad m) => IsAttrValue (ClckT url m) TL.Text where
     toAttrValue = toAttrValue . TL.unpack
-
+-}
 instance (Functor m, Monad m) => EmbedAsAttr (ClckT url m) Attribute where
     asAttr = return . (:[]) . ClckAttr
 
-instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n String) where
-    asAttr (n := str)  = asAttr $ MkAttr (toName n, pAttrVal str)
+instance (Functor m, Monad m, IsName n TL.Text) => EmbedAsAttr (ClckT url m) (Attr n String) where
+    asAttr (n := str)  = asAttr $ MkAttr (toName n, pAttrVal $ TL.pack str)
 
-instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Char) where
-    asAttr (n := c)  = asAttr (n := [c])
+instance (Functor m, Monad m, IsName n TL.Text) => EmbedAsAttr (ClckT url m) (Attr n Char) where
+    asAttr (n := c)  = asAttr (n := TL.singleton c)
 
-instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Bool) where
+instance (Functor m, Monad m, IsName n TL.Text) => EmbedAsAttr (ClckT url m) (Attr n Bool) where
     asAttr (n := True)  = asAttr $ MkAttr (toName n, pAttrVal "true")
     asAttr (n := False) = asAttr $ MkAttr (toName n, pAttrVal "false")
 
-instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Int) where
-    asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal (show i))
+instance (Functor m, Monad m, IsName n TL.Text) => EmbedAsAttr (ClckT url m) (Attr n Int) where
+    asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal $ TL.pack (show i))
 
-instance (Functor m, Monad m, IsName n) => EmbedAsAttr (ClckT url m) (Attr n Integer) where
-    asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal (show i))
+instance (Functor m, Monad m, IsName n TL.Text) => EmbedAsAttr (ClckT url m) (Attr n Integer) where
+    asAttr (n := i)  = asAttr $ MkAttr (toName n, pAttrVal $ TL.pack (show i))
 
-instance (IsName n) => EmbedAsAttr (Clck ClckURL) (Attr n ClckURL) where
+instance (IsName n TL.Text) => EmbedAsAttr (Clck ClckURL) (Attr n ClckURL) where
     asAttr (n := u) =
         do url <- showURL u
-           asAttr $ MkAttr (toName n, pAttrVal (T.unpack url))
+           asAttr $ MkAttr (toName n, pAttrVal $ TL.fromStrict url)
 
-instance (IsName n) => EmbedAsAttr (Clck AdminURL) (Attr n AdminURL) where
+instance (IsName n TL.Text) => EmbedAsAttr (Clck AdminURL) (Attr n AdminURL) where
     asAttr (n := u) =
         do url <- showURL u
-           asAttr $ MkAttr (toName n, pAttrVal (T.unpack url))
+           asAttr $ MkAttr (toName n, pAttrVal (TL.fromStrict url))
 
-instance (Functor m, Monad m, IsName n) => (EmbedAsAttr (ClckT url m) (Attr n TL.Text)) where
-    asAttr (n := a) = asAttr $ MkAttr (toName n, pAttrVal $ TL.unpack a)
+instance (Functor m, Monad m, IsName n TL.Text) => (EmbedAsAttr (ClckT url m) (Attr n TL.Text)) where
+    asAttr (n := a) = asAttr $ MkAttr (toName n, pAttrVal $ a)
 
-instance (Functor m, Monad m, IsName n) => (EmbedAsAttr (ClckT url m) (Attr n T.Text)) where
-    asAttr (n := a) = asAttr $ MkAttr (toName n, pAttrVal $ T.unpack a)
+instance (Functor m, Monad m, IsName n TL.Text) => (EmbedAsAttr (ClckT url m) (Attr n T.Text)) where
+    asAttr (n := a) = asAttr $ MkAttr (toName n, pAttrVal $ TL.fromStrict a)
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Char where
-    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . (:[])
+    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . TL.singleton
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) String where
-    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata
+    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . TL.pack
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Int where
-    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
+    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . TL.pack . show
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Integer where
-    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
+    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . TL.pack . show
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Double where
-    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
+    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . TL.pack . show
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Float where
-    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . show
+    asChild = XMLGenT . return . (:[]) . ClckChild . pcdata . TL.pack . show
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) TL.Text where
     asChild = asChild . TL.unpack
@@ -511,8 +516,8 @@ data Content
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
-    asChild (TrustedHtml html) = asChild $ cdata (T.unpack html)
-    asChild (PlainText txt)    = asChild $ pcdata (T.unpack txt)
+    asChild (TrustedHtml html) = asChild $ cdata (TL.fromStrict html)
+    asChild (PlainText txt)    = asChild $ pcdata (TL.fromStrict txt)
 
 addPreProc :: (MonadIO m) =>
               Plugins theme n hook config ClckPluginsSt
@@ -585,7 +590,7 @@ requiresRole role url =
              do r <- query (HasRole uid role)
                 if r
                    then return url
-                   else escape $ unauthorizedPage ("You do not have permission to view this page." :: T.Text)
+                   else escape $ unauthorizedPage ("You do not have permission to view this page.")
 
 getUserRoles :: (Happstack m, MonadIO m) => ClckT u m (Set Role)
 getUserRoles =

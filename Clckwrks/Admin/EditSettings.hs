@@ -1,12 +1,15 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings #-}
+{-# OPTIONS_GHC -F -pgmFhsx2hs #-}
 module Clckwrks.Admin.EditSettings where
 
 import Clckwrks
 import Clckwrks.Acid             (GetUACCT(..), SetUACCT(..))
-import Clckwrks.Admin.Template  (template)
+import Clckwrks.Admin.Template   (template)
+import Data.Text.Lazy            (Text)
 -- import Clckwrks.Page.Acid       (GetUACCT(..), SetUACCT(..))
-import HSP.Google.Analytics     (UACCT(..))
+import HSP.Google.Analytics      (UACCT(..))
+import HSP.XMLGenerator
+import HSP.XML                   (fromStringLit)
 import Text.Reform
 import Text.Reform.Happstack
 import Text.Reform.HSP.String
@@ -30,9 +33,9 @@ editSettingsForm muacct =
     divHorizontal $
      fieldset $
         (divControlGroup $
-         (label "Google Analytics UACCT" `setAttrs` [("class":="control-label")]) ++>
+         (label ("Google Analytics UACCT" :: Text) `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
           (divControls (inputText (unUACCT muacct)) `transformEither` toMUACCT)) <*
-        (divControlGroup $ divControls $ inputSubmit "Update" `setAttrs` [("class" := "btn")])
+        (divControlGroup $ divControls $ inputSubmit "Update" `setAttrs` [("class" := "btn") :: Attr Text Text])
     where
       divHorizontal   = mapView (\xml -> [<div class="form-horizontal"><% xml %></div>])
       divControlGroup = mapView (\xml -> [<div class="control-group"><% xml %></div>])

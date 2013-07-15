@@ -12,7 +12,7 @@ import Control.Monad.Reader        (ask)
 import Control.Monad.State         (modify)
 import Data.Acid                   (AcidState, Query, Update, makeAcidic)
 import Data.Acid.Local             (openLocalStateFrom, createArchive, createCheckpointAndClose)
-import Data.Acid.Remote            (acidServer)
+import Data.Acid.Remote            (acidServer, skipAuthenticationCheck)
 import Data.Data                   (Data, Typeable)
 import Data.Maybe                  (fromMaybe)
 import Data.SafeCopy               (base, deriveSafeCopy)
@@ -84,7 +84,7 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "core")        initialCoreState)        (createArchiveCheckpointAndClose) $ \core ->
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
-    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer profileData (UnixSocket $ basePath </> "profileData_socket")))
+    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "profileData_socket") profileData))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
             (const $ f (Acid auth profile profileData core navBar))
     where

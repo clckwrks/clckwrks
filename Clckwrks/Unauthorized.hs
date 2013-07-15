@@ -1,17 +1,20 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, TypeFamilies #-}
+{-# OPTIONS_GHC -F -pgmFhsx2hs #-}
 module Clckwrks.Unauthorized
     ( unauthorizedPage
     ) where
 
 import Control.Applicative ((<$>))
-import HSP
+-- import HSP
+import Data.Text.Lazy
 import Happstack.Server (Happstack, Response, ToMessage, toResponse, unauthorized)
-import qualified HSX.XMLGenerator (XMLType)
+import HSP.XML
+import HSP.XMLGenerator
 
 unauthorizedPage ::
     ( Happstack m
     , XMLGenerator m
+    , StringType m ~ Text
     , EmbedAsChild m msg
     , ToMessage (XMLType m)
     ) => msg -> m Response

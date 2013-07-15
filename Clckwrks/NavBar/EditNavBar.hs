@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, OverloadedStrings, QuasiQuotes, RecordWildCards #-}
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
+{-# OPTIONS_GHC -F -pgmFhsx2hs #-}
 module Clckwrks.NavBar.EditNavBar where
 
 import Clckwrks.Admin.Template (template)
@@ -13,11 +13,13 @@ import Clckwrks.URL            (ClckURL(..), AdminURL(..))
 import Control.Monad.State     (get)
 import Control.Monad.Trans     (lift, liftIO)
 import Data.Aeson              (FromJSON(..), ToJSON(..), Value(..), (.:), (.=), decode, object)
-import Data.Text               (Text)
+import qualified Data.Text     as T
+import Data.Text.Lazy (Text)
 import Data.Tree               (Tree(..))
 import qualified Data.Vector   as Vector
 import Happstack.Server        (Response, internalServerError, lookBS, ok, toResponse)
-import HSP
+import HSP.XML                 (fromStringLit)
+import HSP.XMLGenerator
 import Language.Javascript.JMacro
 import Web.Routes              (showURL)
 
@@ -149,7 +151,7 @@ initializeDropDowns navBarLinks' =
 
            |]
 
-saveChanges :: Text -> JStat
+saveChanges :: T.Text -> JStat
 saveChanges navBarUpdateURL =
     [$jmacro|
      $("#saveChanges").click(function () {
@@ -227,7 +229,7 @@ navBarPost =
 --     liftIO $ print mu
      case mu of
        Nothing ->
-           do internalServerError $ toResponse ("navBarPost: failed to decode JSON data" :: Text)
+           do internalServerError $ toResponse ("navBarPost: failed to decode JSON data" :: T.Text)
        (Just (NavBarUpdate u)) ->
            do update (SetNavBar u)
               ok $ toResponse ()

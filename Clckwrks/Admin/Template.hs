@@ -1,13 +1,16 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# OPTIONS_GHC -F -pgmFtrhsx #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# OPTIONS_GHC -F -pgmFhsx2hs #-}
 module Clckwrks.Admin.Template where
 
 import Clckwrks
 import Control.Monad.State (get)
 import Data.Maybe          (mapMaybe)
+import Data.Text.Lazy      (Text)
 import qualified           Data.Text as T
 import Data.Set            (Set)
 import qualified Data.Set  as Set
+import HSP.XMLGenerator
+import HSP.XML             (XML, fromStringLit)
 
 
 template ::
