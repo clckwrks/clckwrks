@@ -590,7 +590,7 @@ requiresRole role url =
              do r <- query (HasRole uid role)
                 if r
                    then return url
-                   else escape $ unauthorizedPage ("You do not have permission to view this page.")
+                   else escape $ unauthorizedPage ("You do not have permission to view this page." :: TL.Text)
 
 getUserRoles :: (Happstack m, MonadIO m) => ClckT u m (Set Role)
 getUserRoles =
