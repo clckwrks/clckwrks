@@ -101,7 +101,7 @@ import Happstack.Server.Internal.Monads (FilterFun)
 -- import HSP                           hiding (Request, escape)
 import HSP.Google.Analytics          (UACCT, analyticsAsync)
 -- import HSP.ServerPartT               ()
-import HSP.XML                       hiding (Name)
+import HSP.XML
 import HSP.XMLGenerator
 import HSP.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro
