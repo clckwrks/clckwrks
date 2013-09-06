@@ -42,6 +42,7 @@ withClckwrks cc action =
                                         , adminMenus       = []
                                         , enableAnalytics  = clckEnableAnalytics cc
                                         , plugins          = plugins
+                                        , requestInit      = return ()
                                         }
               action clckState
 
@@ -72,8 +73,10 @@ simpleClckwrks cc =
          maybe (return ()) killThread mHttpsTID
 
     where
-    handlers cc clckState =
+      handlers :: ClckwrksConfig -> ClckState -> ServerPart Response
+      handlers cc clckState =
        do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
+          requestInit clckState
           msum $
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())

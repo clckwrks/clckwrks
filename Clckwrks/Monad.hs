@@ -28,6 +28,7 @@ module Clckwrks.Monad
 --    , markupToContent
 --    , addPreProcessor
     , addAdminMenu
+    , appendRequestInit
     , getNavBarLinks
     , addPreProc
     , addNavBarCallback
@@ -94,7 +95,7 @@ import Data.Time.Format              (formatTime)
 import Happstack.Auth                (AuthProfileURL(..), AuthURL(..), AuthState, ProfileState, UserId)
 import qualified Happstack.Auth      as Auth
 
-import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Request(..), Response, HasRqData(..), ServerPartT, UnWebT, internalServerError, mapServerPartT, escape, toResponse)
+import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Request(..), Response, HasRqData(..), ServerPart, ServerPartT, UnWebT, internalServerError, mapServerPartT, escape, toResponse)
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.XMLGenT      () -- instance Happstack XMLGenT
 import Happstack.Server.Internal.Monads (FilterFun)
@@ -195,13 +196,14 @@ calcTLSBaseURI c =
       (Just tlsSettings) ->
           Just $ Text.pack $ "https://" ++ (clckHostname c) ++ if ((clckPort c /= 443) && (clckHidePort c == False)) then (':' : show (clckTLSPort tlsSettings)) else ""
 
-data ClckState
-    = ClckState { acidState        :: Acid
-                , uniqueId         :: TVar Integer -- only unique for this request
-                , adminMenus       :: [(T.Text, [(Set Role, T.Text, T.Text)])]
-                , enableAnalytics  :: Bool -- ^ enable Google Analytics
-                , plugins          :: ClckPlugins
-                }
+data ClckState = ClckState
+    { acidState        :: Acid
+    , uniqueId         :: TVar Integer -- only unique for this request
+    , adminMenus       :: [(T.Text, [(Set Role, T.Text, T.Text)])]
+    , enableAnalytics  :: Bool -- ^ enable Google Analytics
+    , plugins          :: ClckPlugins
+    , requestInit      :: ServerPart () -- ^ an action which gets called at the beginning of each request
+    }
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
@@ -282,12 +284,18 @@ getUnique =
 getEnableAnalytics :: (Functor m, MonadState ClckState m) => m Bool
 getEnableAnalytics = enableAnalytics <$> get
 
+-- | add an Admin menu
 addAdminMenu :: (Monad m) => (T.Text, [(Set Role, T.Text, T.Text)]) -> ClckT url m ()
 addAdminMenu (category, entries) =
     modify $ \cs ->
         let oldMenus = adminMenus cs
             newMenus = Map.toAscList $ Map.insertWith List.union category entries $ Map.fromList oldMenus
         in cs { adminMenus = newMenus }
+
+-- | append an action to the request init
+appendRequestInit :: (Monad m) => ServerPart () -> ClckT url m ()
+appendRequestInit action =
+    modify $ \cs -> cs { requestInit = (requestInit cs) >> action }
 
 -- | change the route url
 withRouteClckT :: ((url' -> [(T.Text, Maybe T.Text)] -> T.Text) -> url -> [(T.Text, Maybe T.Text)] -> T.Text)
