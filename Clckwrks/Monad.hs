@@ -66,7 +66,7 @@ import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), ma
 import Control.Monad                 (MonadPlus, foldM)
 import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT, get, mapStateT, modify, put, runStateT)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
-import Control.Monad.Trans           (MonadIO(liftIO), lift)
+import Control.Monad.Trans           (MonadIO(liftIO), MonadTrans(lift))
 import Control.Concurrent.STM        (TVar, readTVar, writeTVar, atomically)
 import Data.Acid                     (AcidState, EventState, EventResult, QueryEvent, UpdateEvent)
 import Data.Acid.Advanced            (query', update')
@@ -209,6 +209,9 @@ newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
 
 instance (Happstack m) => Happstack (ClckT url m)
+
+instance MonadTrans (ClckT url) where
+    lift = ClckT . lift . lift
 
 -- | evaluate a 'ClckT' returning the inner monad
 --

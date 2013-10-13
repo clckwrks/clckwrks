@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.19.0
+Version:             0.19.1
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -64,7 +64,7 @@ Library
                    Paths_clckwrks
 
   Build-depends:
-     acid-state                   >= 0.11 && < 0.12,
+     acid-state                   >= 0.12 && < 0.13,
      aeson                        >= 0.5 && < 0.7,
      attoparsec                   == 0.10.*,
      base                           < 5,
@@ -92,7 +92,7 @@ Library
      reform-hsp                   >= 0.2 && < 0.3,
      safecopy                     >= 0.6,
      stm                          >= 2.2 && <2.5,
-     tagsoup                      == 0.12.*,
+     tagsoup                      >= 0.12 && < 0.14,
      text                         == 0.11.*,
      time                         >= 1.2 && <1.5,
      uuid                         == 1.2.*,

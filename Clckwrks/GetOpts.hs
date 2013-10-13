@@ -30,7 +30,7 @@ clckwrksOpts def =
     , Option [] ["http-port"]     (ReqArg setPort "port")         ("Port to bind http server, default: " ++ show (clckPort def))
     , Option [] ["https-port"]    (ReqArg setTLSPort "port")      ("Port to bind https server, default:" ++ maybe "disabled." show (clckTLSPort <$> (clckTLS def)))
     , Option [] ["tls-cert"]      (ReqArg setTLSCert "path")      ("Path to tls .cert file. (required for https).")
-    , Option [] ["tls-key"]       (ReqArg setTLSKey "path")      ("Path to tls .key file. (required for https).")
+    , Option [] ["tls-key"]       (ReqArg setTLSKey "path")       ("Path to tls .key file. (required for https).")
     , Option [] ["hide-port"]     (NoArg setHidePort)             "Do not show the port number in the URL"
     , Option [] ["hostname"]      (ReqArg setHostname "hostname") ("Server hostename, default: " ++ show (clckHostname def))
     , Option [] ["jquery-path"]   (ReqArg setJQueryPath   "path") ("path to jquery directory, default: " ++ show (clckJQueryPath def))
