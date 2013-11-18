@@ -4,7 +4,7 @@ module Clckwrks.Admin.Template where
 
 import Clckwrks
 import Control.Monad.State (get)
-import Data.Maybe          (mapMaybe)
+import Data.Maybe          (mapMaybe, fromMaybe)
 import Data.Text.Lazy      (Text)
 import qualified           Data.Text as T
 import Data.Set            (Set)
@@ -18,7 +18,8 @@ template ::
     , EmbedAsChild (ClckT url m) headers
     , EmbedAsChild (ClckT url m) body
     ) => String -> headers -> body -> ClckT url m Response
-template title headers body =
+template title headers body = do
+   siteName <- (fromMaybe "Your Site") <$> query GetSiteName
    toResponse <$> (unXMLGenT $
     <html>
      <head>
@@ -36,7 +37,7 @@ template title headers body =
       <div class="navbar">
        <div class="navbar-inner">
         <div class="container-fluid">
-         <a href="/" class="brand">Back to Your Site</a>
+         <a href="/" class="brand">Back to <% siteName %></a>
         </div>
        </div>
       </div>

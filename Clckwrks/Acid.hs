@@ -9,13 +9,13 @@ import Control.Applicative         ((<$>))
 import Control.Exception           (bracket, catch, throw)
 import Control.Concurrent          (killThread, forkIO)
 import Control.Monad.Reader        (ask)
-import Control.Monad.State         (modify)
+import Control.Monad.State         (modify, put)
 import Data.Acid                   (AcidState, Query, Update, createArchive, makeAcidic)
 import Data.Acid.Local             (openLocalStateFrom, createCheckpointAndClose)
 import Data.Acid.Remote            (acidServer, skipAuthenticationCheck)
 import Data.Data                   (Data, Typeable)
 import Data.Maybe                  (fromMaybe)
-import Data.SafeCopy               (base, deriveSafeCopy)
+import Data.SafeCopy               (Migrate(..), base, deriveSafeCopy, extension)
 import Data.Text                   (Text)
 import Happstack.Auth.Core.Auth    (AuthState       , initialAuthState)
 import Happstack.Auth.Core.Profile (ProfileState    , initialProfileState)
@@ -29,17 +29,36 @@ import HSP.Google.Analytics        (UACCT)
 -- | 'CoreState' holds some values that are required by the core
 -- itself, or which are useful enough to be shared with numerous
 -- plugins/themes.
-data CoreState = CoreState
-    { coreUACCT        :: Maybe UACCT  -- ^ Google Account UAACT
-    , coreRootRedirect :: Maybe Text
+data CoreState_v0 = CoreState_v0
+    { coreUACCT_v0        :: Maybe UACCT  -- ^ Google Account UAACT
+    , coreRootRedirect_v0 :: Maybe Text
     }
     deriving (Eq, Data, Typeable, Show)
-$(deriveSafeCopy 0 'base ''CoreState)
+$(deriveSafeCopy 0 'base ''CoreState_v0)
+
+-- | 'CoreState' holds some values that are required by the core
+-- itself, or which are useful enough to be shared with numerous
+-- plugins/themes.
+data CoreState = CoreState
+    { coreSiteName      :: Maybe Text
+    , coreUACCT         :: Maybe UACCT  -- ^ Google Account UAACT
+    , coreRootRedirect  :: Maybe Text
+    , coreLoginRedirect :: Maybe Text
+
+    }
+    deriving (Eq, Data, Typeable, Show)
+$(deriveSafeCopy 1 'extension ''CoreState)
+
+instance Migrate CoreState where
+    type MigrateFrom CoreState = CoreState_v0
+    migrate (CoreState_v0 ua rr) = CoreState Nothing ua rr Nothing
 
 initialCoreState :: CoreState
 initialCoreState = CoreState
-    { coreUACCT        = Nothing
-    , coreRootRedirect = Nothing
+    { coreSiteName      = Nothing
+    , coreUACCT         = Nothing
+    , coreRootRedirect  = Nothing
+    , coreLoginRedirect = Nothing
     }
 
 -- | get the 'UACCT' for Google Analytics
@@ -58,11 +77,41 @@ getRootRedirect = coreRootRedirect <$> ask
 setRootRedirect :: Maybe Text -> Update CoreState ()
 setRootRedirect path = modify $ \cs -> cs { coreRootRedirect = path }
 
+-- | get the path that we should redirect to after login
+getLoginRedirect :: Query CoreState (Maybe Text)
+getLoginRedirect = coreLoginRedirect <$> ask
+
+-- | set the path that we should redirect to after login
+setLoginRedirect :: Maybe Text -> Update CoreState ()
+setLoginRedirect path = modify $ \cs -> cs { coreLoginRedirect = path }
+
+-- | get the site name
+getSiteName :: Query CoreState (Maybe Text)
+getSiteName = coreSiteName <$> ask
+
+-- | set the site name
+setSiteName :: Maybe Text -> Update CoreState ()
+setSiteName name = modify $ \cs -> cs { coreSiteName = name }
+
+-- | get the entire 'CoreState'
+getCoreState :: Query CoreState CoreState
+getCoreState = ask
+
+-- | set the entire 'CoreState'
+setCoreState :: CoreState -> Update CoreState ()
+setCoreState = put
+
 $(makeAcidic ''CoreState
   [ 'getUACCT
   , 'setUACCT
   , 'getRootRedirect
   , 'setRootRedirect
+  , 'getLoginRedirect
+  , 'setLoginRedirect
+  , 'getSiteName
+  , 'setSiteName
+  , 'getCoreState
+  , 'setCoreState
   ])
 
 data Acid = Acid
@@ -92,4 +141,3 @@ withAcid mBasePath f =
       createArchiveCheckpointAndClose acid =
           do createArchive acid
              createCheckpointAndClose acid
-

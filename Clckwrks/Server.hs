@@ -14,9 +14,10 @@ import Control.Arrow                (second)
 import Control.Concurrent           (forkIO, killThread)
 import Control.Concurrent.STM       (atomically, newTVar)
 import Control.Monad.State          (get, evalStateT)
+import Data.Acid.Advanced           (query')
 import           Data.Map           (Map)
 import qualified Data.Map           as Map
-import Data.Maybe                   (fromJust)
+import Data.Maybe                   (fromJust, fromMaybe)
 import Data.Monoid                  ((<>))
 import Data.String                  (fromString)
 import           Data.Text          (Text)
@@ -81,7 +82,9 @@ simpleClckwrks cc =
             [ jsHandlers cc
             , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ (liftIO $ Clckwrks.getDataFileName "static") >>= serveDirectory DisableBrowsing []
-            , nullDir >> seeOther ("/page/view-page/1" :: String) (toResponse ()) -- FIXME: get redirect location from database
+            , do nullDir
+                 mRR <- query' (acidCore . acidState $ clckState) GetRootRedirect
+                 seeOther (fromMaybe ("/page/view-page/1") mRR) (toResponse ()) -- FIXME: get redirect location from database
             , clckSite cc clckState
             ]
 

@@ -23,7 +23,10 @@ routeProfileData url =
                                                          , roles   = singleton Visitor
                                                          }
                       update (NewProfileData profileData)
-                      seeOtherURL EditProfileData
+                      mRedirect <- query GetLoginRedirect
+                      case mRedirect of
+                        Nothing -> seeOtherURL EditProfileData
+                        (Just url) -> seeOther url (toResponse ())
       EditProfileData ->
              do editProfileDataPage url
       EditProfileDataFor u ->
