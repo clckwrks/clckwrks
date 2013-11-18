@@ -6,9 +6,6 @@ import Clckwrks
 import Clckwrks.Acid             (GetUACCT(..), SetUACCT(..))
 import Clckwrks.Admin.Template   (template)
 import Data.Maybe                (fromMaybe)
--- import Data.Text.Lazy            (Text, pack, unpack)
--- import qualified Data.Text.Lazy  as TL
-
 import Data.Text            (Text, pack, unpack)
 import qualified Data.Text  as T
 
@@ -41,7 +38,7 @@ editSettingsForm CoreState{..} =
        (CoreState <$>
            (divControlGroup $
              (labelText "site name"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
-             (divControls (inputText (fromMaybe mempty coreSiteName)) `transformEither` toNothing)))
+             (divControls (inputText (fromMaybe mempty coreSiteName)) `transformEither` toMaybe)))
 
        <*> (divControlGroup $
              (label ("Google Analytics UACCT" :: Text) `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
@@ -49,11 +46,11 @@ editSettingsForm CoreState{..} =
 
        <*> (divControlGroup $
              (labelText "/ redirects to"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
-             (divControls (inputText (fromMaybe mempty coreRootRedirect)) `transformEither` toNothing))
+             (divControls (inputText (fromMaybe mempty coreRootRedirect)) `transformEither` toMaybe))
 
        <*> (divControlGroup $
              (labelText "after login redirect to"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
-             (divControls (inputText (fromMaybe mempty coreLoginRedirect)) `transformEither` toNothing))
+             (divControls (inputText (fromMaybe mempty coreLoginRedirect)) `transformEither` toMaybe))
          <*
         (divControlGroup $ divControls $ inputSubmit "Update" `setAttrs` [("class" := "btn") :: Attr Text Text])
     where
@@ -68,9 +65,11 @@ editSettingsForm CoreState{..} =
       toMUACCT str | T.null str   = Right $ Nothing
       toMUACCT str = Right $ Just (UACCT $ T.unpack str)
 
-      toNothing :: a -> Either ClckFormError (Maybe a)
-      toNothing a = Right $ Just a
-
+      toMaybe :: Text -> Either ClckFormError (Maybe Text)
+      toMaybe txt =
+          if T.null txt
+             then Right $ Nothing
+             else Right $ Just txt
 
 {-
 editUACCTForm :: Maybe UACCT -> ClckForm ClckURL (Maybe UACCT)
