@@ -168,6 +168,7 @@ data TLSSettings = TLSSettings
     { clckTLSPort :: Int
     , clckTLSCert :: FilePath
     , clckTLSKey  :: FilePath
+    , clckTLSCA   :: Maybe FilePath
     }
 
 data ClckwrksConfig = ClckwrksConfig

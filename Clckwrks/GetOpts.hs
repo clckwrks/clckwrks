@@ -31,6 +31,7 @@ clckwrksOpts def =
     , Option [] ["https-port"]    (ReqArg setTLSPort "port")      ("Port to bind https server, default:" ++ maybe "disabled." show (clckTLSPort <$> (clckTLS def)))
     , Option [] ["tls-cert"]      (ReqArg setTLSCert "path")      ("Path to tls .cert file. (required for https).")
     , Option [] ["tls-key"]       (ReqArg setTLSKey "path")       ("Path to tls .key file. (required for https).")
+    , Option [] ["tls-ca"]        (ReqArg setTLSCA "path")       ("Path to tls .pem file. (required for some certs).")
     , Option [] ["hide-port"]     (NoArg setHidePort)             "Do not show the port number in the URL"
     , Option [] ["hostname"]      (ReqArg setHostname "hostname") ("Server hostename, default: " ++ show (clckHostname def))
     , Option [] ["jquery-path"]   (ReqArg setJQueryPath   "path") ("path to jquery directory, default: " ++ show (clckJQueryPath def))
@@ -44,6 +45,7 @@ clckwrksOpts def =
       nullTLSSettings     = TLSSettings { clckTLSPort = 443
                                         , clckTLSCert = ""
                                         , clckTLSKey  = ""
+                                        , clckTLSCA   = Nothing
                                         }
       modifyTLS f cc =
           Just $ case clckTLS cc of
@@ -54,6 +56,7 @@ clckwrksOpts def =
       setTLSPort      str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSPort = read str }) c }
       setTLSCert      str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSCert = str }) c }
       setTLSKey       str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSKey = str }) c }
+      setTLSCA        str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSCA = Just str }) c }
       setHostname     str = ModifyConfig $ \c -> c { clckHostname     = str      }
       setHidePort         = ModifyConfig $ \c -> c { clckHidePort     = True     }
       setJQueryPath   str = ModifyConfig $ \c -> c { clckJQueryPath   = str      }

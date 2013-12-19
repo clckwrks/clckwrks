@@ -76,7 +76,7 @@ Library
      happstack-authenticate       == 0.10.*,
      happstack-hsp                == 7.2.*,
      happstack-server             >= 7.0 && < 7.4,
-     happstack-server-tls         >= 7.0 && < 7.2,
+     happstack-server-tls         >= 7.1 && < 7.2,
      hsp                          >= 0.9 && < 0.11,
      hsx-jmacro                   == 7.3.*,
      ixset                        == 1.0.*,

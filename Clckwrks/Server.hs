@@ -65,6 +65,7 @@ simpleClckwrks cc =
                    do let tlsConf = nullTLSConf { tlsPort = clckTLSPort
                                                 , tlsCert = clckTLSCert
                                                 , tlsKey  = clckTLSKey
+                                                , tlsCA   = clckTLSCA
                                                 }
                       tid <- forkIO $ simpleHTTPS tlsConf (handlers cc' clckState'')
                       return (Just tid)
