@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RankNTypes, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RankNTypes, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings, TemplateHaskell #-}
 module Clckwrks.Monad
     ( Clck
     , ClckPlugins
@@ -13,7 +13,10 @@ module Clckwrks.Monad
     , TLSSettings(..)
     , AttributeType(..)
     , Theme(..)
+    , ThemeStyle(..)
+    , ThemeStyleId(..)
     , ThemeName
+    , getThemeStyles
     , themeTemplate
     , calcBaseURI
     , calcTLSBaseURI
@@ -72,10 +75,11 @@ import Data.Acid                     (AcidState, EventState, EventResult, QueryE
 import Data.Acid.Advanced            (query', update')
 import Data.Attoparsec.Text.Lazy     (Parser, parseOnly, char, asciiCI, try, takeWhile, takeWhile1)
 import qualified Data.HashMap.Lazy   as HashMap
+
 import qualified Data.List           as List
 import qualified Data.Map            as Map
 import Data.Monoid                   ((<>), mappend, mconcat)
-import qualified Data.Text           as Text
+
 import Data.Traversable              (sequenceA)
 import qualified Data.Vector         as Vector
 import Data.ByteString.Lazy          as LB (ByteString)
@@ -83,10 +87,12 @@ import Data.ByteString.Lazy.UTF8     as LB (toString)
 import Data.Data                     (Data, Typeable)
 import Data.Map                      (Map)
 import Data.Maybe                    (fromJust)
-import Data.SafeCopy                 (SafeCopy(..))
+import Data.SafeCopy                 (SafeCopy(..), deriveSafeCopy, base)
 import Data.Set                      (Set)
 import qualified Data.Set            as Set
+import Data.Sequence                 (Seq)
 import qualified Data.Text           as T
+import qualified Data.Text           as Text
 import qualified Data.Text.Lazy      as TL
 import           Data.Text.Lazy.Builder (Builder, fromText)
 import qualified Data.Text.Lazy.Builder as B
@@ -117,51 +123,71 @@ import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
 
-data ClckPluginsSt = ClckPluginsSt
-    { cpsPreProcessors :: [TL.Text -> ClckT ClckURL IO TL.Text]
-    , cpsNavBarLinks     :: [ClckT ClckURL IO (String, [NamedLink])]
-    }
-
-initialClckPluginsSt :: ClckPluginsSt
-initialClckPluginsSt = ClckPluginsSt
-    { cpsPreProcessors = []
-    , cpsNavBarLinks     = []
-    }
-
--- | ClckPlugins
---
---     newtype Plugins theme m hook config st
-type ClckPlugins = Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ClckPluginsSt
+------------------------------------------------------------------------------
+-- Theme
+------------------------------------------------------------------------------
 
 type ThemeName = T.Text
 
-data Theme = Theme
-    { themeName      :: ThemeName
-    , _themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
-                        , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
-                        T.Text
-                     -> headers
-                     -> body
-                     -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
---    , themeBlog      :: XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
-    , themeDataDir   :: IO FilePath
+newtype ThemeStyleId = ThemeStyleId { unThemeStyleId :: Int }
+    deriving (Eq, Ord, Read, Show, Data, Typeable, SafeCopy)
+
+data ThemeStyle = ThemeStyle
+    { themeStyleName        :: T.Text
+    , themeStyleDescription :: T.Text
+    , themeStylePreview     :: Maybe FilePath
+    , themeStyleTemplate    :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
+                               , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
+                               T.Text
+                            -> headers
+                            -> body
+                            -> XMLGenT (ClckT ClckURL (ServerPartT IO)) XML
     }
 
+data Theme = Theme
+    { themeName      :: ThemeName
+    , themeStyles    :: [ThemeStyle]
+    , themeDataDir   :: IO FilePath
+    }
 
 themeTemplate :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
                  , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body
                  ) =>
                  ClckPlugins
+              -> ThemeStyleId
               -> T.Text
               -> headers
               -> body
               -> ClckT ClckURL (ServerPartT IO) Response
-themeTemplate plugins ttl hdrs bdy =
+themeTemplate plugins tsid ttl hdrs bdy =
     do mTheme <- getTheme plugins
        case mTheme of
          Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: T.Text)
-         (Just theme) -> fmap toResponse $ unXMLGenT $ (_themeTemplate theme ttl hdrs bdy)
+         (Just theme) ->
+             case lookupThemeStyle tsid (themeStyles theme) of
+               Nothing -> escape $ internalServerError $ toResponse $ ("The current theme does not seem to contain any theme styles." :: T.Text)
+               (Just themeStyle) ->
+                  fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl hdrs bdy)
 
+lookupThemeStyle :: ThemeStyleId -> [a] -> Maybe a
+lookupThemeStyle                   _ [] = Nothing
+lookupThemeStyle (ThemeStyleId 0) (t:_) = Just t
+lookupThemeStyle (ThemeStyleId n) (t':ts) = lookupThemeStyle' (n - 1) ts
+    where
+      lookupThemeStyle'  _ [] = Just t'
+      lookupThemeStyle' 0 (t:ts) = Just t
+      lookupThemeStyle' n (_:ts) = lookupThemeStyle' (n - 1) ts
+
+getThemeStyles :: (MonadIO m) => ClckPlugins -> m [(ThemeStyleId, ThemeStyle)]
+getThemeStyles plugins =
+    do mTheme <- getTheme plugins
+       case mTheme of
+         Nothing -> return []
+         (Just theme) -> return $ zip (map ThemeStyleId [0..]) (themeStyles theme)
+
+------------------------------------------------------------------------------
+-- ClckwrksConfig
+------------------------------------------------------------------------------
 
 
 data TLSSettings = TLSSettings
@@ -197,14 +223,23 @@ calcTLSBaseURI c =
       (Just tlsSettings) ->
           Just $ Text.pack $ "https://" ++ (clckHostname c) ++ if ((clckPort c /= 443) && (clckHidePort c == False)) then (':' : show (clckTLSPort tlsSettings)) else ""
 
+------------------------------------------------------------------------------
+-- ClckState
+------------------------------------------------------------------------------
+
+
 data ClckState = ClckState
     { acidState        :: Acid
     , uniqueId         :: TVar Integer -- only unique for this request
     , adminMenus       :: [(T.Text, [(Set Role, T.Text, T.Text)])]
-    , enableAnalytics  :: Bool -- ^ enable Google Analytics
+    , enableAnalytics  :: Bool          -- ^ enable Google Analytics
     , plugins          :: ClckPlugins
     , requestInit      :: ServerPart () -- ^ an action which gets called at the beginning of each request
     }
+
+------------------------------------------------------------------------------
+-- ClckT
+------------------------------------------------------------------------------
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
@@ -268,6 +303,30 @@ instance FormError ClckFormError where
 -- | ClckForm - type for reform forms
 type ClckFormT error m = Form m  [Input] error [XMLGenT m XML] ()
 type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [XMLGenT (ClckT url (ServerPartT IO)) XML] ()
+
+
+
+------------------------------------------------------------------------------
+-- ClckPlugins / ClckPluginsSt
+------------------------------------------------------------------------------
+
+data ClckPluginsSt = ClckPluginsSt
+    { cpsPreProcessors :: [TL.Text -> ClckT ClckURL IO TL.Text]
+    , cpsNavBarLinks     :: [ClckT ClckURL IO (String, [NamedLink])]
+    }
+
+initialClckPluginsSt :: ClckPluginsSt
+initialClckPluginsSt = ClckPluginsSt
+    { cpsPreProcessors = []
+    , cpsNavBarLinks     = []
+    }
+
+
+-- | ClckPlugins
+--
+--     newtype Plugins theme m hook config st
+type ClckPlugins = Plugins Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ClckPluginsSt
+
 
 setUnique :: (Functor m, MonadIO m) => Integer -> ClckT url m ()
 setUnique i =

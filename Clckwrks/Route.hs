@@ -83,7 +83,7 @@ routeClck url' =
                             u <- showURL $ Profile CreateNewProfileData
                             showClckURL <- askRouteFn
                             cs <- get
-                            let template'  ttl hdr bdy = withRouteClckT (const showClckURL) $ themeTemplate (plugins cs) (pack ttl) hdr bdy
+                            let template'  ttl hdr bdy = withRouteClckT (const showClckURL) $ themeTemplate (plugins cs) (ThemeStyleId 0) (pack ttl) hdr bdy
                             withAbs $ nestURL Auth $ handleAuthProfile acidAuth acidProfile template' Nothing Nothing u apURL
                 case clckTLS cc of
                   Nothing -> go
