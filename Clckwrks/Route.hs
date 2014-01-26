@@ -30,6 +30,7 @@ checkAuth url =
       Admin{}              -> requiresRole (Set.singleton Administrator) url
       Auth{}               -> return url
       Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
+      Profile EditNewProfileData{} -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
       Profile CreateNewProfileData -> return url
 
@@ -94,5 +95,3 @@ routeClck url' =
                             else do u <- rqUri <$> askRq
                                     let sslU = ((Text.unpack $ fromJust $ calcTLSBaseURI cc) ++ u)
                                     seeOther sslU (toResponse ())
-
-

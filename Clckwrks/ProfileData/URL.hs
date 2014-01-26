@@ -9,6 +9,7 @@ import Web.Routes.TH  (derivePathInfo)
 data ProfileDataURL
     = CreateNewProfileData
     | EditProfileData
+    | EditNewProfileData
     | EditProfileDataFor UserId
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 

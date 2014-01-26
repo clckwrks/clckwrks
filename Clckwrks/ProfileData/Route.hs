@@ -4,6 +4,7 @@ module Clckwrks.ProfileData.Route where
 import Clckwrks
 import Clckwrks.ProfileData.Acid
 import Clckwrks.ProfileData.EditProfileData (editProfileDataPage)
+import Clckwrks.ProfileData.EditNewProfileData (editNewProfileDataPage)
 import Clckwrks.ProfileData.EditProfileDataFor (editProfileDataForPage)
 import Clckwrks.ProfileData.URL   (ProfileDataURL(..))
 import Clckwrks.ProfileData.Types
@@ -22,13 +23,21 @@ routeProfileData url =
                    do let profileData = emptyProfileData { dataFor = userId
                                                          , roles   = singleton Visitor
                                                          }
-                      update (NewProfileData profileData)
-                      mRedirect <- query GetLoginRedirect
-                      case mRedirect of
-                        Nothing -> seeOtherURL EditProfileData
-                        (Just url) -> seeOther url (toResponse ())
+                      (_, new) <- update (NewProfileData profileData)
+                      if new
+                         then seeOtherURL EditNewProfileData
+                         else do mRedirect <- query GetLoginRedirect
+                                 case mRedirect of
+                                   (Just url) -> seeOther url (toResponse ())
+                                   Nothing    -> do
+                                     mRedirectCookie <- getRedirectCookie
+                                     case mRedirectCookie of
+                                       (Just u) -> seeOther u (toResponse ())
+                                       Nothing  -> seeOtherURL EditProfileData
       EditProfileData ->
              do editProfileDataPage url
+      EditNewProfileData ->
+             do editNewProfileDataPage url
       EditProfileDataFor u ->
              do editProfileDataForPage url u
 

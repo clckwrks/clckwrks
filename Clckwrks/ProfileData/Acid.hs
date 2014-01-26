@@ -97,13 +97,13 @@ modifyProfileData fn uid =
 
 -- | create the profile data, but only if it is missing
 newProfileData :: ProfileData
-               -> Update ProfileDataState ProfileData
+               -> Update ProfileDataState (ProfileData, Bool)
 newProfileData pd =
     do pds@(ProfileDataState {..}) <- get
        case getOne (profileData @= (dataFor pd)) of
          Nothing -> do put $ pds { profileData = updateIx (dataFor pd) pd profileData }
-                       return pd
-         (Just pd') -> return pd'
+                       return (pd, True)
+         (Just pd') -> return (pd', False)
 
 getUsername :: UserId
             -> Query ProfileDataState (Maybe Text)

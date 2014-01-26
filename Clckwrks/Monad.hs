@@ -43,6 +43,8 @@ module Clckwrks.Monad
     , setUnique
     , requiresRole
     , requiresRole_
+    , setRedirectCookie
+    , getRedirectCookie
     , getUserRoles
     , query
     , update
@@ -65,7 +67,7 @@ import Clckwrks.NavBar.Types         (NavBarLinks(..))
 import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
 import Clckwrks.URL                  (ClckURL(..))
-import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many)
+import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many, optional)
 import Control.Monad                 (MonadPlus, foldM)
 import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT, get, mapStateT, modify, put, runStateT)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
@@ -101,12 +103,17 @@ import Data.Time.Format              (formatTime)
 import Happstack.Auth                (AuthProfileURL(..), AuthURL(..), AuthState, ProfileState, UserId)
 import qualified Happstack.Auth      as Auth
 
-import Happstack.Server              (Happstack, ServerMonad(..), FilterMonad(..), WebMonad(..), Input, Request(..), Response, HasRqData(..), ServerPart, ServerPartT, UnWebT, internalServerError, mapServerPartT, escape, toResponse)
+import Happstack.Server              ( CookieLife(Session), Happstack, ServerMonad(..), FilterMonad(..)
+                                     , WebMonad(..), Input, Request(..), Response, HasRqData(..)
+                                     , ServerPart, ServerPartT, UnWebT, addCookie, expireCookie, escape
+                                     , internalServerError, lookCookieValue, mapServerPartT, mkCookie
+                                     , toResponse
+                                     )
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.XMLGenT      () -- instance Happstack XMLGenT
 import Happstack.Server.Internal.Monads (FilterFun)
 -- import HSP                           hiding (Request, escape)
-import HSP.Google.Analytics          (UACCT, analyticsAsync)
+import HSP.Google.Analytics          (UACCT, universalAnalytics)
 -- import HSP.ServerPartT               ()
 import HSP.XML
 import HSP.XMLGenerator
@@ -648,6 +655,17 @@ plainText =
 
 -- * Require Role
 
+setRedirectCookie :: (Happstack m) =>
+                     String -> m ()
+setRedirectCookie url =
+    addCookie Session (mkCookie "clckwrks-authenticate-redirect" url)
+
+getRedirectCookie :: (Happstack m) =>
+                     m (Maybe String)
+getRedirectCookie =
+    do expireCookie "clckwrks-authenticate-redirect"
+       optional $ lookCookieValue "clckwrks-authenticate-redirect"
+
 requiresRole_ :: (Happstack  m) => (ClckURL -> [(T.Text, Maybe T.Text)] -> T.Text) -> Set Role -> url -> ClckT u m url
 requiresRole_ showFn role url =
     ClckT $ RouteT $ \_ -> unRouteT (unClckT (requiresRole role url)) showFn
@@ -656,7 +674,10 @@ requiresRole :: (Happstack m) => Set Role -> url -> ClckT ClckURL m url
 requiresRole role url =
     do mu <- getUserId
        case mu of
-         Nothing -> escape $ seeOtherURL (Auth $ AuthURL A_Login)
+         Nothing ->
+             do rq <- askRq
+                escape $ do setRedirectCookie (rqUri rq ++ rqQuery rq)
+                            seeOtherURL (Auth $ AuthURL A_Login)
          (Just uid) ->
              do r <- query (HasRole uid role)
                 if r
@@ -718,4 +739,4 @@ googleAnalytics =
                 case muacct of
                   Nothing -> return $ cdata ""
                   (Just uacct) ->
-                      analyticsAsync uacct
+                      universalAnalytics uacct
