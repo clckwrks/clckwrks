@@ -6,9 +6,10 @@ module Clckwrks.Types
     , NamedLink(..)
     ) where
 
+import Control.Applicative ((<$>))
 import Data.Aeson    (ToJSON(..), (.=), object)
 import Data.Data     (Data, Typeable)
-import Data.SafeCopy (SafeCopy, base, deriveSafeCopy)
+import Data.SafeCopy (SafeCopy(..), base, deriveSafeCopy, safeGet, safePut, contain)
 import Data.Text     (Text)
 import Data.UUID     (UUID)
 import HSP.Google.Analytics (UACCT)
@@ -20,7 +21,12 @@ $(deriveSafeCopy 0 'base ''UUID)
 
 -- | at present this is only used by the menu editor
 newtype Prefix = Prefix { prefixText :: Text }
-    deriving (Eq, Ord, Read, Show, Data, Typeable, SafeCopy)
+    deriving (Eq, Ord, Read, Show, Data, Typeable)
+
+instance SafeCopy Prefix where
+  kind = base
+  putCopy (Prefix txt) = contain $ safePut txt
+  getCopy = contain $ Prefix <$> safeGet
 
 data Trust
     = Trusted   -- ^ used when the author can be trusted     (sanitization is not performed)

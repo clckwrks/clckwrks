@@ -89,7 +89,7 @@ import Data.ByteString.Lazy.UTF8     as LB (toString)
 import Data.Data                     (Data, Typeable)
 import Data.Map                      (Map)
 import Data.Maybe                    (fromJust)
-import Data.SafeCopy                 (SafeCopy(..), deriveSafeCopy, base)
+import Data.SafeCopy                 (SafeCopy(..), deriveSafeCopy, base, contain, safeGet, safePut)
 import Data.Set                      (Set)
 import qualified Data.Set            as Set
 import Data.Sequence                 (Seq)
@@ -137,7 +137,12 @@ import Web.Routes.XMLGenT            () -- imported so that instances are scope 
 type ThemeName = T.Text
 
 newtype ThemeStyleId = ThemeStyleId { unThemeStyleId :: Int }
-    deriving (Eq, Ord, Read, Show, Data, Typeable, SafeCopy)
+    deriving (Eq, Ord, Read, Show, Data, Typeable)
+
+instance SafeCopy ThemeStyleId where
+  kind = base
+  putCopy (ThemeStyleId txt) = contain $ safePut txt
+  getCopy = contain $ ThemeStyleId <$> safeGet
 
 data ThemeStyle = ThemeStyle
     { themeStyleName        :: T.Text
