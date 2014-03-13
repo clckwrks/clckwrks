@@ -81,7 +81,7 @@ import qualified Data.HashMap.Lazy   as HashMap
 import qualified Data.List           as List
 import qualified Data.Map            as Map
 import Data.Monoid                   ((<>), mappend, mconcat)
-
+import qualified Data.Serialize      as S
 import Data.Traversable              (sequenceA)
 import qualified Data.Vector         as Vector
 import Data.ByteString.Lazy          as LB (ByteString)
@@ -89,7 +89,7 @@ import Data.ByteString.Lazy.UTF8     as LB (toString)
 import Data.Data                     (Data, Typeable)
 import Data.Map                      (Map)
 import Data.Maybe                    (fromJust)
-import Data.SafeCopy                 (SafeCopy(..), deriveSafeCopy, base, contain, safeGet, safePut)
+import Data.SafeCopy                 (SafeCopy(..), Contained, deriveSafeCopy, base, contain)
 import Data.Set                      (Set)
 import qualified Data.Set            as Set
 import Data.Sequence                 (Seq)
@@ -140,9 +140,9 @@ newtype ThemeStyleId = ThemeStyleId { unThemeStyleId :: Int }
     deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 instance SafeCopy ThemeStyleId where
-  kind = base
-  putCopy (ThemeStyleId txt) = contain $ safePut txt
-  getCopy = contain $ ThemeStyleId <$> safeGet
+    getCopy = contain $ ThemeStyleId <$> S.get
+    putCopy (ThemeStyleId i) = contain $ S.put i
+    errorTypeName _ = "ThemeStyleId"
 
 data ThemeStyle = ThemeStyle
     { themeStyleName        :: T.Text

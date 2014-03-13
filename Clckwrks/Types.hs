@@ -11,6 +11,7 @@ import Data.Aeson    (ToJSON(..), (.=), object)
 import Data.Data     (Data, Typeable)
 import Data.SafeCopy (SafeCopy(..), base, deriveSafeCopy, safeGet, safePut, contain)
 import Data.Text     (Text)
+import qualified Data.Text.Encoding as T
 import Data.UUID     (UUID)
 import HSP.Google.Analytics (UACCT)
 
@@ -24,9 +25,10 @@ newtype Prefix = Prefix { prefixText :: Text }
     deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 instance SafeCopy Prefix where
-  kind = base
-  putCopy (Prefix txt) = contain $ safePut txt
-  getCopy = contain $ Prefix <$> safeGet
+    kind = base
+    getCopy = contain $ (Prefix . T.decodeUtf8) <$> safeGet
+    putCopy = contain . safePut . T.encodeUtf8 . prefixText
+    errorTypeName _ = "Prefix"
 
 data Trust
     = Trusted   -- ^ used when the author can be trusted     (sanitization is not performed)
