@@ -25,9 +25,8 @@ Data-Files:
     static/admin.css
 
 source-repository head
-    type:     darcs
-    subdir:   clckwrks
-    location: http://hub.darcs.net/stepcut/clckwrks
+    type:     git
+    location: git://github.com/clckwrks/clckwrks.git
 
 Library
   Build-tools:     hsx2hs
