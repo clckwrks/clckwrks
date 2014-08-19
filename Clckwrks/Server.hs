@@ -26,7 +26,6 @@ import qualified Data.UUID          as UUID
 import Happstack.Auth               (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Happstack.Server.SimpleHTTPS (TLSConf(..), nullTLSConf, simpleHTTPS)
-import Network.URI                  (unEscapeString)
 import System.FilePath              ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack         (implSite)
 import Web.Plugins.Core             (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
