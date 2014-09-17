@@ -20,10 +20,7 @@ routeProfileData url =
              case mUserId of
                Nothing -> internalServerError $ toResponse $ "not logged in."
                (Just userId) ->
-                   do let profileData = emptyProfileData { dataFor = userId
-                                                         , roles   = singleton Visitor
-                                                         }
-                      (_, new) <- update (NewProfileData profileData)
+                   do (_, new) <- update (NewProfileData (defaultProfileDataFor userId))
                       if new
                          then seeOtherURL EditNewProfileData
                          else do mRedirect <- query GetLoginRedirect

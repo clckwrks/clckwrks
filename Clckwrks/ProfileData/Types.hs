@@ -2,17 +2,18 @@
 module Clckwrks.ProfileData.Types
      ( ProfileData(..)
      , Role(..)
+     , defaultProfileDataFor
      , emptyProfileData
      , Username(..)
      ) where
 
-import Happstack.Auth (UserId(..))
+import Happstack.Authenticate.Core (UserId(..))
 import Data.Data     (Data, Typeable)
 import Data.IxSet    (Indexable(..), ixSet, ixFun)
 import Data.IxSet.Ix (Ix)
 import Data.Map      (Map, empty)
 import Data.SafeCopy (Migrate(..), base, deriveSafeCopy, extension)
-import Data.Set      (Set, empty)
+import Data.Set      (Set, empty, singleton)
 import Data.Text     (Text, empty)
 import Data.Typeable (Typeable)
 
@@ -55,6 +56,12 @@ emptyProfileData = ProfileData
    , roles      = Data.Set.empty
    , attributes = Data.Map.empty
    }
+
+defaultProfileDataFor :: UserId -> ProfileData
+defaultProfileDataFor uid =
+  emptyProfileData { dataFor = uid
+                   , roles   = singleton Visitor
+                   }
 
 newtype Username = Username { unUsername :: Text }
     deriving (Eq, Ord, Read, Show, Data, Typeable)

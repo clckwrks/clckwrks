@@ -16,19 +16,19 @@ module Clckwrks.ProfileData.Acid
     , UsernameForId(..)
     ) where
 
-import Clckwrks.ProfileData.Types (ProfileData(..), Role(..), Username(..))
-import Control.Applicative        ((<$>))
-import Control.Monad.Reader       (ask)
-import Control.Monad.State        (get, put)
-import Data.Acid                  (Update, Query, makeAcidic)
-import Data.Data                  (Data, Typeable)
-import Data.IxSet                 (IxSet, (@=), empty, getOne, insert, updateIx, toList)
-import Data.SafeCopy              (base, deriveSafeCopy)
-import qualified Data.Set         as Set
-import           Data.Set         (Set)
-import Data.Text                  (Text)
-import qualified Data.Text        as Text
-import Happstack.Auth             (UserId(..))
+import Clckwrks.ProfileData.Types  (ProfileData(..), Role(..), Username(..), defaultProfileDataFor)
+import Control.Applicative         ((<$>))
+import Control.Monad.Reader        (ask)
+import Control.Monad.State         (get, put)
+import Data.Acid                   (Update, Query, makeAcidic)
+import Data.Data                   (Data, Typeable)
+import Data.IxSet                  (IxSet, (@=), empty, getOne, insert, updateIx, toList)
+import Data.SafeCopy               (base, deriveSafeCopy)
+import qualified Data.Set          as Set
+import           Data.Set          (Set)
+import Data.Text                   (Text)
+import qualified Data.Text         as Text
+import Happstack.Authenticate.Core (UserId(..))
 
 data ProfileDataState = ProfileDataState
     { profileData :: IxSet ProfileData
@@ -73,10 +73,12 @@ setProfileData pd =
 
 
 getProfileData :: UserId
-               -> Query ProfileDataState (Maybe ProfileData)
+               -> Query ProfileDataState ProfileData
 getProfileData uid =
     do ProfileDataState{..} <- ask
-       return $ getOne $ profileData @= uid
+       case getOne $ profileData @= uid of
+         (Just pd) -> return pd
+         Nothing -> return (defaultProfileDataFor uid)
 
 updateProfileData :: ProfileData
                   -> Update ProfileDataState ()
@@ -106,9 +108,9 @@ newProfileData pd =
          (Just pd') -> return (pd', False)
 
 getUsername :: UserId
-            -> Query ProfileDataState (Maybe Text)
+            -> Query ProfileDataState Text
 getUsername uid =
-        fmap username <$> getProfileData uid
+        username <$> getProfileData uid
 
 -- | get all the users
 getUserIdUsernames :: Query ProfileDataState [(UserId, Text)]
@@ -117,23 +119,17 @@ getUserIdUsernames =
        return $ map (\pd -> (dataFor pd, username pd)) (toList pds)
 
 getRoles :: UserId
-         -> Query ProfileDataState (Maybe (Set Role))
+         -> Query ProfileDataState (Set Role)
 getRoles uid =
-    do mp <- getProfileData uid
-       case mp of
-         Nothing -> return Nothing
-         (Just profile) ->
-             return (Just $ roles profile)
+    do profile <- getProfileData uid
+       return (roles profile)
 
 hasRole :: UserId
         -> Set Role
         -> Query ProfileDataState Bool
 hasRole uid role =
-    do mp <- getProfileData uid
-       case mp of
-         Nothing -> return False
-         (Just profile) ->
-             return (not $ Set.null $ role `Set.intersection` roles profile)
+    do profile <- getProfileData uid
+       return (not $ Set.null $ role `Set.intersection` roles profile)
 
 addRole :: UserId
         -> Role
