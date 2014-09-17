@@ -9,7 +9,7 @@ import Data.Maybe               (fromMaybe)
 import Data.Set                 as Set
 import Data.Text                (Text, pack)
 import qualified Data.Text      as Text
-import Happstack.Auth           (UserId)
+import Happstack.Authenticate.Core (UserId)
 import HSP.XMLGenerator
 import HSP.XML
 import Text.Reform              ((++>), transformEitherM)
@@ -18,16 +18,10 @@ import Text.Reform.HSP.Text     (inputCheckboxes, inputText, labelText, inputSub
 
 editProfileDataForPage :: ProfileDataURL -> UserId -> Clck ProfileDataURL Response
 editProfileDataForPage here uid =
-    do mpd <- query (GetProfileData uid)
-       case mpd of
-         Nothing ->
-             do notFound ()
-                template "Edit Profile Data" () $
-                         <p>No profile data for <% show uid %>.</p>
-         (Just pd) ->
-             do action <- showURL here
-                template "Edit Profile Data" () $
-                 <% reform (form action) "epd" updated Nothing (profileDataFormlet pd) %>
+    do pd <- query (GetProfileData uid)
+       action <- showURL here
+       template "Edit Profile Data" () $
+         <% reform (form action) "epd" updated Nothing (profileDataFormlet pd) %>
 
     where
       updated :: () -> Clck ProfileDataURL Response

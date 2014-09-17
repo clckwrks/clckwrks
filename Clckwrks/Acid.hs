@@ -17,8 +17,8 @@ import Data.Data                   (Data, Typeable)
 import Data.Maybe                  (fromMaybe)
 import Data.SafeCopy               (Migrate(..), base, deriveSafeCopy, extension)
 import Data.Text                   (Text)
-import Happstack.Auth.Core.Auth    (AuthState       , initialAuthState)
-import Happstack.Auth.Core.Profile (ProfileState    , initialProfileState)
+import Happstack.Authenticate.Core          (AuthenticateState)
+import Happstack.Authenticate.Password.Core (PasswordState)
 import Network                     (PortID(UnixSocket))
 import Prelude                     hiding (catch)
 import System.Directory            (removeFile)
@@ -115,11 +115,10 @@ $(makeAcidic ''CoreState
   ])
 
 data Acid = Acid
-    { acidAuth        :: AcidState AuthState
-    , acidProfile     :: AcidState ProfileState
-    , acidProfileData :: AcidState ProfileDataState
-    , acidCore        :: AcidState CoreState
-    , acidNavBar        :: AcidState NavBarState
+    { -- acidAuthenticate :: AcidState AuthenticateState
+      acidProfileData  :: AcidState ProfileDataState
+    , acidCore         :: AcidState CoreState
+    , acidNavBar       :: AcidState NavBarState
     }
 
 class GetAcidState m st where
@@ -128,14 +127,12 @@ class GetAcidState m st where
 withAcid :: Maybe FilePath -> (Acid -> IO a) -> IO a
 withAcid mBasePath f =
     let basePath = fromMaybe "_state" mBasePath in
-    bracket (openLocalStateFrom (basePath </> "auth")        initialAuthState)        (createArchiveCheckpointAndClose) $ \auth ->
-    bracket (openLocalStateFrom (basePath </> "profile")     initialProfileState)     (createArchiveCheckpointAndClose) $ \profile ->
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "core")        initialCoreState)        (createArchiveCheckpointAndClose) $ \core ->
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
     bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "profileData_socket") profileData))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
-            (const $ f (Acid auth profile profileData core navBar))
+            (const $ f (Acid profileData core navBar))
     where
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)
       createArchiveCheckpointAndClose acid =
