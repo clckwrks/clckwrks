@@ -12,6 +12,7 @@ import Web.Routes.TH               (derivePathInfo)
 data AuthURL
   = Auth AuthenticateURL
   | Login
+  | ResetPassword
   deriving (Eq, Ord, Data, Typeable, Generic, Read, Show)
 
 derivePathInfo ''AuthURL

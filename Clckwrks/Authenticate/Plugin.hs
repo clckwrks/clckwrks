@@ -57,7 +57,7 @@ authenticateInit plugins =
            Nothing  -> calcBaseURI cc
            (Just b) -> b
      (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication top'
-        [initPassword (baseUri <> "/#resetPassword") (Text.pack $ clckHostname cc)]
+        [initPassword (baseUri <> authShowFn ResetPassword [] <> "/#") (Text.pack $ clckHostname cc)]
      addHandler plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
      addPluginState plugins (pluginName authenticatePlugin) (AcidStateAuthenticate authenticateState)
      return Nothing

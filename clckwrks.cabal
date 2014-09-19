@@ -42,6 +42,7 @@ Library
                    Clckwrks.Admin.Route
                    Clckwrks.Admin.EditSettings
                    Clckwrks.Authenticate.Page.Login
+                   Clckwrks.Authenticate.Page.ResetPassword
                    Clckwrks.Authenticate.Plugin
                    Clckwrks.Authenticate.Route
                    Clckwrks.Authenticate.URL

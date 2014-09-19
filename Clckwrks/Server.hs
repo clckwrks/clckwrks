@@ -23,7 +23,6 @@ import Data.String                  (fromString)
 import           Data.Text          (Text)
 import qualified Data.Text          as Text
 import qualified Data.UUID          as UUID
-import Happstack.Authenticate.Core  (initAuthentication)
 import Happstack.Authenticate.Password.Route (initPassword)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Happstack.Server.SimpleHTTPS (TLSConf(..), nullTLSConf, simpleHTTPS)
@@ -36,9 +35,6 @@ withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
     withPlugins cc initialClckPluginsSt $ \plugins -> do
        let top' = fmap (\top -> top </> "_state") (clckTopDir cc)
-           baseUri = case calcTLSBaseURI cc of
-             Nothing  -> calcBaseURI cc
-             (Just b) -> b
        withAcid top' $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
