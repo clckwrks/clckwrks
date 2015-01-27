@@ -92,10 +92,14 @@ modifyProfileData :: (ProfileData -> ProfileData)
 modifyProfileData fn uid =
     do ps@(ProfileDataState {..}) <- get
        case getOne $ profileData @= uid of
-         Nothing -> return ()
+         Nothing   ->
+           do let pd' = fn (defaultProfileDataFor uid)
+              put ps { profileData = insert pd' profileData }
          (Just pd) ->
-             do let pd' = fn pd
-                put ps { profileData = updateIx (dataFor pd') pd' profileData }
+           do let pd' = fn pd
+              put ps { profileData = updateIx (dataFor pd') pd' profileData }
+
+
 
 -- | create the profile data, but only if it is missing
 newProfileData :: ProfileData

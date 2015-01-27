@@ -9,6 +9,7 @@ clckwrksAppJS = [jmacro|
     var clckwrksApp = angular.module('clckwrksApp', [
       'happstackAuthentication',
       'usernamePassword',
+      'openId',
       'ngRoute'
     ]);
 
@@ -20,18 +21,8 @@ clckwrksAppJS = [jmacro|
                              });
       }]);
 
-    clckwrksApp.controller('DemoAppCtrl', ['$scope', '$http',function($scope, $http) {
-      $scope.message = '';
-
-      $scope.callRestricted = function (url) {
-        $http({url: url, method: 'GET'}).
-        success(function (datum, status, headers, config) {
-          $scope.message = datum.name;
-        }).
-        error(function (datum, status, headers, config) {
-          alert(datum);
-        });
-      };
+    clckwrksApp.controller('ClckwrksCtrl', ['$scope', '$http',function($scope, $http) {
+     return;
     }]);
   }
  |]

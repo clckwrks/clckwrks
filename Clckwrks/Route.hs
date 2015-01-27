@@ -5,6 +5,7 @@ import Clckwrks
 import Clckwrks.Admin.Route        (routeAdmin)
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Monad              (calcTLSBaseURI, withAbs)
+import Clckwrks.ProfileData.API    (requiresRole)
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Clckwrks.JS.Route           (routeJS)
 import Control.Monad.State         (MonadState(get))

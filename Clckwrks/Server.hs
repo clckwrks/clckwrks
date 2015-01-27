@@ -23,7 +23,6 @@ import Data.String                  (fromString)
 import           Data.Text          (Text)
 import qualified Data.Text          as Text
 import qualified Data.UUID          as UUID
-import Happstack.Authenticate.Password.Route (initPassword)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Happstack.Server.SimpleHTTPS (TLSConf(..), nullTLSConf, simpleHTTPS)
 import System.FilePath              ((</>), makeRelative, splitDirectories)

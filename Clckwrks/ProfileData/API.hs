@@ -11,7 +11,7 @@ module Clckwrks.ProfileData.API
 import Clckwrks.Acid  (Acid(..))
 import Clckwrks.Monad
 import Clckwrks.URL                 (ClckURL)
-import Clckwrks.Authenticate.Plugin (getUserId)
+import {-# SOURCE #-} Clckwrks.Authenticate.Plugin (getUserId)
 import Clckwrks.ProfileData.Acid
 import Clckwrks.ProfileData.Types
 import Clckwrks.Unauthorized        (unauthorizedPage)

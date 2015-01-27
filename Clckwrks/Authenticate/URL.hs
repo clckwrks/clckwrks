@@ -13,6 +13,7 @@ data AuthURL
   = Auth AuthenticateURL
   | Login
   | ResetPassword
+  | ChangePassword
   deriving (Eq, Ord, Data, Typeable, Generic, Read, Show)
 
 derivePathInfo ''AuthURL

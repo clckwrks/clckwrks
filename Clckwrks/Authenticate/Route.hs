@@ -5,6 +5,7 @@ import Control.Applicative         ((<$>))
 import Clckwrks.Monad              (ClckT, plugins)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
 import Clckwrks.Authenticate.Page.Login (loginPage)
+import Clckwrks.Authenticate.Page.ChangePassword (changePasswordPanel)
 import Clckwrks.Authenticate.Page.ResetPassword (resetPasswordPage)
 import Clckwrks.URL                (ClckURL)
 import Control.Monad.State         (get)
@@ -26,4 +27,5 @@ routeAuth routeAuthenticate u =
          lift $ runRouteT routeAuthenticate (authShowFn . Auth) authenticateURL
     Login         -> loginPage
     ResetPassword -> resetPasswordPage
+    ChangePassword -> changePasswordPanel
 
