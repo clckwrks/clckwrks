@@ -13,6 +13,7 @@ import Clckwrks.URL            (ClckURL(..), AdminURL(..))
 import Control.Monad.State     (get)
 import Control.Monad.Trans     (lift, liftIO)
 import Data.Aeson              (FromJSON(..), ToJSON(..), Value(..), (.:), (.=), decode, object)
+import Data.Aeson.QQ           (aesonQQ)
 import qualified Data.Text     as T
 import Data.Text.Lazy (Text)
 import Data.Tree               (Tree(..))
@@ -52,16 +53,6 @@ editNavBar =
                        </div>
                       </div>
                      </div>
-                    </fieldset>
-                    -- <button id="add-sub-navBar">Add Sub-NavBar</button><br />
-                    <fieldset>
-                     <legend>Other Actions</legend>
-                     <div class="control-group">
-                      <label class="control-label" for="remove-item"></label>
-                      <div class="controls">
-                       <button class="btn btn-danger" id="remove-item"><i class="icon-remove icon-white"></i> Remove Selected Item</button>
-                      </div>
-                     </div>
                      <div class="control-group">
                       <label class="control-label" for="saveChanges"></label>
                       <div class="controls">
@@ -72,7 +63,7 @@ editNavBar =
 
                     <fieldset>
                      <legend>NavBar</legend>
-                     <p><i>Drag and Drop to rearrange. Click to rename.</i></p>
+                     <p><i>Drag and Drop to rearrange. Right-click to rename or remove.</i></p>
                      <div id="navBar"></div>
                     </fieldset>
                    </div>
@@ -81,30 +72,42 @@ editNavBar =
       headers currentNavBar navBarLinks
            = do navBarUpdate <- showURL (Admin NavBarPost)
                 <%>
-                 <script type="text/javascript" src="/jstree/jquery.jstree.js" ></script>
+                 <link rel="stylesheet" href="/jstree/themes/default/style.min.css" />
+                 <script type="text/javascript" src="/jstree/jstree.min.js" ></script>
                  <% [$jmacro|
-                      function !doubleClickCB(e, dt) {
-                        alert(dt.rslt.o);
+//                      function !doubleClickCB(e, dt) {
+//                        alert(dt.rslt.o);
 //                        navBar.rename(d.rslt);
-                      };
+//                      };
 
                       $(document).ready(function ()
-                                         { $("#navBar").jstree(`(jstree currentNavBar)`);
-                                            var !navBar = $.jstree._reference("#navBar");
-                                            $("#navBar").bind("select_node.jstree",  function(e, d) { $("#navBar").jstree("rename", d.inst.o); } );
+                        { $("#navBar").jstree({ 'core' :
+                                                 { 'data'           : `(navBarToJSTree currentNavBar)`
+                                                 , 'themes'         : { 'variant' : 'large' }
+                                                 , 'check_callback' : true
+                                                 }
+                                              , 'contextmenu' :
+                                                 { 'items' : function (o, cb) {
+                                                                var items    = $.jstree.defaults.contextmenu.items(o, cb);
+                                                                return { 'rename' : items.rename
+                                                                       , 'remove' : items.remove
+                                                                       };
+                                                              }
+                                                 }
+                                              , 'types' :
+                                                 { 'target' :
+                                                   { 'icon'         : 'icon-black icon-bookmark'
+                                                   , 'max_children' : 0
+                                                   }
+                                                 }
+                                              , 'plugins'          : [ 'contextmenu', 'dnd', 'types' ]
+                                              });
 
-                                            // click elsewhere in document to unselect nodes
-                                            $(document).bind("click", function (e) {
-                                              if(!$(e.target).parents(".jstree:eq(0)").length) {
-                                                $.jstree._focused().deselect_all();
-                                              }
-                                             });
-
-                                            `(initializeDropDowns navBarLinks)`;
-                                            `(removeItem)`;
-                                            `(saveChanges navBarUpdate)`;
-                                         });
-
+                          var !navBar = $.jstree.reference("#navBar");
+                          `(initializeDropDowns navBarLinks)`;
+                          `(removeItem)`;
+                          `(saveChanges navBarUpdate)`;
+                        });
                     |]
                   %>
                  </%>
@@ -130,6 +133,7 @@ initializeDropDowns navBarLinks' =
                option.text(navBarLinks[p].pluginName);
                pluginList.append(option);
              }
+
              populateLinks(0);
              pluginList.change(function() { populateLinks($(this).val()); });
 
@@ -137,16 +141,19 @@ initializeDropDowns navBarLinks' =
              $("#add-link").click(function () {
                var indexes = navBarItemList.val().split(',');
                var navBarItem = navBarLinks[indexes[0]].pluginLinks[indexes[1]];
-               var entry = { 'state' : 'open'
-                           , 'data'  : { 'title' : navBarItem.navBarItemName }
-                           , 'attr'  : { 'rel' : 'target' }
-                           , 'metadata'
-                                     : { 'link' : { 'navBarName' : navBarItem.navBarItemName
-                                                  , 'navBarLink' : navBarItem.navBarItemLink
-                                                  }
-                                       }
+
+               var entry = { 'state'    : { 'opened' : true }
+                           , 'text'     : navBarItem.navBarItemName
+                           , 'type'     : 'target'
+                           , 'a_attr'   : { 'rel' : 'target' }
+                           , 'data' :
+                                { 'link' :
+                                     { 'navBarName' : navBarItem.navBarItemName
+                                     , 'navBarLink' : navBarItem.navBarItemLink
+                                     }
+                                }
                            };
-               navBar.create(null, "last",  entry , null, true);
+               navBar.create_node(null, entry, "last",  null, false);
              });
 
            |]
@@ -155,7 +162,7 @@ saveChanges :: T.Text -> JStat
 saveChanges navBarUpdateURL =
     [$jmacro|
      $("#saveChanges").click(function () {
-       var tree = $("#navBar").jstree("get_json", -1);
+       var tree = navBar.get_json('#'); // $("#navBar").jstree("get_json", -1);
        var json = JSON.stringify(tree);
        console.log(json);
        $.post(`(navBarUpdateURL)`, { tree : json });
@@ -174,20 +181,20 @@ removeItem =
    });
   |]
 
-jstree :: NavBar -> Value
-jstree navBar =
-    object [ "types" .=
-             object [ "types" .=
-                      object [ "root" .=
-                               object [ "max_children" .= (-1 :: Int)
-                                      ]
-                             , "navBar" .=
-                               object [ "max_children" .= (-1 :: Int)
-                                      ]
-                             , "target" .=
-                               object [ "max_children" .= (0 :: Int)
-                                      , "icon"         .= False
-                                      ]
+  {-
+    object [ "core" .=
+             object [ "data" .= navBarToJSTree navBar
+                    ]
+           , "types" .=
+             object [ "#" .=
+                      object [ "max_children" .= (-1 :: Int)
+                             ]
+                    , "navBar" .=
+                      object [ "max_children" .= (-1 :: Int)
+                             ]
+                    , "target" .=
+                      object [ "max_children" .= (0 :: Int)
+                             , "icon"         .= False
                              ]
                     ]
            , "dnd" .=
@@ -197,17 +204,27 @@ jstree navBar =
            , "ui" .=
                  object [ "initially_select" .= ([ "tree-root" ] :: [String])
                         ]
-           , "json_data" .= navBarToJSTree navBar
            , "plugins"   .= ([ "themes", "ui", "crrm", "types", "json_data", "dnd" ] :: [String])
            ]
-
-navBarToJSTree :: NavBar -> Value
+-}
+navBarToJSTree :: NavBar -> [Value]
 navBarToJSTree (NavBar items) =
-    object  [ "data" .= (toJSON $ map navBarItemToJSTree items)
-            ]
+  map navBarItemToJSTree items
 
 navBarItemToJSTree :: NavBarItem -> Value
 navBarItemToJSTree (NBLink NamedLink{..}) =
+  [aesonQQ|
+     { text : #{namedLinkTitle}
+     , type : "target"
+     , a_attr : { rel : "target" }
+     , data : { link :
+                 { navBarLink : #{namedLinkURL}
+                 }
+              }
+
+     } |]
+--  toJSON namedLinkTitle
+  {-
     object [ "data" .=
                object [ "title" .= namedLinkTitle
                       ]
@@ -220,7 +237,25 @@ navBarItemToJSTree (NBLink NamedLink{..}) =
                                  ]
                       ]
            ]
-
+-}
+{-
+jstree :: NavBar -> Value
+jstree navBar = -- #{navBarToJSTree navBar}
+  [aesonQQ|
+   { core :
+       { data           : []
+       , themes         : { variant : "large" }
+       , check_callback : true
+       }
+   , types :
+       { target :
+           { icon         : "glyphicon glyphicon-flash"
+           , max_children : 0
+           }
+       }
+   , plugins          : ["contextmenu", "dnd", "types"]
+   } |]
+-}
 navBarPost :: Clck ClckURL Response
 navBarPost =
   do t <- lookBS "tree"
@@ -241,9 +276,9 @@ instance FromJSON NavBarUpdate where
 
 instance FromJSON NavBarItem where
   parseJSON (Object o) =
-      do ttl      <- o .: "data"
-         meta     <- o .: "metadata"
-         link     <- meta .: "link"
+      do ttl        <- o    .: "text"
+         meta       <- o    .: "data"
+         link       <- meta .: "link"
          navBarLink <- link .: "navBarLink"
          let nl = NamedLink ttl navBarLink
          return (NBLink nl)

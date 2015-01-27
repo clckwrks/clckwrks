@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.22.4
+Version:             0.23.1
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -41,9 +41,18 @@ Library
                    Clckwrks.Admin.Console
                    Clckwrks.Admin.Route
                    Clckwrks.Admin.EditSettings
+                   Clckwrks.Authenticate.Page.ChangePassword
+                   Clckwrks.Authenticate.Page.Login
+                   Clckwrks.Authenticate.Page.ResetPassword
+                   Clckwrks.Authenticate.Plugin
+                   Clckwrks.Authenticate.Route
+                   Clckwrks.Authenticate.URL
                    Clckwrks.BasicTemplate
                    Clckwrks.GetOpts
                    Clckwrks.IOThread
+                   Clckwrks.JS.ClckwrksApp
+                   Clckwrks.JS.Route
+                   Clckwrks.JS.URL
                    Clckwrks.Monad
                    Clckwrks.Server
                    Clckwrks.Markup.HsColour
@@ -67,8 +76,8 @@ Library
                    Clckwrks.URL
                    Paths_clckwrks
   Extra-Libraries:   ssl
-  if !os(darwin)
-      Extra-Libraries: cryptopp
+--  if !os(darwin)
+--      Extra-Libraries: cryptopp
 
   if flag(network-uri)
      build-depends:               network > 2.6      && < 2.7,
@@ -79,6 +88,7 @@ Library
   Build-depends:
      acid-state                   >= 0.12 && < 0.13,
      aeson                        >= 0.5 && < 0.9,
+     aeson-qq                     >= 0.7 && < 0.8,
      attoparsec                   >= 0.10 && < 0.13,
      base                           < 5,
      blaze-html                   >= 0.5 && < 0.8,
@@ -87,14 +97,17 @@ Library
      containers                   >= 0.4 && < 0.6,
      directory                    >= 1.1 && < 1.3,
      filepath                     >= 1.2 && < 1.4,
-     happstack-authenticate       == 0.10.*,
+     happstack-authenticate       >= 2.0 && < 2.1,
      happstack-hsp                == 7.3.*,
+     happstack-jmacro             >= 7.0 && < 7.1,
      happstack-server             >= 7.0 && < 7.5,
      happstack-server-tls         >= 7.1 && < 7.2,
      hsp                          >= 0.9 && < 0.11,
      hsx-jmacro                   == 7.3.*,
+     hsx2hs                       >= 0.13 && < 0.14,
      ixset                        == 1.0.*,
      jmacro                       == 0.6.*,
+     lens                         >= 4.3 && < 4.8,
      mtl                          >= 2.0 && < 2.3,
      old-locale                   ==  1.0.*,
      process                      >= 1.0 && < 1.3,
@@ -106,11 +119,11 @@ Library
      safecopy                     >= 0.6,
      stm                          >= 2.2 && <2.5,
      tagsoup                      >= 0.12 && < 0.14,
-     text                         >= 0.11 && < 1.2,
-     time                         >= 1.2 && <1.5,
+     text                         >= 0.11 && < 1.3,
+     time                         >= 1.2  && < 1.6,
      uuid                         >= 1.2 && < 1.4,
      unordered-containers         >= 0.1 && < 0.3,
-     utf8-string                  == 0.3.*,
+     utf8-string                  >= 0.3 && < 1.1,
      vector                       >= 0.9,
      web-plugins                  >= 0.1 && < 0.3,
      web-routes,

@@ -3,7 +3,7 @@ module Clckwrks.Server where
 
 import Clckwrks
 import Clckwrks.Admin.Route         (routeAdmin)
-import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), initialClckPluginsSt)
+import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), calcBaseURI, calcTLSBaseURI, initialClckPluginsSt)
 -- import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
 -- import Clckwrks.Page.Atom           (handleAtomFeed)
 -- import Clckwrks.Page.PreProcess     (pageCmd)
@@ -23,7 +23,6 @@ import Data.String                  (fromString)
 import           Data.Text          (Text)
 import qualified Data.Text          as Text
 import qualified Data.UUID          as UUID
-import Happstack.Auth               (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Happstack.Server.SimpleHTTPS (TLSConf(..), nullTLSConf, simpleHTTPS)
 import System.FilePath              ((</>), makeRelative, splitDirectories)
@@ -33,8 +32,9 @@ import qualified Paths_clckwrks     as Clckwrks
 
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
 withClckwrks cc action =
-    withPlugins cc initialClckPluginsSt $ \plugins ->
-       withAcid (fmap (\top -> top </> "_state") (clckTopDir cc)) $ \acid ->
+    withPlugins cc initialClckPluginsSt $ \plugins -> do
+       let top' = fmap (\top -> top </> "_state") (clckTopDir cc)
+       withAcid top' $ \acid ->
            do u <- atomically $ newTVar 0
               let clckState = ClckState { acidState        = acid
 --                                        , currentPage      = PageId 0

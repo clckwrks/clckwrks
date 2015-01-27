@@ -5,14 +5,16 @@ import Clckwrks
 import Clckwrks.Admin.Route        (routeAdmin)
 import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Monad              (calcTLSBaseURI, withAbs)
+import Clckwrks.ProfileData.API    (requiresRole)
 import Clckwrks.ProfileData.Route  (routeProfileData)
+import Clckwrks.JS.Route           (routeJS)
 import Control.Monad.State         (MonadState(get))
 import Data.Maybe                  (fromJust)
 import Data.Monoid                 ((<>))
 import qualified Data.Set          as Set
 import Data.Text                   (Text, pack)
 import qualified Data.Text         as Text
-import Happstack.Auth              (handleAuthProfile)
+-- import Happstack.Authenticate.Core (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Network.URI                 (unEscapeString)
 import Paths_clckwrks              (getDataDir)
@@ -28,7 +30,7 @@ checkAuth url =
       ThemeDataNoEscape{}  -> return url
       PluginData{}         -> return url
       Admin{}              -> requiresRole (Set.singleton Administrator) url
-      Auth{}               -> return url
+      JS   {}              -> return url
       Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditNewProfileData{} -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
@@ -77,21 +79,5 @@ routeClck url' =
          (Profile profileDataURL) ->
              do nestURL Profile $ routeProfileData profileDataURL
 
-         (Auth apURL) ->
-             do clckState <- get
-                cc <- getConfig (plugins clckState)
-                let go = do let Acid{..} = acidState clckState
-                            u <- showURL $ Profile CreateNewProfileData
-                            showClckURL <- askRouteFn
-                            cs <- get
-                            let template'  ttl hdr bdy = withRouteClckT (const showClckURL) $ themeTemplate (plugins cs) (ThemeStyleId 0) (pack ttl) hdr bdy
-                            withAbs $ nestURL Auth $ handleAuthProfile acidAuth acidProfile template' Nothing Nothing u apURL
-                case clckTLS cc of
-                  Nothing -> go
-                  (Just tlsSettings) ->
-                      do secure <- rqSecure <$> askRq
-                         if secure
-                            then go
-                            else do u <- rqUri <$> askRq
-                                    let sslU = ((Text.unpack $ fromJust $ calcTLSBaseURI cc) ++ u)
-                                    seeOther sslU (toResponse ())
+         (JS jsURL) ->
+             do nestURL JS $ routeJS jsURL

@@ -26,7 +26,6 @@ module Clckwrks.Monad
     , mapClckT
     , withRouteClckT
     , ClckState(..)
-    , getUserId
     , Content(..)
 --    , markupToContent
 --    , addPreProcessor
@@ -41,11 +40,8 @@ module Clckwrks.Monad
     , googleAnalytics
     , getUnique
     , setUnique
-    , requiresRole
-    , requiresRole_
     , setRedirectCookie
     , getRedirectCookie
-    , getUserRoles
     , query
     , update
     , nestURL
@@ -100,9 +96,7 @@ import           Data.Text.Lazy.Builder (Builder, fromText)
 import qualified Data.Text.Lazy.Builder as B
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
-import Happstack.Auth                (AuthProfileURL(..), AuthURL(..), AuthState, ProfileState, UserId)
-import qualified Happstack.Auth      as Auth
-
+import Happstack.Authenticate.Core   (UserId(..))
 import Happstack.Server              ( CookieLife(Session), Happstack, ServerMonad(..), FilterMonad(..)
                                      , WebMonad(..), Input, Request(..), Response, HasRqData(..)
                                      , ServerPart, ServerPartT, UnWebT, addCookie, expireCookie, escape
@@ -383,9 +377,6 @@ type Clck url = ClckT url (ServerPartT IO)
 instance (Functor m, MonadIO m) => IntegerSupply (ClckT url m) where
     nextInteger = getUnique
 
-instance ToJExpr Text.Text where
-  toJExpr t = ValExpr $ JStr $ T.unpack t
-
 nestURL :: (url1 -> url2) -> ClckT url1 m a -> ClckT url2 m a
 nestURL f (ClckT r) = ClckT $ R.nestURL f r
 
@@ -422,13 +413,10 @@ update event =
 
 instance (GetAcidState m st) => GetAcidState (XMLGenT m) st where
     getAcidState = XMLGenT getAcidState
-
-instance (Functor m, Monad m) => GetAcidState (ClckT url m) AuthState where
-    getAcidState = (acidAuth . acidState) <$> get
-
-instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileState where
-    getAcidState = (acidProfile . acidState) <$> get
-
+{-
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) AuthenticateState where
+    getAcidState = (acidAuthenticate . acidState) <$> get
+-}
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) CoreState where
     getAcidState = (acidCore . acidState) <$> get
 
@@ -437,13 +425,6 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) NavBarState where
 
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
-
--- | The the 'UserId' of the current user. While return 'Nothing' if they are not logged in.
-getUserId :: (Happstack m, GetAcidState m AuthState, GetAcidState m ProfileState) => m (Maybe UserId)
-getUserId =
-    do authState    <- getAcidState
-       profileState <- getAcidState
-       Auth.getUserId authState profileState
 
 -- * XMLGen / XMLGenerator instances for Clck
 
@@ -670,35 +651,6 @@ getRedirectCookie :: (Happstack m) =>
 getRedirectCookie =
     do expireCookie "clckwrks-authenticate-redirect"
        optional $ lookCookieValue "clckwrks-authenticate-redirect"
-
-requiresRole_ :: (Happstack  m) => (ClckURL -> [(T.Text, Maybe T.Text)] -> T.Text) -> Set Role -> url -> ClckT u m url
-requiresRole_ showFn role url =
-    ClckT $ RouteT $ \_ -> unRouteT (unClckT (requiresRole role url)) showFn
-
-requiresRole :: (Happstack m) => Set Role -> url -> ClckT ClckURL m url
-requiresRole role url =
-    do mu <- getUserId
-       case mu of
-         Nothing ->
-             do rq <- askRq
-                escape $ do setRedirectCookie (rqUri rq ++ rqQuery rq)
-                            seeOtherURL (Auth $ AuthURL A_Login)
-         (Just uid) ->
-             do r <- query (HasRole uid role)
-                if r
-                   then return url
-                   else escape $ unauthorizedPage ("You do not have permission to view this page." :: TL.Text)
-
-getUserRoles :: (Happstack m, MonadIO m) => ClckT u m (Set Role)
-getUserRoles =
-    do mu <- getUserId
-       case mu of
-         Nothing -> return (Set.singleton Visitor)
-         (Just u) ->
-             do mr <- query (GetRoles u)
-                case mr of
-                  Nothing  -> return Set.empty
-                  (Just r) -> return r
 
 ------------------------------------------------------------------------------
 -- NavBar callback

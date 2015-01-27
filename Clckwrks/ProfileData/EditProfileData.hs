@@ -3,16 +3,16 @@
 module Clckwrks.ProfileData.EditProfileData where
 
 import Clckwrks
-import Clckwrks.Admin.Template  (template)
-import Clckwrks.ProfileData.Acid (GetProfileData(..), SetProfileData(..), profileDataErrorStr)
-import Data.Text                (pack)
-import qualified Data.Text      as Text
-import Data.Text.Lazy           (Text)
-import Data.Maybe               (fromMaybe)
-import Happstack.Auth           (UserId)
-import Text.Reform              ((++>), mapView, transformEitherM)
-import Text.Reform.HSP.Text     (form, inputText, inputSubmit, labelText, fieldset, ol, li, errorList, setAttrs)
-import Text.Reform.Happstack    (reform)
+import Clckwrks.Admin.Template     (template)
+import Clckwrks.ProfileData.Acid   (GetProfileData(..), SetProfileData(..), profileDataErrorStr)
+import Data.Text                   (pack)
+import qualified Data.Text         as Text
+import Data.Text.Lazy              (Text)
+import Data.Maybe                  (fromMaybe)
+import Happstack.Authenticate.Core (UserId)
+import Text.Reform                 ((++>), mapView, transformEitherM)
+import Text.Reform.HSP.Text        (form, inputText, inputSubmit, labelText, fieldset, ol, li, errorList, setAttrs)
+import Text.Reform.Happstack       (reform)
 import HSP.XMLGenerator
 import HSP.XML
 
@@ -24,17 +24,13 @@ editProfileDataPage here =
        case mUid of
          Nothing -> internalServerError $ toResponse $ ("Unable to retrieve your userid" :: Text)
          (Just uid) ->
-             do mpd <- query (GetProfileData uid)
-                case mpd of
-                  Nothing ->
-                      internalServerError $ toResponse $ "Missing profile data for " ++ show uid
-
-                  (Just pd) ->
-                      do action <- showURL here
-                         template "Edit Profile Data" () $
-                               <%>
-                                <% reform (form action) "epd" updated Nothing (profileDataFormlet pd) %>
-                               </%>
+             do pd <- query (GetProfileData uid)
+                action <- showURL here
+                template "Edit Profile Data" () $
+                  <%>
+                    <% reform (form action) "epd" updated Nothing (profileDataFormlet pd) %>
+                    <up-change-password />
+                  </%>
     where
       updated :: () -> Clck ProfileDataURL Response
       updated () =
