@@ -14,6 +14,7 @@ data AuthURL
   | Login
   | ResetPassword
   | ChangePassword
+  | OpenIdRealm
   deriving (Eq, Ord, Data, Typeable, Generic, Read, Show)
 
 derivePathInfo ''AuthURL

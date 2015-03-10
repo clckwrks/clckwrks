@@ -14,20 +14,23 @@ loginPage :: ClckT ClckURL (ServerPartT IO) Response
 loginPage =
   do plugins <- plugins <$> get
      themeTemplate plugins (ThemeStyleId 0) "Login" () [hsx|
-      <%>
+      <div ng-controller="UsernamePasswordCtrl">
        <div up-authenticated=False>
         <h2>Login</h2>
+        <up-login-inline />
        </div>
+
        <div up-authenticated=True>
+
         <h2>Logout</h2>
         <p>You have successfully logged in! Click the link below to logout.</p>
-       </div>
-       <up-login-inline />
-       <div up-authenticated=False>
+        <up-logout />
+
         <h2>Forgotten Password?</h2>
         <p>Forgot your password? Request a reset link via email!</p>
         <up-request-reset-password />
        </div>
+
        <h2>Create A New Account</h2>
        <up-signup-password />
-      </%> |]
+      </div> |]

@@ -2,7 +2,7 @@
 module Clckwrks.Monad
     ( Clck
     , ClckPlugins
-    , ClckPluginsSt
+    , ClckPluginsSt(cpsAcid)
     , initialClckPluginsSt
     , ClckT(..)
     , ClckForm
@@ -318,15 +318,16 @@ type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [
 
 data ClckPluginsSt = ClckPluginsSt
     { cpsPreProcessors :: [TL.Text -> ClckT ClckURL IO TL.Text]
-    , cpsNavBarLinks     :: [ClckT ClckURL IO (String, [NamedLink])]
+    , cpsNavBarLinks   :: [ClckT ClckURL IO (String, [NamedLink])]
+    , cpsAcid          :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
     }
 
-initialClckPluginsSt :: ClckPluginsSt
-initialClckPluginsSt = ClckPluginsSt
+initialClckPluginsSt :: Acid -> ClckPluginsSt
+initialClckPluginsSt acid = ClckPluginsSt
     { cpsPreProcessors = []
-    , cpsNavBarLinks     = []
+    , cpsNavBarLinks   = []
+    , cpsAcid          = acid
     }
-
 
 -- | ClckPlugins
 --
@@ -677,7 +678,6 @@ getPreProcessors :: (MonadIO m) =>
 getPreProcessors plugins =
     mapClckT liftIO $
       (cpsPreProcessors <$> getPluginsSt plugins)
-
 
 -- | create a google analytics tracking code block
 --

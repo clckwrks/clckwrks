@@ -31,25 +31,29 @@ import Web.Plugins.Core             (Plugins, withPlugins, getPluginRouteFn, get
 import qualified Paths_clckwrks     as Clckwrks
 
 withClckwrks :: ClckwrksConfig -> (ClckState -> IO b) -> IO b
-withClckwrks cc action =
-    withPlugins cc initialClckPluginsSt $ \plugins -> do
-       let top' = fmap (\top -> top </> "_state") (clckTopDir cc)
-       withAcid top' $ \acid ->
-           do u <- atomically $ newTVar 0
-              let clckState = ClckState { acidState        = acid
+withClckwrks cc action = do
+  let top' = fmap (\top -> top </> "_state") (clckTopDir cc)
+  withAcid top' $ \acid ->
+    withPlugins cc (initialClckPluginsSt acid) $ \plugins -> do
+      u <- atomically $ newTVar 0
+      let clckState = ClckState { acidState        = acid
 --                                        , currentPage      = PageId 0
-                                        , uniqueId         = u
-                                        , adminMenus       = []
-                                        , enableAnalytics  = clckEnableAnalytics cc
-                                        , plugins          = plugins
-                                        , requestInit      = return ()
-                                        }
-              action clckState
+                                , uniqueId         = u
+                                , adminMenus       = []
+                                , enableAnalytics  = clckEnableAnalytics cc
+                                , plugins          = plugins
+                                , requestInit      = return ()
+                                }
+      action clckState
 
 simpleClckwrks :: ClckwrksConfig -> IO ()
 simpleClckwrks cc =
   withClckwrks cc $ \clckState ->
-      do (clckState', cc') <- (clckInitHook cc) (calcBaseURI cc) clckState cc
+      do let baseURI =
+               case calcTLSBaseURI cc of
+                 (Just baseUri) -> baseUri
+                 Nothing -> calcBaseURI cc
+         (clckState', cc') <- (clckInitHook cc) baseURI clckState cc
          let p = plugins clckState'
          hooks <- getPostHooks p
          (Just clckShowFn) <- getPluginRouteFn p "clck"

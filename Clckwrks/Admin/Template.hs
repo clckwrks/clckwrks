@@ -38,7 +38,7 @@ template title headers body = do
    toResponse <$> (unXMLGenT $ [hsx|
     <html>
      <head>
-      <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/css/bootstrap-combined.min.css"        rel="stylesheet" media="screen" />
+      <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/css/bootstrap-combined.min.css" rel="stylesheet" media="screen" />
 --      <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.2.2/css/bootstrap-responsive.css" rel="stylesheet" />
       <link type="text/css" href="/static/admin.css" rel="stylesheet" />
       <script type="text/javascript" src="/jquery/jquery.js" ></script>
@@ -52,7 +52,7 @@ template title headers body = do
       <title><% title %></title>
       <% headers %>
      </head>
-     <body ng-app="clckwrksApp" ng-controller="UsernamePasswordCtrl">
+     <body ng-app="clckwrksApp" ng-controller="AuthenticationCtrl">
       <div class="navbar">
        <div class="navbar-inner">
         <div class="container-fluid">

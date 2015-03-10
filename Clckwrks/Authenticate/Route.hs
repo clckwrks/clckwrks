@@ -6,7 +6,8 @@ import Clckwrks.Monad              (ClckT, plugins)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
 import Clckwrks.Authenticate.Page.Login (loginPage)
 import Clckwrks.Authenticate.Page.ChangePassword (changePasswordPanel)
-import Clckwrks.Authenticate.Page.ResetPassword (resetPasswordPage)
+import Clckwrks.Authenticate.Page.ResetPassword  (resetPasswordPage)
+import Clckwrks.Authenticate.Page.OpenIdRealm    (openIdRealmPanel)
 import Clckwrks.URL                (ClckURL)
 import Control.Monad.State         (get)
 import Control.Monad.Trans         (lift)
@@ -25,7 +26,8 @@ routeAuth routeAuthenticate u =
       do p <- plugins <$> get
          (Just authShowFn) <- getPluginRouteFn p "authenticate"
          lift $ runRouteT routeAuthenticate (authShowFn . Auth) authenticateURL
-    Login         -> loginPage
-    ResetPassword -> resetPasswordPage
+    Login          -> loginPage
+    ResetPassword  -> resetPasswordPage
     ChangePassword -> changePasswordPanel
+    OpenIdRealm    -> openIdRealmPanel
 
