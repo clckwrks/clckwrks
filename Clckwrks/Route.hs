@@ -14,7 +14,6 @@ import Data.Monoid                 ((<>))
 import qualified Data.Set          as Set
 import Data.Text                   (Text, pack)
 import qualified Data.Text         as Text
--- import Happstack.Authenticate.Core (handleAuthProfile)
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Network.URI                 (unEscapeString)
 import Paths_clckwrks              (getDataDir)

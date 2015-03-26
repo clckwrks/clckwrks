@@ -17,7 +17,7 @@ import Control.Monad.State          (get, evalStateT)
 import Data.Acid.Advanced           (query')
 import           Data.Map           (Map)
 import qualified Data.Map           as Map
-import Data.Maybe                   (fromJust, fromMaybe)
+import Data.Maybe                   (fromJust, fromMaybe, isNothing)
 import Data.Monoid                  ((<>))
 import Data.String                  (fromString)
 import           Data.Text          (Text)
@@ -59,7 +59,6 @@ simpleClckwrks cc =
          (Just clckShowFn) <- getPluginRouteFn p "clck"
          let showFn = \url params -> clckShowFn url []
          clckState'' <- execClckT showFn clckState' $ sequence_ hooks
-         httpTID  <- forkIO $ simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
 
          mHttpsTID <-
              case clckTLS cc' of
@@ -72,6 +71,10 @@ simpleClckwrks cc =
                                                 }
                       tid <- forkIO $ simpleHTTPS tlsConf (handlers cc' clckState'')
                       return (Just tid)
+
+         httpTID  <- if isNothing mHttpsTID
+                       then forkIO $ simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
+                       else forkIO $ simpleHTTP (nullConf { port = clckPort cc' }) forceHTTPS
          -- putStrLn "Server Now Listening For Requests."
          waitForTermination
          killThread httpTID
@@ -91,6 +94,16 @@ simpleClckwrks cc =
                  seeOther (fromMaybe ("/page/view-page/1") mRR) (toResponse ()) -- FIXME: get redirect location from database
             , clckSite cc clckState
             ]
+
+      -- if https:// is available, then force it to be used.
+      -- GET requests will be redirected automatically, POST, PUT, etc will be denied
+      forceHTTPS :: ServerPart Response
+      forceHTTPS =
+          msum [ do method GET
+                    rq <- askRq
+                    seeOther ((fromJust $ calcTLSBaseURI cc) <> (Text.pack $ rqUri rq) <> (Text.pack $ rqQuery rq)) (toResponse ())
+               , do forbidden (toResponse ("https:// required." :: Text))
+               ]
 
 jsHandlers :: (Happstack m) => ClckwrksConfig -> m Response
 jsHandlers c =
