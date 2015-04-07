@@ -69,11 +69,11 @@ authenticateInit plugins =
      -- addHandler plugins (pluginName clckPlugin) (authenticateHandler clckShowFn)
      cc <- getConfig plugins
      acid <- cpsAcid <$> getPluginsSt plugins
-     let top' = fmap (\top -> top </> "_state") (clckTopDir cc)
+     let basePath = maybe "_state" (\top -> top </> "_state") (clckTopDir cc)
          baseUri = case calcTLSBaseURI cc of
            Nothing  -> calcBaseURI cc
            (Just b) -> b
-     (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication top' (\uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator)))
+     (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication (Just basePath) (\uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator)))
         [ initPassword (baseUri <> authShowFn ResetPassword [] <> "/#") (Text.pack $ clckHostname cc)
         , initOpenId
         ]
