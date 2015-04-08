@@ -10,7 +10,7 @@
 }:
 mkDerivation {
   pname = "clckwrks";
-  version = "0.23.4";
+  version = "0.23.5";
   src = ./.;
   buildDepends = [
     acid-state aeson aeson-qq attoparsec base blaze-html bytestring
