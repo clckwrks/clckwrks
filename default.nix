@@ -18,7 +18,7 @@ mkDerivation {
     happstack-hsp happstack-jmacro happstack-server
     happstack-server-tls hsp hsx-jmacro hsx2hs ixset jmacro lens mtl
     network network-uri old-locale process random reform
-    reform-happstack reform-hsp safecopy stm tagsoup text time
+    reform-happstack  safecopy stm tagsoup text time
     unordered-containers utf8-string uuid vector web-plugins web-routes
     web-routes-happstack web-routes-hsp web-routes-th xss-sanitize
   ];
