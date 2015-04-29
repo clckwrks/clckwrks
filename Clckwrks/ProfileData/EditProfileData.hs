@@ -45,6 +45,7 @@ profileDataFormlet pd@ProfileData{..} =
                <*  (divControlGroup (divControls (inputSubmit (pack "Update") `setAttrs` (("class" := "btn") :: Attr Text Text)))))
     `transformEitherM` updateProfileData
     where
+      label' :: Text -> ClckForm ProfileDataURL ()
       label' str      = (labelText str `setAttrs` [("class":="control-label") :: Attr Text Text])
       divHorizontal   = mapView (\xml -> [<div class="form-horizontal"><% xml %></div>])
       divControlGroup = mapView (\xml -> [<div class="control-group"><% xml %></div>])
