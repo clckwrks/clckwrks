@@ -33,7 +33,7 @@ clckwrksOpts def =
     , Option [] ["tls-key"]       (ReqArg setTLSKey "path")       ("Path to tls .key file. (required for https).")
     , Option [] ["tls-ca"]        (ReqArg setTLSCA "path")       ("Path to tls .pem file. (required for some certs).")
     , Option [] ["hide-port"]     (NoArg setHidePort)             "Do not show the port number in the URL"
-    , Option [] ["hostname"]      (ReqArg setHostname "hostname") ("Server hostename, default: " ++ show (clckHostname def))
+    , Option [] ["hostname"]      (ReqArg setHostname "hostname") ("Server hostname, default: " ++ show (clckHostname def))
     , Option [] ["jquery-path"]   (ReqArg setJQueryPath   "path") ("path to jquery directory, default: " ++ show (clckJQueryPath def))
     , Option [] ["jqueryui-path"] (ReqArg setJQueryUIPath "path") ("path to jqueryui directory, default: " ++ show (clckJQueryUIPath def))
     , Option [] ["jstree-path"]   (ReqArg setJSTreePath   "path") ("path to jstree directory, default: " ++ show (clckJSTreePath def))

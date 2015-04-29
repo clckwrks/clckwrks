@@ -114,7 +114,7 @@ import HSP.XMLGenerator
 import HSP.JMacro                    (IntegerSupply(..))
 import Language.Javascript.JMacro
 import Prelude                       hiding (takeWhile)
-import System.Locale                 (defaultTimeLocale)
+import Data.Time.Locale.Compat       (defaultTimeLocale) -- can import from time directly when time-1.4/ghc 7.8 is not important anymore
 import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
