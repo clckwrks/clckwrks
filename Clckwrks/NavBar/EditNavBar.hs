@@ -19,7 +19,7 @@ import Data.Text.Lazy (Text)
 import Data.Tree               (Tree(..))
 import qualified Data.Vector   as Vector
 import Happstack.Server        (Response, internalServerError, lookBS, ok, toResponse)
-import HSP.XML                 (fromStringLit)
+import HSP.XML                 (XML, fromStringLit)
 import HSP.XMLGenerator
 import Language.Javascript.JMacro
 import Web.Routes              (showURL)
@@ -69,6 +69,7 @@ editNavBar =
                    </div>
                 </%>
     where
+      headers :: NavBar -> NavBarLinks -> GenChildList (Clck ClckURL)
       headers currentNavBar navBarLinks
            = do navBarUpdate <- showURL (Admin NavBarPost)
                 <%>
