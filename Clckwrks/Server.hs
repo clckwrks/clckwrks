@@ -14,6 +14,7 @@ import Control.Arrow                (second)
 import Control.Concurrent           (forkIO, killThread)
 import Control.Concurrent.STM       (atomically, newTVar)
 import Control.Monad.State          (get, evalStateT)
+import qualified Data.ByteString.Char8 as B
 import Data.Acid.Advanced           (query')
 import           Data.Map           (Map)
 import qualified Data.Map           as Map
@@ -83,7 +84,8 @@ simpleClckwrks cc =
     where
       handlers :: ClckwrksConfig -> ClckState -> ServerPart Response
       handlers cc clckState =
-       do decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
+       do forceCanonicalHost
+          decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
           requestInit clckState
           msum $
             [ jsHandlers cc
@@ -94,6 +96,16 @@ simpleClckwrks cc =
                  seeOther (fromMaybe ("/page/view-page/1") mRR) (toResponse ()) -- FIXME: get redirect location from database
             , clckSite cc clckState
             ]
+
+      forceCanonicalHost :: ServerPart ()
+      forceCanonicalHost =
+          do rq <- askRq
+             case getHeader "host" rq of
+               Nothing -> return ()
+               (Just hostBS) ->
+                   if (clckHostname cc == B.unpack hostBS)
+                   then return ()
+                   else escape $ seeOther ((if rqSecure rq then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) <> (Text.pack $ rqUri rq) <> (Text.pack $ rqQuery rq)) (toResponse ())
 
       -- if https:// is available, then force it to be used.
       -- GET requests will be redirected automatically, POST, PUT, etc will be denied
