@@ -103,7 +103,7 @@ simpleClckwrks cc =
              case getHeader "host" rq of
                Nothing -> return ()
                (Just hostBS) ->
-                   if (clckHostname cc == B.unpack hostBS)
+                   if (clckHostname cc == (B.unpack $ B.takeWhile (/= ':') hostBS))
                    then return ()
                    else escape $ seeOther ((if rqSecure rq then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) <> (Text.pack $ rqUri rq) <> (Text.pack $ rqQuery rq)) (toResponse ())
 
