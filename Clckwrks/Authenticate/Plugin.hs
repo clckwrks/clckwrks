@@ -22,7 +22,8 @@ import Data.Typeable               (Typeable)
 import qualified Data.Text         as Text
 import qualified Data.Set          as Set
 import qualified Data.Text.Lazy as TL
-import Happstack.Authenticate.Core  (AuthenticateState, UserId, getToken, tokenUser, userId)
+import Data.UserId                  (UserId)
+import Happstack.Authenticate.Core  (AuthenticateState, getToken, tokenUser, userId)
 import Happstack.Authenticate.Route (initAuthentication)
 import Happstack.Authenticate.Password.Route (initPassword)
 import Happstack.Authenticate.OpenId.Route (initOpenId)

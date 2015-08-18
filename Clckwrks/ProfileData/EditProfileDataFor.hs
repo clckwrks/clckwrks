@@ -9,7 +9,7 @@ import Data.Maybe               (fromMaybe)
 import Data.Set                 as Set
 import Data.Text                (Text, pack)
 import qualified Data.Text      as Text
-import Happstack.Authenticate.Core (UserId)
+import Data.UserId              (UserId)
 import HSP.XMLGenerator
 import HSP.XML
 import Text.Reform              ((++>), transformEitherM)

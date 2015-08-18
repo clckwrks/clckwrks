@@ -7,7 +7,6 @@ module Clckwrks.ProfileData.Types
      , Username(..)
      ) where
 
-import Happstack.Authenticate.Core (UserId(..))
 import Data.Data     (Data, Typeable)
 import Data.IxSet    (Indexable(..), ixSet, ixFun)
 import Data.IxSet.Ix (Ix)
@@ -16,6 +15,7 @@ import Data.SafeCopy (Migrate(..), base, deriveSafeCopy, extension)
 import Data.Set      (Set, empty, singleton)
 import Data.Text     (Text, empty)
 import Data.Typeable (Typeable)
+import Data.UserId   (UserId(..))
 
 data Role_001
     = Administrator_001

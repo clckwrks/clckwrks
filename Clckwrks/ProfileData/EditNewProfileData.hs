@@ -11,7 +11,7 @@ import Data.Text                   (pack)
 import qualified Data.Text         as Text
 import Data.Text.Lazy              (Text)
 import Data.Maybe                  (fromMaybe)
-import Happstack.Authenticate.Core (UserId)
+import Data.UserId                 (UserId)
 import Text.Reform                 ((++>), mapView, transformEitherM)
 import Text.Reform.HSP.Text        (form, inputText, inputSubmit, labelText, fieldset, ol, li, errorList, setAttrs)
 import Text.Reform.Happstack       (reform)

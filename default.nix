@@ -7,7 +7,7 @@
 , safecopy, stdenv, stm, tagsoup, text, time, time-locale-compat
 , unordered-containers, utf8-string, uuid, vector, web-plugins
 , web-routes, web-routes-happstack, web-routes-hsp, web-routes-th
-, xss-sanitize
+, xss-sanitize, userid
 }:
 mkDerivation {
   pname = "clckwrks";
@@ -22,7 +22,7 @@ mkDerivation {
     reform-happstack reform-hsp safecopy stm tagsoup text time
     time-locale-compat unordered-containers utf8-string uuid vector
     web-plugins web-routes web-routes-happstack web-routes-hsp
-    web-routes-th xss-sanitize
+    web-routes-th xss-sanitize userid
   ];
   buildTools = [ hsx2hs ];
   extraLibraries = [ openssl ];

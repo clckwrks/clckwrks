@@ -13,8 +13,8 @@ module Clckwrks
     , module Control.Applicative
     , module Control.Monad
     , module Control.Monad.Trans
+    , module Data.UserId
     , module Happstack.Server
-    , module Happstack.Authenticate.Core
     , module Language.Javascript.JMacro
     , module Web.Routes
     , module Web.Routes.Happstack
@@ -34,7 +34,7 @@ import Clckwrks.URL
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
-import Happstack.Authenticate.Core (UserId(..))
+import Data.UserId (UserId(..))
 import Happstack.Server
 import Happstack.Server.HSP.HTML
 import Language.Javascript.JMacro (JExpr(..), JMacro(..), JStat(..), JType(..), JVal(..), Ident(..), toJExpr, jmacro, jmacroE)

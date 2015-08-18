@@ -3,7 +3,7 @@ module Clckwrks.ProfileData.URL where
 
 import Data.Data                   (Data, Typeable)
 import Data.SafeCopy               (SafeCopy(..), base, deriveSafeCopy)
-import Happstack.Authenticate.Core (UserId)
+import Data.UserId                 (UserId)
 import Web.Routes.TH               (derivePathInfo)
 
 data ProfileDataURL

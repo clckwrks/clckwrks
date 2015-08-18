@@ -22,7 +22,7 @@ import           Data.Set           (Set)
 import qualified Data.Set           as Set
 import Data.Text                    (Text)
 import qualified Data.Text.Lazy     as TL
-import Happstack.Authenticate.Core  (UserId(..))
+import Data.UserId                  (UserId(..))
 import Happstack.Server             (Happstack, askRq, escape, rqUri, rqQuery)
 import Web.Routes                   (RouteT(..))
 

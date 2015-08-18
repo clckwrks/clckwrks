@@ -28,7 +28,7 @@ import qualified Data.Set          as Set
 import           Data.Set          (Set)
 import Data.Text                   (Text)
 import qualified Data.Text         as Text
-import Happstack.Authenticate.Core (UserId(..))
+import Data.UserId                 (UserId(..))
 
 data ProfileDataState = ProfileDataState
     { profileData :: IxSet ProfileData

@@ -96,7 +96,7 @@ import           Data.Text.Lazy.Builder (Builder, fromText)
 import qualified Data.Text.Lazy.Builder as B
 import Data.Time.Clock               (UTCTime)
 import Data.Time.Format              (formatTime)
-import Happstack.Authenticate.Core   (UserId(..))
+import Data.UserId                   (UserId(..))
 import Happstack.Server              ( CookieLife(Session), Happstack, ServerMonad(..), FilterMonad(..)
                                      , WebMonad(..), Input, Request(..), Response, HasRqData(..)
                                      , ServerPart, ServerPartT, UnWebT, addCookie, expireCookie, escape
