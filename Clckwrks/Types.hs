@@ -12,13 +12,13 @@ import Data.Data     (Data, Typeable)
 import Data.SafeCopy (SafeCopy(..), base, deriveSafeCopy, safeGet, safePut, contain)
 import Data.Text     (Text)
 import qualified Data.Text.Encoding as T
-import Data.UUID     (UUID)
+import Data.UUID.Types (UUID)
+import Data.UUID.Orphans ()
 import HSP.Google.Analytics (UACCT)
 
 
 -- | 'SafeCopy' instances for some 3rd party types
 $(deriveSafeCopy 0 'base ''UACCT)
-$(deriveSafeCopy 0 'base ''UUID)
 
 -- | at present this is only used by the menu editor
 newtype Prefix = Prefix { prefixText :: Text }
