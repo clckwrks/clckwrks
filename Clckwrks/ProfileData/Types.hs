@@ -39,8 +39,8 @@ instance Migrate Role where
 
 data ProfileData = ProfileData
     { dataFor    :: UserId
-    , username   :: Text
-    , email      :: Maybe Text
+    , username   :: Text  -- ^ now comes from happstack-authenticate
+    , email      :: Maybe Text -- ^ now comes from happstack-authenticate
     , roles      :: Set Role
     , attributes :: Map Text Text
     }

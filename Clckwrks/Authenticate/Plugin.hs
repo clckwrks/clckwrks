@@ -23,8 +23,9 @@ import qualified Data.Text         as Text
 import qualified Data.Set          as Set
 import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
-import Happstack.Authenticate.Core  (AuthenticateState, getToken, tokenUser, userId)
+import Happstack.Authenticate.Core  (AuthenticateState, AuthenticateConfig(..), getToken, tokenUser, userId, usernamePolicy)
 import Happstack.Authenticate.Route (initAuthentication)
+import Happstack.Authenticate.Password.Core (PasswordConfig(..))
 import Happstack.Authenticate.Password.Route (initPassword)
 import Happstack.Authenticate.OpenId.Route (initOpenId)
 import Happstack.Server
@@ -74,8 +75,19 @@ authenticateInit plugins =
          baseUri = case calcTLSBaseURI cc of
            Nothing  -> calcBaseURI cc
            (Just b) -> b
-     (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication (Just basePath) (\uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator)))
-        [ initPassword (baseUri <> authShowFn ResetPassword [] <> "/#") (Text.pack $ clckHostname cc)
+     let authenticateConfig = AuthenticateConfig {
+                                _isAuthAdmin        = \uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator))
+                              , _usernameAcceptable = usernamePolicy
+                              , _requireEmail       = True
+                              }
+         passwordConfig = PasswordConfig {
+                            _resetLink = baseUri <> authShowFn ResetPassword [] <> "/#"
+                          , _domain = Text.pack $ clckHostname cc
+                          , _passwordAcceptable = const Nothing
+                          }
+
+     (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication (Just basePath) authenticateConfig
+        [ initPassword passwordConfig
         , initOpenId
         ]
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
