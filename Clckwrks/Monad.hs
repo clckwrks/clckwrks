@@ -142,7 +142,8 @@ data ThemeStyle = ThemeStyle
     { themeStyleName        :: T.Text
     , themeStyleDescription :: T.Text
     , themeStylePreview     :: Maybe FilePath
-    , themeStyleTemplate    :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
+    , themeStyleTemplate    :: forall headers body.
+                               ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) headers
                                , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body) =>
                                T.Text
                             -> headers
