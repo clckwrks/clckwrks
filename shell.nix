@@ -10,7 +10,7 @@ let
       , happstack-server, happstack-server-tls, hsp, hsx-jmacro, hsx2hs
       , ixset, jmacro, lens, mtl, network, network-uri, old-locale
       , openssl, process, random, reform, reform-happstack, reform-hsp
-      , safecopy, stdenv, stm, tagsoup, text, time, time-locale-compat
+      , safecopy, stdenv, stm, text, time, time-locale-compat
       , unordered-containers, userid, utf8-string, uuid-orphans
       , uuid-types, vector, web-plugins, web-routes, web-routes-happstack
       , web-routes-hsp, web-routes-th, xss-sanitize, cabal-install
@@ -25,7 +25,7 @@ let
           happstack-hsp happstack-jmacro happstack-server
           happstack-server-tls hsp hsx-jmacro hsx2hs ixset jmacro lens mtl
           network network-uri old-locale process random reform
-          reform-happstack reform-hsp safecopy stm tagsoup text time
+          reform-happstack reform-hsp safecopy stm text time
           time-locale-compat unordered-containers userid utf8-string
           uuid-orphans uuid-types vector web-plugins web-routes
           web-routes-happstack web-routes-hsp web-routes-th xss-sanitize
