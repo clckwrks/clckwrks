@@ -21,11 +21,14 @@ matrix:
       addons: {apt: {packages: [cabal-install-1.22,ghc-7.10.2,happy-1.19.5], sources: [hvr-ghc]}}
     - env: CABALVER=1.24 GHCVER=8.0.1 HAPPYVER=1.19.5
       compiler: ": #GHC 8.0.1"
-      addons: {apt: {packages: [cabal-install-1.22,ghc-8.0.1,happy-1.19.5], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.1,happy-1.19.5], sources: [hvr-ghc]}}
   allow_failures:
+    - env: CABALVER=1.18 GHCVER=7.8.4 HAPPYVER=1.19.5
+      compiler: ": #GHC 7.8.4"
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4,happy-1.19.5], sources: [hvr-ghc]}}
     - env: CABALVER=1.24 GHCVER=8.0.1 HAPPYVER=1.19.5 # allow until all dependencies build
       compiler: ": #GHC 8.0.1"
-      addons: {apt: {packages: [cabal-install-1.22,ghc-8.0.1,happy-1.19.5], sources: [hvr-ghc]}}
+      addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.1,happy-1.19.5], sources: [hvr-ghc]}}
 
 before_install:
  - unset CC
