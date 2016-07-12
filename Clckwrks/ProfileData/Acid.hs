@@ -53,6 +53,7 @@ checkInvariants pds@ProfileDataState{..} pd =
        case getOne $ profileData @= (Username $ username pd) of
          (Just existingPd)
              | ((username existingPd) == (username pd))  &&
+               ((dataFor existingPd) /= (dataFor pd))    &&
                ((username pd) /= Text.pack "Anonymous")  &&
                (not $ Text.null (username pd)) ->
                  (Just UsernameAlreadyInUse)
