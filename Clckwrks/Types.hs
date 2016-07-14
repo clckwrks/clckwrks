@@ -13,6 +13,7 @@ import Data.SafeCopy (SafeCopy(..), base, deriveSafeCopy, safeGet, safePut, cont
 import Data.Text     (Text)
 import qualified Data.Text.Encoding as T
 import Data.UUID.Types (UUID)
+import Data.UUID.Orphans ()
 import HSP.Google.Analytics (UACCT)
 
 
