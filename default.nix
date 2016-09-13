@@ -12,7 +12,7 @@
 mkDerivation {
   pname = "clckwrks";
   version = "0.23.10";
-  src = cabalsdist { pathname = ./.; };
+  src = ./.;
   libraryHaskellDepends = [
     acid-state aeson aeson-qq attoparsec base blaze-html bytestring
     cereal containers directory filepath happstack-authenticate
