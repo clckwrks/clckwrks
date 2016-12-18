@@ -318,7 +318,7 @@ type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [
 ------------------------------------------------------------------------------
 
 data ClckPluginsSt = ClckPluginsSt
-    { cpsPreProcessors :: [TL.Text -> ClckT ClckURL IO TL.Text]
+    { cpsPreProcessors :: forall m. (Functor m, MonadIO m, Happstack m) => [TL.Text -> ClckT ClckURL m TL.Text]
     , cpsNavBarLinks   :: [ClckT ClckURL IO (String, [NamedLink])]
     , cpsAcid          :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
     }
@@ -587,7 +587,7 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Content where
 
 addPreProc :: (MonadIO m) =>
               Plugins theme n hook config ClckPluginsSt
-           -> (TL.Text -> ClckT ClckURL IO TL.Text)
+           -> (forall mm. (Functor mm, MonadIO mm, Happstack mm) => TL.Text -> ClckT ClckURL mm TL.Text)
            -> m ()
 addPreProc plugins p =
     modifyPluginsSt plugins $ \cps -> cps { cpsPreProcessors = p : (cpsPreProcessors cps) }
@@ -675,7 +675,7 @@ getNavBarLinks plugins =
 
 getPreProcessors :: (MonadIO m) =>
                 Plugins theme n hook config ClckPluginsSt
-             -> ClckT url m [TL.Text -> ClckT ClckURL IO TL.Text]
+             -> (forall mm. (Functor mm, MonadIO mm, Happstack mm) => ClckT url m [TL.Text -> ClckT ClckURL mm TL.Text])
 getPreProcessors plugins =
     mapClckT liftIO $
       (cpsPreProcessors <$> getPluginsSt plugins)
