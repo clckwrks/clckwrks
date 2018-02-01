@@ -40,4 +40,5 @@ markdown mArgs trust txt = liftIO $
                 return (Left e)
          ExitSuccess ->
              do m <- readMVar mvOut
+                e <- readMVar mvErr
                 return (Right ((if (trust == Untrusted) then sanitizeBalance else id) m))
