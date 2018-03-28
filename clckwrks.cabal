@@ -19,11 +19,11 @@ Maintainer:          Jeremy Shaw <jeremy@n-heptane.com>
 Copyright:           2012-2015 SeeReason Partners LLC, Jeremy Shaw
 Stability:           Experimental
 Category:            Clckwrks
-Build-type:          Simple
-Cabal-version:       >=1.16
+Build-type:          Custom
+Cabal-version:       >=1.18
 tested-with:         GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.1
 Data-Files:
-    static/admin.css
+           static/admin.css
 
 source-repository head
     type:     git
@@ -33,8 +33,11 @@ flag network-uri
     description: Get Network.URI from the network-uri package
     default: True
 
+custom-setup
+        setup-depends: base >= 4.6 && < 5,
+                       Cabal >= 1.18
 Library
-  Build-tools:     hsx2hs
+  Build-tools:      hsx2hs
   default-language: Haskell2010
   Exposed-modules: Clckwrks
                    Clckwrks.Acid
