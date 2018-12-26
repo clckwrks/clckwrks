@@ -25,6 +25,7 @@ mkDerivation {
     web-routes-happstack web-routes-hsp web-routes-th xss-sanitize
   ];
   librarySystemDepends = [ openssl ];
+  buildTools = [ hsx2hs ];
   homepage = "http://www.clckwrks.com/";
   description = "A secure, reliable content management system (CMS) and blogging platform";
   license = stdenv.lib.licenses.bsd3;
