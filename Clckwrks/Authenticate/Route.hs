@@ -24,7 +24,7 @@ routeAuth routeAuthenticate u =
   case u of
     (Auth authenticateURL) ->
       do p <- plugins <$> get
-         (Just authShowFn) <- getPluginRouteFn p "authenticate"
+         ~(Just authShowFn) <- getPluginRouteFn p "authenticate"
          lift $ runRouteT routeAuthenticate (authShowFn . Auth) authenticateURL
     Login          -> loginPage
     ResetPassword  -> resetPasswordPage

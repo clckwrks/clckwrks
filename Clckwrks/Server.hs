@@ -57,7 +57,7 @@ simpleClckwrks cc =
          (clckState', cc') <- (clckInitHook cc) baseURI clckState cc
          let p = plugins clckState'
          hooks <- getPostHooks p
-         (Just clckShowFn) <- getPluginRouteFn p "clck"
+         ~(Just clckShowFn) <- getPluginRouteFn p "clck"
          let showFn = \url params -> clckShowFn url []
          clckState'' <- execClckT showFn clckState' $ sequence_ hooks
 
@@ -127,7 +127,7 @@ jsHandlers c =
 
 clckSite :: ClckwrksConfig -> ClckState -> ServerPart Response
 clckSite cc clckState =
-    do (Just clckShowFn) <- getPluginRouteFn (plugins clckState) (Text.pack "clck")
+    do ~(Just clckShowFn) <- getPluginRouteFn (plugins clckState) (Text.pack "clck")
        evalClckT clckShowFn clckState (pluginsHandler (plugins clckState))
 
 pluginsHandler :: (Functor m, ServerMonad m, FilterMonad Response m, MonadIO m) =>

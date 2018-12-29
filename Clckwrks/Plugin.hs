@@ -27,7 +27,7 @@ clckMenuCallback =
 clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
-    do (Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
+    do ~(Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
        addNavBarCallback plugins clckMenuCallback
        addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing
@@ -35,7 +35,7 @@ clckInit plugins =
 addClckAdminMenu :: ClckT url IO ()
 addClckAdminMenu =
     do p <- plugins <$> get
-       (Just clckShowURL) <- getPluginRouteFn p (pluginName clckPlugin)
+       ~(Just clckShowURL) <- getPluginRouteFn p (pluginName clckPlugin)
        addAdminMenu ( "Profile"
                     , [ (Set.fromList [Administrator, Visitor], "Edit Your Profile"      , clckShowURL (Profile EditProfileData) [])
                       ]

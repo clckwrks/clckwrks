@@ -58,7 +58,7 @@ authMenuCallback authShowFn =
 addAuthAdminMenu :: ClckT url IO ()
 addAuthAdminMenu =
     do p <- plugins <$> get
-       (Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
+       ~(Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
        addAdminMenu ("Authentication", [(Set.fromList [Visitor]      , "Change Password", authShowURL ChangePassword [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "OpenId Realm"   , authShowURL OpenIdRealm    [])])
 
@@ -66,7 +66,7 @@ authenticateInit
   :: ClckPlugins
   -> IO (Maybe Text)
 authenticateInit plugins =
-  do (Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
+  do ~(Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
      addNavBarCallback plugins (authMenuCallback authShowFn)
      -- addHandler plugins (pluginName clckPlugin) (authenticateHandler clckShowFn)
      cc <- getConfig plugins
@@ -128,7 +128,7 @@ plugin plugins baseURI =
 getUserId :: (Happstack m) => ClckT url m (Maybe UserId)
 getUserId =
   do p <- plugins <$> get
-     (Just (AcidStateAuthenticate authenticateState)) <- getPluginState p (pluginName authenticatePlugin)
+     ~(Just (AcidStateAuthenticate authenticateState)) <- getPluginState p (pluginName authenticatePlugin)
      mToken <- getToken authenticateState
      case mToken of
        Nothing       -> return Nothing

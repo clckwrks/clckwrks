@@ -32,8 +32,8 @@ template ::
 template title headers body = do
    siteName <- (fromMaybe "Your Site") <$> query GetSiteName
    p <- plugins <$> get
-   (Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
-   (Just clckShowURL) <- getPluginRouteFn p "clck"
+   ~(Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
+   ~(Just clckShowURL) <- getPluginRouteFn p "clck"
 --   let passwordShowURL u = authShowURL (Auth (AuthenticationMethods $ Just (passwordAuthenticationMethod, toPathSegments u))) []
    toResponse <$> (unXMLGenT $ [hsx|
     <html>
