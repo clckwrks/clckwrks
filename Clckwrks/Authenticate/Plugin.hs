@@ -30,7 +30,7 @@ import Happstack.Authenticate.Password.Route (initPassword)
 import Happstack.Authenticate.OpenId.Route (initOpenId)
 import Happstack.Server
 import System.FilePath             ((</>))
-import Web.Plugins.Core            (Plugin(..), addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin)
+import Web.Plugins.Core            (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin)
 import Web.Routes
 
 newtype AcidStateAuthenticate = AcidStateAuthenticate { acidStateAuthenticate :: AcidState AuthenticateState }
@@ -92,6 +92,7 @@ authenticateInit plugins =
         ]
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
      addPluginState plugins (pluginName authenticatePlugin) (AcidStateAuthenticate authenticateState)
+     addCleanup plugins Always authCleanup
      return Nothing
 {-
 addClckAdminMenu :: ClckT url IO ()
