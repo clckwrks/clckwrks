@@ -10,7 +10,8 @@ data AdminURL
     | EditSettings
     | EditNavBar
     | NavBarPost
+    | SystemEmails
       deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 $(derivePathInfo ''AdminURL)
-$(deriveSafeCopy 2 'base ''AdminURL)
+$(deriveSafeCopy 3 'base ''AdminURL)

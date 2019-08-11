@@ -42,9 +42,10 @@ addClckAdminMenu =
                     )
 
        addAdminMenu ( "Clckwrks"
-                    , [ (Set.singleton Administrator, "Console"      , clckShowURL (Admin Console)      [])
-                      , (Set.singleton Administrator, "Edit Settings", clckShowURL (Admin EditSettings) [])
-                      , (Set.singleton Administrator, "Edit Nav Bar" , clckShowURL (Admin EditNavBar)   [])
+                    , [ (Set.singleton Administrator, "Console"       , clckShowURL (Admin Console)      [])
+                      , (Set.singleton Administrator, "Edit Settings" , clckShowURL (Admin EditSettings) [])
+                      , (Set.singleton Administrator, "Edit Nav Bar"  , clckShowURL (Admin EditNavBar)   [])
+                      , (Set.singleton Administrator, "System Emails" , clckShowURL (Admin SystemEmails) [])
                       ]
                     )
 

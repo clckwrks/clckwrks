@@ -3,8 +3,9 @@
 module Clckwrks.Admin.EditSettings where
 
 import Clckwrks
-import Clckwrks.Acid             (GetUACCT(..), SetUACCT(..))
+import Clckwrks.Acid             (GetUACCT(..), SetUACCT(..), coreSiteName, coreUACCT, coreRootRedirect, coreLoginRedirect)
 import Clckwrks.Admin.Template   (template)
+import Control.Lens              ((&), (.~))
 import Data.Maybe                (fromMaybe)
 import Data.Text            (Text, pack, unpack)
 import qualified Data.Text  as T
@@ -32,25 +33,25 @@ editSettings here =
              seeOtherURL here
 
 editSettingsForm :: CoreState -> ClckForm ClckURL CoreState
-editSettingsForm CoreState{..} =
+editSettingsForm c@CoreState{..} =
     divHorizontal $
      fieldset $
-       (CoreState <$>
+       (modifyCoreState <$>
            (divControlGroup $
              (labelText "site name"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
-             (divControls (inputText (fromMaybe mempty coreSiteName)) `transformEither` toMaybe)))
+             (divControls (inputText (fromMaybe mempty _coreSiteName)) `transformEither` toMaybe)))
 
        <*> (divControlGroup $
              (label ("Google Analytics UACCT" :: Text) `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
-             (divControls (inputText (unUACCT coreUACCT)) `transformEither` toMUACCT))
+             (divControls (inputText (unUACCT _coreUACCT)) `transformEither` toMUACCT))
 
        <*> (divControlGroup $
              (labelText "/ redirects to"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
-             (divControls (inputText (fromMaybe mempty coreRootRedirect)) `transformEither` toMaybe))
+             (divControls (inputText (fromMaybe mempty _coreRootRedirect)) `transformEither` toMaybe))
 
        <*> (divControlGroup $
              (labelText "after login redirect to"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
-             (divControls (inputText (fromMaybe mempty coreLoginRedirect)) `transformEither` toMaybe))
+             (divControls (inputText (fromMaybe mempty _coreLoginRedirect)) `transformEither` toMaybe))
          <*
         (divControlGroup $ divControls $ inputSubmit "Update" `setAttrs` [("class" := "btn") :: Attr Text Text])
     where
@@ -70,6 +71,12 @@ editSettingsForm CoreState{..} =
           if T.null txt
              then Right $ Nothing
              else Right $ Just txt
+
+      modifyCoreState sn ua rr lr =
+        c & coreSiteName      .~ sn
+          & coreUACCT         .~ ua
+          & coreRootRedirect  .~ rr
+          & coreLoginRedirect .~ lr
 
 {-
 editUACCTForm :: Maybe UACCT -> ClckForm ClckURL (Maybe UACCT)
