@@ -66,6 +66,7 @@ data CoreState = CoreState
     , _coreFromAddress    :: Maybe SimpleAddress
     , _coreReplyToAddress :: Maybe SimpleAddress
     , _coreSendmailPath   :: Maybe FilePath
+    , _coreEnableOpenId   :: Bool -- ^ allow OpenId authentication
     }
     deriving (Eq, Data, Typeable, Show)
 $(deriveSafeCopy 2 'extension ''CoreState)
@@ -73,7 +74,7 @@ $(deriveSafeCopy 2 'extension ''CoreState)
 makeLenses ''CoreState
 instance Migrate CoreState where
     type MigrateFrom CoreState = CoreState_1
-    migrate (CoreState_1 sn ua rr lr) = CoreState sn ua rr lr Nothing Nothing Nothing
+    migrate (CoreState_1 sn ua rr lr) = CoreState sn ua rr lr Nothing Nothing Nothing True
 
 initialCoreState :: CoreState
 initialCoreState = CoreState
@@ -84,6 +85,7 @@ initialCoreState = CoreState
     , _coreFromAddress    = Nothing
     , _coreReplyToAddress = Nothing
     , _coreSendmailPath   = Nothing
+    , _coreEnableOpenId   = True
     }
 
 -- | get the 'UACCT' for Google Analytics
@@ -118,6 +120,14 @@ getSiteName = view coreSiteName
 setSiteName :: Maybe Text -> Update CoreState ()
 setSiteName name = coreSiteName .= name
 
+-- | get the status of enabling OpenId
+getEnableOpenId :: Query CoreState Bool
+getEnableOpenId = view coreEnableOpenId
+
+-- | set the status of enabling OpenId
+setEnableOpenId :: Bool -> Update CoreState ()
+setEnableOpenId b = coreEnableOpenId .= b
+
 -- | get the entire 'CoreState'
 getCoreState :: Query CoreState CoreState
 getCoreState = ask
@@ -135,6 +145,8 @@ $(makeAcidic ''CoreState
   , 'setLoginRedirect
   , 'getSiteName
   , 'setSiteName
+  , 'setEnableOpenId
+  , 'getEnableOpenId
   , 'getCoreState
   , 'setCoreState
   ])
@@ -155,6 +167,8 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "core")        initialCoreState)        (createArchiveCheckpointAndClose) $ \core ->
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
+    bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "core_socket") profileData))
+            (\tid -> killThread tid >> tryRemoveFile (basePath </> "core_socket")) $ const $
     bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "profileData_socket") profileData))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
             (const $ f (Acid profileData core navBar))

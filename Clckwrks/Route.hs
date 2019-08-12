@@ -2,9 +2,10 @@
 module Clckwrks.Route where
 
 import Clckwrks
+import Clckwrks.Acid               (GetEnableOpenId(..))
 import Clckwrks.Admin.Route        (routeAdmin)
 import Clckwrks.BasicTemplate      (basicTemplate)
-import Clckwrks.Monad              (calcTLSBaseURI, withAbs)
+import Clckwrks.Monad              (calcTLSBaseURI, withAbs, query)
 import Clckwrks.ProfileData.API    (requiresRole)
 import Clckwrks.ProfileData.Route  (routeProfileData)
 import Clckwrks.JS.Route           (routeJS)
@@ -79,4 +80,5 @@ routeClck url' =
              do nestURL Profile $ routeProfileData profileDataURL
 
          (JS jsURL) ->
-             do nestURL JS $ routeJS jsURL
+             do b <- query GetEnableOpenId
+                nestURL JS $ routeJS b jsURL

@@ -7,7 +7,6 @@ import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), calcBa
 -- import Clckwrks.Page.Acid           (GetPageTitle(..), IsPublishedPage(..))
 -- import Clckwrks.Page.Atom           (handleAtomFeed)
 -- import Clckwrks.Page.PreProcess     (pageCmd)
-import Clckwrks.ProfileData.Route   (routeProfileData)
 import Clckwrks.ProfileData.Types   (Role(..))
 import Clckwrks.ProfileData.URL     (ProfileDataURL(..))
 import Control.Arrow                (second)

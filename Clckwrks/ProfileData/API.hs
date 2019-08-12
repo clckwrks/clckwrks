@@ -6,6 +6,7 @@ module Clckwrks.ProfileData.API
     , requiresRole
     , requiresRole_
     , whoami
+    , Role(..)
     )  where
 
 import Clckwrks.Acid  (Acid(..))

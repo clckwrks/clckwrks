@@ -2,7 +2,7 @@
 module Clckwrks.Authenticate.Plugin where
 
 import Clckwrks.Monad
-import Clckwrks.Acid               (acidProfileData)
+import Clckwrks.Acid               (GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreReplyToAddress, coreSendmailPath, getAcidState)
 import Clckwrks.Authenticate.Route (routeAuth)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
 import Clckwrks.ProfileData.Acid   (HasRole(..))
@@ -45,7 +45,7 @@ authenticateHandler
 authenticateHandler routeAuthenticate showAuthenticateURL _plugins paths =
     case parseSegments fromPathSegments paths of
       (Left e)  -> notFound $ toResponse (show e)
-      (Right u) -> routeAuth routeAuthenticate u -- ClckT $ withRouteT flattenURL $ unClckT $
+      (Right u) -> ClckT $ withRouteT flattenURL $ unClckT $ routeAuth routeAuthenticate u -- ClckT $ withRouteT flattenURL $ unClckT $
   where
       flattenURL ::   ((url' -> [(Text, Maybe Text)] -> Text) -> (AuthURL -> [(Text, Maybe Text)] -> Text))
       flattenURL _ u p = showAuthenticateURL u p
@@ -61,6 +61,7 @@ addAuthAdminMenu =
        ~(Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
        addAdminMenu ("Authentication", [(Set.fromList [Visitor]      , "Change Password", authShowURL ChangePassword [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "OpenId Realm"   , authShowURL OpenIdRealm    [])])
+       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "Authentication Modes", authShowURL AuthModes [])])
 
 authenticateInit
   :: ClckPlugins
@@ -75,10 +76,14 @@ authenticateInit plugins =
          baseUri = case calcTLSBaseURI cc of
            Nothing  -> calcBaseURI cc
            (Just b) -> b
+     cs <- Acid.query (acidCore acid) GetCoreState
      let authenticateConfig = AuthenticateConfig {
-                                _isAuthAdmin        = \uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator))
-                              , _usernameAcceptable = usernamePolicy
-                              , _requireEmail       = True
+                                _isAuthAdmin          = \uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator))
+                              , _usernameAcceptable   = usernamePolicy
+                              , _requireEmail         = True
+                              , _systemFromAddress    = cs ^. coreFromAddress
+                              , _systemReplyToAddress = cs ^. coreReplyToAddress
+                              , _systemSendmailPath   = cs ^. coreSendmailPath
                               }
          passwordConfig = PasswordConfig {
                             _resetLink = baseUri <> authShowFn ResetPassword [] <> "/#"
@@ -87,9 +92,7 @@ authenticateInit plugins =
                           }
 
      (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication (Just basePath) authenticateConfig
-        [ initPassword passwordConfig
-        , initOpenId
-        ]
+        ((initPassword passwordConfig) : if True then [ initOpenId ] else [])
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
      addPluginState plugins (pluginName authenticatePlugin) (AcidStateAuthenticate authenticateState)
      addCleanup plugins Always authCleanup

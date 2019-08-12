@@ -3,8 +3,8 @@ module Clckwrks.Authenticate.Page.Login where
 
 import Control.Applicative ((<$>))
 import Clckwrks.Monad (ClckT, ThemeStyleId(..), plugins, themeTemplate)
-import Clckwrks.URL (ClckURL(..))
 import Clckwrks.Authenticate.URL
+import Clckwrks.URL (ClckURL)
 import Control.Monad.State (get)
 import Happstack.Server (Response, ServerPartT)
 import HSP

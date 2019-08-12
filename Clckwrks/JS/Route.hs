@@ -7,7 +7,7 @@ import Clckwrks.JS.URL
 import Happstack.Server        (Happstack, Response, ok, toResponse)
 import Happstack.Server.JMacro ()
 
-routeJS :: (Happstack m) => JSURL -> ClckT u m Response
-routeJS url =
+routeJS :: (Happstack m) => Bool -> JSURL -> ClckT u m Response
+routeJS enableOpenId url =
   case url of
-    ClckwrksApp -> ok $ toResponse $ clckwrksAppJS
+    ClckwrksApp -> ok $ toResponse $ clckwrksAppJS enableOpenId
