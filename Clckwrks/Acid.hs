@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.Acid where
 
-import Clckwrks.NavBar.Acid          (NavBarState       , initialNavBarState)
+import Clckwrks.NavBar.Acid        (NavBarState       , initialNavBarState)
 import Clckwrks.ProfileData.Acid   (ProfileDataState, initialProfileDataState)
 import Clckwrks.Types              (UUID)
 import Clckwrks.URL                (ClckURL)
@@ -88,6 +88,14 @@ initialCoreState = CoreState
     , _coreEnableOpenId   = True
     }
 
+-- | get the site name
+getSiteName :: Query CoreState (Maybe Text)
+getSiteName = view coreSiteName
+
+-- | set the site name
+setSiteName :: Maybe Text -> Update CoreState ()
+setSiteName name = coreSiteName .= name
+
 -- | get the 'UACCT' for Google Analytics
 getUACCT :: Query CoreState (Maybe UACCT)
 getUACCT = view coreUACCT
@@ -112,13 +120,29 @@ getLoginRedirect = view coreLoginRedirect
 setLoginRedirect :: Maybe Text -> Update CoreState ()
 setLoginRedirect path = coreLoginRedirect .= path
 
--- | get the site name
-getSiteName :: Query CoreState (Maybe Text)
-getSiteName = view coreSiteName
+-- | get the From: address for system emails
+getFromAddress :: Query CoreState (Maybe SimpleAddress)
+getFromAddress = view coreFromAddress
 
--- | set the site name
-setSiteName :: Maybe Text -> Update CoreState ()
-setSiteName name = coreSiteName .= name
+-- | get the From: address for system emails
+setFromAddress :: Maybe SimpleAddress -> Update CoreState ()
+setFromAddress addr = coreFromAddress .= addr
+
+-- | get the Reply-To: address for system emails
+getReplyToAddress :: Query CoreState (Maybe SimpleAddress)
+getReplyToAddress = view coreReplyToAddress
+
+-- | get the Reply-To: address for system emails
+setReplyToAddress :: Maybe SimpleAddress -> Update CoreState ()
+setReplyToAddress addr = coreReplyToAddress .= addr
+
+-- | get the path to the sendmail executable
+getSendmailPath :: Query CoreState (Maybe FilePath)
+getSendmailPath = view coreSendmailPath
+
+-- | set the path to the sendmail executable
+setSendmailPath :: Maybe FilePath -> Update CoreState ()
+setSendmailPath path = coreSendmailPath .= path
 
 -- | get the status of enabling OpenId
 getEnableOpenId :: Query CoreState Bool
@@ -145,6 +169,12 @@ $(makeAcidic ''CoreState
   , 'setLoginRedirect
   , 'getSiteName
   , 'setSiteName
+  , 'getFromAddress
+  , 'setFromAddress
+  , 'getReplyToAddress
+  , 'setReplyToAddress
+  , 'getSendmailPath
+  , 'setSendmailPath
   , 'setEnableOpenId
   , 'getEnableOpenId
   , 'getCoreState
@@ -164,9 +194,11 @@ class GetAcidState m st where
 withAcid :: Maybe FilePath -> (Acid -> IO a) -> IO a
 withAcid mBasePath f =
     let basePath = fromMaybe "_state" mBasePath in
-    bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
+    -- open acid-state databases
     bracket (openLocalStateFrom (basePath </> "core")        initialCoreState)        (createArchiveCheckpointAndClose) $ \core ->
+    bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
+    -- create sockets to allow `clckwrks-cli` to talk to the databases
     bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "core_socket") profileData))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "core_socket")) $ const $
     bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "profileData_socket") profileData))

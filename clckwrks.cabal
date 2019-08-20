@@ -47,6 +47,7 @@ Library
                    Clckwrks.Admin.Route
                    Clckwrks.Admin.EditSettings
                    Clckwrks.Admin.SystemEmails
+                   Clckwrks.Authenticate.API
                    Clckwrks.Authenticate.Page.AuthModes
                    Clckwrks.Authenticate.Page.ChangePassword
                    Clckwrks.Authenticate.Page.Login

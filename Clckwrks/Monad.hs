@@ -56,7 +56,7 @@ where
 
 import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), GetUACCT(..))
-import Clckwrks.ProfileData.Acid     (ProfileDataState, ProfileDataError(..), GetRoles(..), HasRole(..))
+import Clckwrks.ProfileData.Acid     (ProfileDataState, GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
 import Clckwrks.NavBar.Acid          (NavBarState)
 import Clckwrks.NavBar.Types         (NavBarLinks(..))
@@ -299,7 +299,6 @@ mapClckT f (ClckT r) = ClckT $ mapRouteT (mapStateT f) r
 -- | error returned when a reform 'Form' fails to validate
 data ClckFormError
     = ClckCFE (CommonFormError [Input])
-    | PDE ProfileDataError
     | EmptyUsername
       deriving (Show)
 
@@ -415,10 +414,7 @@ update event =
 
 instance (GetAcidState m st) => GetAcidState (XMLGenT m) st where
     getAcidState = XMLGenT getAcidState
-{-
-instance (Functor m, Monad m) => GetAcidState (ClckT url m) AuthenticateState where
-    getAcidState = (acidAuthenticate . acidState) <$> get
--}
+
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) CoreState where
     getAcidState = (acidCore . acidState) <$> get
 

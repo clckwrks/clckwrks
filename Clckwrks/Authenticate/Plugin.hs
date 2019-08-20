@@ -1,8 +1,8 @@
-{-# LANGUAGE DeriveDataTypeable, RecordWildCards, FlexibleContexts, Rank2Types, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, RecordWildCards, FlexibleContexts, Rank2Types, OverloadedStrings, MultiParamTypeClasses #-}
 module Clckwrks.Authenticate.Plugin where
 
 import Clckwrks.Monad
-import Clckwrks.Acid               (GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreReplyToAddress, coreSendmailPath, getAcidState)
+import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreReplyToAddress, coreSendmailPath, getAcidState)
 import Clckwrks.Authenticate.Route (routeAuth)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
 import Clckwrks.ProfileData.Acid   (HasRole(..))
@@ -11,8 +11,9 @@ import Clckwrks.Types              (NamedLink(..))
 import Clckwrks.URL
 import Control.Applicative         ((<$>))
 import Control.Lens                ((^.))
+import Control.Monad.Reader        (ask)
 import Control.Monad.State         (get)
-import Control.Monad.Trans         (lift)
+import Control.Monad.Trans         (MonadIO, lift)
 import Data.Acid as Acid           (AcidState, query)
 import Data.Maybe                  (isJust)
 import Data.Monoid                 ((<>))
@@ -137,3 +138,9 @@ getUserId =
      case mToken of
        Nothing       -> return Nothing
        (Just (token, _)) -> return $ Just (token ^. tokenUser ^. userId)
+
+instance (Functor m, MonadIO m) => GetAcidState (ClckT url m) AuthenticateState where
+    getAcidState =
+      do p <- plugins <$> get
+         ~(Just (AcidStateAuthenticate authenticateState)) <- getPluginState p (pluginName authenticatePlugin)
+         pure authenticateState

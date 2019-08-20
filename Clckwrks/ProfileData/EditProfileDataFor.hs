@@ -4,7 +4,7 @@ module Clckwrks.ProfileData.EditProfileDataFor where
 
 import Clckwrks
 import Clckwrks.Admin.Template  (template)
-import Clckwrks.ProfileData.Acid (GetProfileData(..), SetProfileData(..), profileDataErrorStr)
+import Clckwrks.ProfileData.Acid (GetProfileData(..), SetProfileData(..))
 import Data.Maybe               (fromMaybe)
 import Data.Set                 as Set
 import Data.Text                (Text, pack)
@@ -32,22 +32,14 @@ profileDataFormlet :: ProfileData -> ClckForm ProfileDataURL ()
 profileDataFormlet pd@ProfileData{..} =
     (fieldset $
       ol $
-       ((,,) <$> (li $ labelText "username:")         ++> (li $ inputText username)
-             <*> (li $ labelText "email (optional):") ++> (li $ inputText (fromMaybe Text.empty email))
-             <*> (li $ labelText "roles:")            ++> (li $ inputCheckboxes [ (r, show r) | r <- [minBound .. maxBound]] (\r -> Set.member r roles))
+       ((li $ labelText "roles:")            ++> (li $ inputCheckboxes [ (r, show r) | r <- [minBound .. maxBound]] (\r -> Set.member r roles))
              <*  inputSubmit (pack "update")
        )
     ) `transformEitherM` updateProfileData
     where
-      updateProfileData :: (Text, Text, [Role]) -> Clck ProfileDataURL (Either ClckFormError ())
-      updateProfileData (usrnm, eml, roles') =
-              if Text.null usrnm
-                 then do return (Left EmptyUsername)
-                 else do let newPd = pd { username = usrnm
-                                        , email    = if Text.null eml then Nothing else (Just eml)
-                                        , roles    = Set.fromList roles'
-                                        }
-                         merr <- update (SetProfileData newPd)
-                         case merr of
-                           Nothing    -> return $ Right ()
-                           (Just err) -> return $ Left (PDE err)
+      updateProfileData :: [Role] -> Clck ProfileDataURL (Either ClckFormError ())
+      updateProfileData roles' =
+        do let newPd = pd { roles    = Set.fromList roles'
+                          }
+           update (SetProfileData newPd)
+           pure (Right ())
