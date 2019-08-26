@@ -16,5 +16,7 @@ resetPasswordPage =
      themeTemplate plugins (ThemeStyleId 0) "Reset Password" () [hsx|
       <%>
         <h2>Reset Password</h2>
-        <up-reset-password />
+        <div ng-controller="UsernamePasswordCtrl">
+          <up-reset-password />
+        </div>
       </%> |]
