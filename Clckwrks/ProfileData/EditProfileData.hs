@@ -39,7 +39,9 @@ editProfileDataPage here =
                 template "Edit Profile Data" () $ [hsx|
                   <%>
                     <% reform (form action) "epd" updated Nothing (emailFormlet user) %>
-                    <up-change-password />
+--                    <div ng-controller="UsernamePasswordCtrl">
+--                     <up-change-password />
+--                    </div>
                   </%> |]
     where
       updated :: () -> Clck ProfileDataURL Response
