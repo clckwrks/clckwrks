@@ -1,0 +1,6 @@
+*~
+result
+.cabal-sandbox
+_state
+dist
+dist-newstyle
