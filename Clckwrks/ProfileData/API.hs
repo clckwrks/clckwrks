@@ -30,6 +30,9 @@ import Web.Routes                   (RouteT(..))
 getProfileData :: UserId -> Clck url ProfileData
 getProfileData uid = query (GetProfileData uid)
 
+getDisplayName :: UserId -> Clck url (Maybe DisplayName)
+getDisplayName uid = displayName <$> query (GetProfileData uid)
+
 whoami :: Clck url (Maybe UserId)
 whoami = getUserId
 

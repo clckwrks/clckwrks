@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveDataTypeable, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.ProfileData.Types
-     ( ProfileData(..)
+     ( DisplayName(..)
+     , ProfileData(..)
      , Role(..)
      , defaultProfileDataFor
      , emptyProfileData
@@ -16,11 +17,12 @@ import Data.Set      (Set, empty, singleton)
 import Data.Text     (Text, empty)
 import Data.Typeable (Typeable)
 import Data.UserId   (UserId(..))
+import GHC.Generics  (Generic)
 
 data Role_001
     = Administrator_001
     | Visitor_001
-      deriving (Eq, Ord, Read, Show, Data, Typeable, Enum, Bounded)
+      deriving (Eq, Ord, Read, Show, Data, Typeable, Enum, Bounded, Generic)
 $(deriveSafeCopy 1 'base ''Role_001)
 
 data Role
@@ -28,7 +30,7 @@ data Role
     | Visitor
     | Moderator
     | Editor
-      deriving (Eq, Ord, Read, Show, Data, Typeable, Enum, Bounded)
+      deriving (Eq, Ord, Read, Show, Data, Typeable, Enum, Bounded, Generic)
 $(deriveSafeCopy 2 'extension ''Role)
 
 instance Migrate Role where
@@ -36,6 +38,12 @@ instance Migrate Role where
     migrate Administrator_001 = Administrator
     migrate Visitor_001       = Visitor
 
+newtype Username = Username { unUsername :: Text }
+    deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+
+newtype DisplayName = DisplayName { unDisplayName :: Text }
+    deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+$(deriveSafeCopy 1 'base ''DisplayName)
 
 data ProfileData_1 = ProfileData_1
     { dataFor_1    :: UserId
@@ -44,29 +52,43 @@ data ProfileData_1 = ProfileData_1
     , roles_1      :: Set Role
     , attributes_1 :: Map Text Text
     }
-    deriving (Eq, Ord, Read, Show, Data, Typeable)
+    deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 
 $(deriveSafeCopy 1 'base ''ProfileData_1)
 
-data ProfileData = ProfileData
-    { dataFor    :: UserId
-    , roles      :: Set Role
-    , attributes :: Map Text Text
+data ProfileData_2 = ProfileData_2
+    { dataFor_2    :: UserId
+    , roles_2      :: Set Role
+    , attributes_2 :: Map Text Text
     }
-    deriving (Eq, Ord, Read, Show, Data, Typeable)
+    deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 
-$(deriveSafeCopy 2 'extension ''ProfileData)
+$(deriveSafeCopy 2 'extension ''ProfileData_2)
+
+instance Migrate ProfileData_2 where
+  type MigrateFrom ProfileData_2 = ProfileData_1
+  migrate (ProfileData_1 df _ _ rs attrs) = ProfileData_2 df rs attrs
+
+data ProfileData = ProfileData
+    { dataFor     :: UserId
+    , displayName :: Maybe DisplayName
+    , roles       :: Set Role
+    , attributes  :: Map Text Text
+    }
+    deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+
+$(deriveSafeCopy 3 'extension ''ProfileData)
 
 instance Migrate ProfileData where
-  type MigrateFrom ProfileData = ProfileData_1
-  migrate (ProfileData_1 df _ _ rs attrs) = ProfileData df rs attrs
-
+  type MigrateFrom ProfileData = ProfileData_2
+  migrate (ProfileData_2 df rs attrs) = ProfileData df Nothing rs attrs
 
 emptyProfileData :: ProfileData
 emptyProfileData = ProfileData
-   { dataFor    = UserId 0
-   , roles      = Data.Set.empty
-   , attributes = Data.Map.empty
+   { dataFor     = UserId 0
+   , displayName = Nothing
+   , roles       = Data.Set.empty
+   , attributes  = Data.Map.empty
    }
 
 defaultProfileDataFor :: UserId -> ProfileData
@@ -74,9 +96,6 @@ defaultProfileDataFor uid =
   emptyProfileData { dataFor = uid
                    , roles   = singleton Visitor
                    }
-
-newtype Username = Username { unUsername :: Text }
-    deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 instance Indexable ProfileData where
     empty = ixSet [ ixFunS dataFor

@@ -35,10 +35,11 @@ editProfileDataPage here =
                 p <- plugins <$> get
                 ~(Just (AcidStateAuthenticate authenticateState)) <- getPluginState p (pluginName authenticatePlugin)
                 ~(Just user) <- liftIO $ Acid.query authenticateState (GetUserByUserId uid)
+                pd <- query (GetProfileData uid)
                 action <- showURL here
                 template "Edit Profile Data" () $ [hsx|
                   <%>
-                    <% reform (form action) "epd" updated Nothing (emailFormlet user) %>
+                    <% reform (form action) "epd" updated Nothing (profileDataFormlet user pd) %>
 --                    <div ng-controller="UsernamePasswordCtrl">
 --                     <up-change-password />
 --                    </div>
@@ -48,13 +49,15 @@ editProfileDataPage here =
       updated () =
           do seeOtherURL here
 
-emailFormlet :: User -> ClckForm ProfileDataURL ()
-emailFormlet u@User{..} =
+profileDataFormlet :: User -> ProfileData -> ClckForm ProfileDataURL ()
+profileDataFormlet u@User{..} pd =
     divHorizontal $
      errorList ++>
-          ((divControlGroup (label'" Email" ++> (divControls (inputText (maybe Text.empty _unEmail _email)))))
-               <*  (divControlGroup (divControls (inputSubmit (pack "Update") `setAttrs` (("class" := "btn") :: Attr Text Text)))))
-    `transformEitherM` updateEmail
+          ((,) <$> (divControlGroup (label' "Email" ++> (divControls (inputText (maybe Text.empty _unEmail _email)))))
+               <*> (divControlGroup (label' "DisplayName" ++> (divControls (inputText (maybe Text.empty unDisplayName (displayName pd))))))
+               <*  (divControlGroup (divControls (inputSubmit (pack "Update") `setAttrs` (("class" := "btn") :: Attr Text Text))))
+          )
+    `transformEitherM` updateProfileData
   where
     label' :: Text -> ClckForm ProfileDataURL ()
     label' str      = (labelText str `setAttrs` [("class":="control-label") :: Attr Text Text])
@@ -62,11 +65,13 @@ emailFormlet u@User{..} =
     divControlGroup = mapView (\xml -> [[hsx|<div class="control-group"><% xml %></div>|]])
     divControls     = mapView (\xml -> [[hsx|<div class="controls"><% xml %></div>|]])
 
-    updateEmail :: Text.Text -> Clck ProfileDataURL (Either ClckFormError ())
-    updateEmail eml =
-      do let user = u { _email    = if Text.null eml then Nothing else (Just (Email eml))
+    updateProfileData :: (Text.Text, Text.Text) -> Clck ProfileDataURL (Either ClckFormError ())
+    updateProfileData (eml, dn) =
+      do let user = u { _email       = if Text.null eml then Nothing else (Just (Email eml))
                       }
          p <- plugins <$> get
          ~(Just (AcidStateAuthenticate authenticateState)) <- getPluginState p (pluginName authenticatePlugin)
          liftIO $ Acid.update authenticateState  (UpdateUser user)
+         pd <- query (GetProfileData _userId)
+         update (SetProfileData (pd { displayName = if Text.null dn then Nothing else Just (DisplayName dn) }))
          pure $ Right ()
