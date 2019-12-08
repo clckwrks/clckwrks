@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.Acid where
 
 import Clckwrks.NavBar.Acid        (NavBarState       , initialNavBarState)
@@ -14,14 +14,19 @@ import Control.Monad.Reader        (ask)
 import Control.Monad.State         (modify, put)
 import Data.Acid                   (AcidState, Query, Update, createArchive, makeAcidic)
 import Data.Acid.Local             (openLocalStateFrom, createCheckpointAndClose)
+#if MIN_VERSION_acid_state (0,16,0)
+import Data.Acid.Remote            (acidServerSockAddr, skipAuthenticationCheck)
+import Network.Socket              (SockAddr(SockAddrUnix))
+#else
 import Data.Acid.Remote            (acidServer, skipAuthenticationCheck)
+import Network                     (PortID(UnixSocket))
+#endif
 import Data.Data                   (Data, Typeable)
 import Data.Maybe                  (fromMaybe)
 import Data.SafeCopy               (Migrate(..), base, deriveSafeCopy, extension)
 import Data.Text                   (Text)
-import Happstack.Authenticate.Core          (AuthenticateState, SimpleAddress(..))
+import Happstack.Authenticate.Core (AuthenticateState, SimpleAddress(..))
 import Happstack.Authenticate.Password.Core (PasswordState)
-import Network                     (PortID(UnixSocket))
 import Prelude                     hiding (catch)
 import System.Directory            (removeFile)
 import System.FilePath             ((</>))
@@ -199,10 +204,21 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
     -- create sockets to allow `clckwrks-cli` to talk to the databases
+#if MIN_VERSION_acid_state (0,16,0)
+    bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "core_socket") profileData))
+            (\tid -> killThread tid >> tryRemoveFile (basePath </> "core_socket")) $ const $
+
+#else
     bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "core_socket") profileData))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "core_socket")) $ const $
+#endif
+#if MIN_VERSION_acid_state (0,16,0)
+    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "profileData_socket") profileData))
+            (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
+#else
     bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "profileData_socket") profileData))
             (\tid -> killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))
+#endif
             (const $ f (Acid profileData core navBar))
     where
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)

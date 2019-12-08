@@ -4,3 +4,4 @@ result
 _state
 dist
 dist-newstyle
+cabal.sandbox.config

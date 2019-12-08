@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RankNTypes, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings, TemplateHaskell #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RankNTypes, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings, TemplateHaskell #-}
 module Clckwrks.Monad
     ( Clck
     , ClckPlugins
@@ -64,6 +64,9 @@ import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
 import Clckwrks.Unauthorized         (unauthorizedPage)
 import Clckwrks.URL                  (ClckURL(..))
 import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), many, optional)
+#if MIN_VERSION_base (4,9,0) && !MIN_VERSION_base (4,13,0)
+import Control.Monad.Fail            (MonadFail)
+#endif
 import Control.Monad                 (MonadPlus, foldM)
 import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT, get, mapStateT, modify, put, runStateT)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
@@ -249,7 +252,11 @@ data ClckState = ClckState
 ------------------------------------------------------------------------------
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
+#ifdef MIN_VERSION_base(4,9,0)
+    deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadFail, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
+#else
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
+#endif
 
 instance (Happstack m) => Happstack (ClckT url m)
 
