@@ -88,7 +88,6 @@ simpleClckwrks cc =
           requestInit clckState
           msum $
             [ jsHandlers cc
-            , dir "favicon.ico" $ notFound (toResponse ())
             , dir "static"      $ (liftIO $ Clckwrks.getDataFileName "static") >>= serveDirectory DisableBrowsing []
             , do nullDir
                  mRR <- query' (acidCore . acidState $ clckState) GetRootRedirect
