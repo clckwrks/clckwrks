@@ -252,7 +252,7 @@ data ClckState = ClckState
 ------------------------------------------------------------------------------
 
 newtype ClckT url m a = ClckT { unClckT :: RouteT url (StateT ClckState m) a }
-#ifdef MIN_VERSION_base(4,9,0)
+#if MIN_VERSION_base(4,9,0)
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadFail, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
 #else
     deriving (Functor, Applicative, Alternative, Monad, MonadIO, MonadPlus, ServerMonad, HasRqData, FilterMonad r, WebMonad r, MonadState ClckState)
