@@ -13,13 +13,13 @@ let
       , safecopy, stdenv, stm, text, time, time-locale-compat
       , unordered-containers, userid, utf8-string, uuid-orphans
       , uuid-types, vector, web-plugins, web-routes, web-routes-happstack
-      , web-routes-hsp, web-routes-th, xss-sanitize, cabal-install
+      , web-routes-hsp, web-routes-th, xss-sanitize, cabal-install, Cabal
       }:
       mkDerivation {
         pname = "clckwrks";
         version = "0.23.10";
         src = ./.;
-        libraryHaskellDepends = [
+        libraryHaskellDepends = [ Cabal
           acid-state aeson aeson-qq attoparsec base blaze-html bytestring
           cereal containers directory filepath happstack-authenticate
           happstack-hsp happstack-jmacro happstack-server

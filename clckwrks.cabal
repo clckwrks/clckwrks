@@ -33,9 +33,6 @@ flag network-uri
     description: Get Network.URI from the network-uri package
     default: True
 
-custom-setup
-        setup-depends: base >= 4.6 && < 5,
-                       Cabal >= 1.18
 Library
   Build-tool-depends: hsx2hs:hsx2hs
   default-language: Haskell2010
