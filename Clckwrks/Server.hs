@@ -24,7 +24,10 @@ import           Data.Text          (Text)
 import qualified Data.Text          as Text
 import qualified Data.UUID.Types    as UUID
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
+import Happstack.Server.Internal.Types (canHaveBody)
+import Happstack.Server.Monads      (askRq)
 import Happstack.Server.SimpleHTTPS (TLSConf(..), nullTLSConf, simpleHTTPS)
+import Happstack.Server.Types       (Request(rqMethod))
 import System.FilePath              ((</>), makeRelative, splitDirectories)
 import Web.Routes.Happstack         (implSite)
 import Web.Plugins.Core             (Plugins, withPlugins, getPluginRouteFn, getPostHooks, serve)
@@ -84,7 +87,10 @@ simpleClckwrks cc =
       handlers :: ClckwrksConfig -> ClckState -> ServerPart Response
       handlers cc clckState =
        do forceCanonicalHost
-          decodeBody (defaultBodyPolicy "/tmp/" (10 * 10^6)  (1 * 10^6)  (1 * 10^6))
+          req <- askRq
+          when (canHaveBody (rqMethod req)) $
+            do (p, mDisk, mRam, mHeader) <- query' (acidCore $ acidState clckState) GetBodyPolicy
+               decodeBody (defaultBodyPolicy p mDisk mRam mHeader)
           requestInit clckState
           msum $
             [ jsHandlers cc

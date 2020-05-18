@@ -307,6 +307,7 @@ mapClckT f (ClckT r) = ClckT $ mapRouteT (mapStateT f) r
 data ClckFormError
     = ClckCFE (CommonFormError [Input])
     | EmptyUsername
+    | InvalidDecimal T.Text
       deriving (Show)
 
 instance FormError ClckFormError where

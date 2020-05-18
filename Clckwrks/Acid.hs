@@ -16,6 +16,7 @@ import Data.Acid                   (AcidState, Query, Update, createArchive, mak
 import Data.Acid.Local             (openLocalStateFrom, createCheckpointAndClose)
 #if MIN_VERSION_acid_state (0,16,0)
 import Data.Acid.Remote            (acidServerSockAddr, skipAuthenticationCheck)
+import Data.Int                    (Int64)
 import Network.Socket              (SockAddr(SockAddrUnix))
 #else
 import Data.Acid.Remote            (acidServer, skipAuthenticationCheck)
@@ -60,6 +61,27 @@ instance Migrate CoreState_1 where
     type MigrateFrom CoreState_1 = CoreState_v0
     migrate (CoreState_v0 ua rr) = CoreState_1 Nothing ua rr Nothing
 
+
+-- | 'CoreState' holds some values that are required by the core
+-- itself, or which are useful enough to be shared with numerous
+-- plugins/themes.
+data CoreState_2 = CoreState_2
+    { _coreSiteName_2       :: Maybe Text
+    , _coreUACCT_2          :: Maybe UACCT  -- ^ Google Account UAACT
+    , _coreRootRedirect_2   :: Maybe Text
+    , _coreLoginRedirect_2  :: Maybe Text
+    , _coreFromAddress_2    :: Maybe SimpleAddress
+    , _coreReplyToAddress_2 :: Maybe SimpleAddress
+    , _coreSendmailPath_2   :: Maybe FilePath
+    , _coreEnableOpenId_2   :: Bool -- ^ allow OpenId authentication
+    }
+    deriving (Eq, Data, Typeable, Show)
+$(deriveSafeCopy 2 'extension ''CoreState_2)
+
+instance Migrate CoreState_2 where
+    type MigrateFrom CoreState_2 = CoreState_1
+    migrate (CoreState_1 sn ua rr lr) = CoreState_2 sn ua rr lr Nothing Nothing Nothing True
+
 -- | 'CoreState' holds some values that are required by the core
 -- itself, or which are useful enough to be shared with numerous
 -- plugins/themes.
@@ -72,14 +94,16 @@ data CoreState = CoreState
     , _coreReplyToAddress :: Maybe SimpleAddress
     , _coreSendmailPath   :: Maybe FilePath
     , _coreEnableOpenId   :: Bool -- ^ allow OpenId authentication
+    , _coreBodyPolicy     :: (FilePath, Int64, Int64, Int64) -- ^ (temp directory for uploads, maxDisk, maxRAM, maxHeader)
     }
     deriving (Eq, Data, Typeable, Show)
-$(deriveSafeCopy 2 'extension ''CoreState)
+$(deriveSafeCopy 3 'extension ''CoreState)
 
 makeLenses ''CoreState
+
 instance Migrate CoreState where
-    type MigrateFrom CoreState = CoreState_1
-    migrate (CoreState_1 sn ua rr lr) = CoreState sn ua rr lr Nothing Nothing Nothing True
+    type MigrateFrom CoreState = CoreState_2
+    migrate (CoreState_2 sn ua rr lr fa rta smp eo) = CoreState sn ua rr lr fa rta smp eo ("/tmp/", (10 * 10^6), (1 * 10^6), (1 * 10^6))
 
 initialCoreState :: CoreState
 initialCoreState = CoreState
@@ -91,6 +115,7 @@ initialCoreState = CoreState
     , _coreReplyToAddress = Nothing
     , _coreSendmailPath   = Nothing
     , _coreEnableOpenId   = True
+    , _coreBodyPolicy     = ("/tmp/", (10 * 10^6), (1 * 10^6), (1 * 10^6))
     }
 
 -- | get the site name
@@ -116,6 +141,14 @@ getRootRedirect = view coreRootRedirect
 -- | set the path that @/@ should redirect to
 setRootRedirect :: Maybe Text -> Update CoreState ()
 setRootRedirect path = coreRootRedirect .= path
+
+-- | get the 'BodyPolicy' data for requests which can have bodies
+getBodyPolicy :: Query CoreState (FilePath, Int64, Int64, Int64)
+getBodyPolicy = view coreBodyPolicy
+
+-- | set the 'BodyPolicy' data for requests which can have bodies
+setBodyPolicy :: (FilePath, Int64, Int64, Int64) -> Update CoreState ()
+setBodyPolicy bp = coreBodyPolicy .= bp
 
 -- | get the path that we should redirect to after login
 getLoginRedirect :: Query CoreState (Maybe Text)
@@ -172,6 +205,8 @@ $(makeAcidic ''CoreState
   , 'setRootRedirect
   , 'getLoginRedirect
   , 'setLoginRedirect
+  , 'getBodyPolicy
+  , 'setBodyPolicy
   , 'getSiteName
   , 'setSiteName
   , 'getFromAddress
