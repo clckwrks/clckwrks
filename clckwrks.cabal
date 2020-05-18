@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.25.5
+Version:             0.26.0
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -21,7 +21,7 @@ Stability:           Experimental
 Category:            Clckwrks
 Build-type:          Simple
 Cabal-version:       1.18
-tested-with:         GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.1, GHC == 8.6.3, GHC == 8.8.1
+tested-with:         GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.1, GHC == 8.6.3, GHC == 8.8.3, GHC == 8.10.1
 Data-Files:
            static/admin.css
 
