@@ -18,7 +18,7 @@ let
       mkDerivation {
         pname = "clckwrks";
         version = "0.23.10";
-        src = ./.;
+        src = pkgs.haskellFilterSource [] ./.;
         libraryHaskellDepends = [ Cabal
           acid-state aeson aeson-qq attoparsec base blaze-html bytestring
           cereal containers directory filepath happstack-authenticate

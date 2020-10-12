@@ -117,11 +117,11 @@ addClckAdminMenu =
 -}
 authenticatePlugin :: Plugin AuthURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ClckPluginsSt
 authenticatePlugin = Plugin
-    { pluginName       = "authenticate"
-    , pluginInit       = authenticateInit
-    , pluginDepends    = []
-    , pluginToPathInfo = toPathInfo
-    , pluginPostHook   = addAuthAdminMenu
+    { pluginName           = "authenticate"
+    , pluginInit           = authenticateInit
+    , pluginDepends        = []
+    , pluginToPathSegments = toPathSegments
+    , pluginPostHook       = addAuthAdminMenu
     }
 
 plugin :: ClckPlugins

@@ -51,11 +51,11 @@ addClckAdminMenu =
 
 clckPlugin :: Plugin ClckURL Theme (ClckT ClckURL (ServerPartT IO) Response) (ClckT ClckURL IO ()) ClckwrksConfig ClckPluginsSt
 clckPlugin = Plugin
-    { pluginName       = "clck"
-    , pluginInit       = clckInit
-    , pluginDepends    = []
-    , pluginToPathInfo = toPathInfo
-    , pluginPostHook   = addClckAdminMenu
+    { pluginName           = "clck"
+    , pluginInit           = clckInit
+    , pluginDepends        = []
+    , pluginToPathSegments = toPathSegments
+    , pluginPostHook       = addClckAdminMenu
     }
 
 plugin :: ClckPlugins
