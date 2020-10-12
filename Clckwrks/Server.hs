@@ -194,7 +194,7 @@ pluginsHandler cc plugins@(Plugins tvp) =
                      let qry = decodeUtf8With lenientDecode $ LB.toStrict $ toLazyByteString $ renderQueryText True params
                          pi  = (decodeUtf8With lenientDecode $ LB.toStrict $ toLazyByteString $ encodePathSegments paths)
                      in
-                       do liftIO $ putStrLn $ show $ rqQuery req
+                       do -- liftIO $ putStrLn $ show $ rqQuery req
                           escape $ seeOther ((fromMaybe (if rqSecure req then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) mBaseURI) <> pi <> qry) (toResponse ())
                    Nothing -> cont paths'
 
