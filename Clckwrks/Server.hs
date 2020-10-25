@@ -187,8 +187,8 @@ pluginsHandler cc plugins@(Plugins tvp) =
                                             , rqPaths       = map Text.unpack paths
                                             , rqUri         = Text.unpack $ (if rqSecure req then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) <> pi <> qry
                                             , rqInputsQuery = map conv params
-                                            }) $ do rq <- askRq
-                                                    liftIO $ print rq
+                                            }) $ do -- rq <- askRq
+                                                    -- liftIO $ print rq
                                                     cont paths
                    (Just (Redirect mBaseURI, paths, params))  ->
                      let qry = decodeUtf8With lenientDecode $ LB.toStrict $ toLazyByteString $ renderQueryText True params
