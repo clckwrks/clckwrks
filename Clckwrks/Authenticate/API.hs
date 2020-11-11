@@ -4,6 +4,7 @@ module Clckwrks.Authenticate.API
        , getEmail
        , getUser
        , getUsername
+       , insecureUpdateUser
        ) where
 
 import Clckwrks.Monad               (Clck, plugins)

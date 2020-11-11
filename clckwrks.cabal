@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.26.2.3
+Version:             0.26.3
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -34,6 +34,7 @@ flag network-uri
     default: True
 
 Library
+  GHC-Options: -Wunused-top-binds
   Build-tool-depends: hsx2hs:hsx2hs
   default-language: Haskell2010
   Exposed-modules: Clckwrks

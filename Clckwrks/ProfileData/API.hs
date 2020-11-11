@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings #-}
 module Clckwrks.ProfileData.API
-    ( getProfileData
+    ( getDisplayName
+    , getProfileData
     , getUserRoles
     , requiresRole
     , requiresRole_

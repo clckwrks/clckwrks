@@ -5,6 +5,7 @@ module Clckwrks.ProfileData.Acid
     , SetProfileData(..)
     , GetProfileData(..)
     , NewProfileData(..)
+    , UpdateProfileData(..)
     , HasRole(..)
     , GetRoles(..)
     , AddRole(..)
@@ -114,6 +115,7 @@ $(makeAcidic ''ProfileDataState
   [ 'setProfileData
   , 'getProfileData
   , 'newProfileData
+  , 'updateProfileData
   , 'getRoles
   , 'hasRole
   , 'addRole
