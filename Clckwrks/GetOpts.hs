@@ -31,7 +31,8 @@ clckwrksOpts def =
     , Option [] ["https-port"]    (ReqArg setTLSPort "port")      ("Port to bind https server, default:" ++ maybe "disabled." show (clckTLSPort <$> (clckTLS def)))
     , Option [] ["tls-cert"]      (ReqArg setTLSCert "path")      ("Path to tls .cert file. (required for https).")
     , Option [] ["tls-key"]       (ReqArg setTLSKey "path")       ("Path to tls .key file. (required for https).")
-    , Option [] ["tls-ca"]        (ReqArg setTLSCA "path")       ("Path to tls .pem file. (required for some certs).")
+    , Option [] ["tls-ca"]        (ReqArg setTLSCA "path")        ("Path to tls .pem file. (required for some certs).")
+    , Option [] ["tls-rev-proxy"] (NoArg setTLSRevProxy)          ("Act as a reverse proxy and trust X-Forwarded-Proto for TLS.")
     , Option [] ["hide-port"]     (NoArg setHidePort)             "Do not show the port number in the URL"
     , Option [] ["hostname"]      (ReqArg setHostname "hostname") ("Server hostname, default: " ++ show (clckHostname def))
     , Option [] ["jquery-path"]   (ReqArg setJQueryPath   "path") ("path to jquery directory, default: " ++ show (clckJQueryPath def))
@@ -43,9 +44,10 @@ clckwrksOpts def =
     ]
     where
       nullTLSSettings     = TLSSettings { clckTLSPort = 443
-                                        , clckTLSCert = ""
-                                        , clckTLSKey  = ""
+                                        , clckTLSCert = Nothing
+                                        , clckTLSKey  = Nothing
                                         , clckTLSCA   = Nothing
+                                        , clckTLSRev  = False
                                         }
       modifyTLS f cc =
           Just $ case clckTLS cc of
@@ -54,9 +56,10 @@ clckwrksOpts def =
       noop            _   = ModifyConfig $ id
       setPort         str = ModifyConfig $ \c -> c { clckPort         = read str }
       setTLSPort      str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSPort = read str }) c }
-      setTLSCert      str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSCert = str }) c }
-      setTLSKey       str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSKey = str }) c }
+      setTLSCert      str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSCert = Just str }) c }
+      setTLSKey       str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSKey = Just str }) c }
       setTLSCA        str = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSCA = Just str }) c }
+      setTLSRevProxy      = ModifyConfig $ \c -> c { clckTLS          = modifyTLS (\tls -> tls { clckTLSRev = True}) c }
       setHostname     str = ModifyConfig $ \c -> c { clckHostname     = str      }
       setHidePort         = ModifyConfig $ \c -> c { clckHidePort     = True     }
       setJQueryPath   str = ModifyConfig $ \c -> c { clckJQueryPath   = str      }
@@ -87,19 +90,27 @@ parseArgs opts args =
             Nothing -> return cc
             (Just TLSSettings{..}) ->
                 do mCertError <-
-                       if null clckTLSCert
-                          then return (Just "--tls-cert not set.")
-                          else do b <- doesFileExist clckTLSCert
-                                  if b
-                                     then return Nothing
-                                     else return (Just $ "Can not find the file " ++ clckTLSCert)
+                       case clckTLSCert of
+                          Nothing ->
+                            if clckTLSRev
+                              then return Nothing
+                              else return (Just "--tls-cert not set.")
+                          (Just certPath) -> do
+                            b <- doesFileExist certPath
+                            if b
+                              then return Nothing
+                              else return (Just $ "Can not find the file " ++ certPath)
                    mKeyError <-
-                       if null clckTLSKey
-                          then return (Just "--tls-key not set.")
-                          else do b <- doesFileExist clckTLSKey
-                                  if b
-                                     then return Nothing
-                                     else return (Just $ "Can not find the file " ++ clckTLSKey)
+                       case clckTLSKey of
+                          Nothing ->
+                            if clckTLSRev
+                              then return Nothing
+                              else return (Just "--tls-key not set.")
+                          (Just keyPath) -> do
+                            b <- doesFileExist keyPath
+                            if b
+                              then return Nothing
+                              else return (Just $ "Can not find the file " ++ keyPath)
                    case (mCertError, mKeyError) of
                      (Nothing, Nothing) -> return cc
                      _ -> do putStrLn "It seems you are trying to enable https support. To do that you need to use both the --tls-cert and --tls-key flags."
