@@ -45,6 +45,7 @@ module Clckwrks.Monad
     , query
     , update
     , nestURL
+    , isSecure
     , withAbs
     , withAbs'
     , segments
@@ -104,7 +105,7 @@ import Happstack.Server              ( CookieLife(Session), Happstack, ServerMon
                                      , WebMonad(..), Input, Request(..), Response, HasRqData(..)
                                      , ServerPart, ServerPartT, UnWebT, addCookie, expireCookie, escape
                                      , internalServerError, lookCookieValue, mapServerPartT, mkCookie
-                                     , toResponse
+                                     , toResponse, getHeaderUnsafe
                                      )
 import Happstack.Server.HSP.HTML     () -- ToMessage XML instance
 import Happstack.Server.XMLGenT      () -- instance Happstack XMLGenT
@@ -202,9 +203,10 @@ getThemeStyles plugins =
 
 data TLSSettings = TLSSettings
     { clckTLSPort :: Int
-    , clckTLSCert :: FilePath
-    , clckTLSKey  :: FilePath
+    , clckTLSCert :: Maybe FilePath
+    , clckTLSKey  :: Maybe FilePath
     , clckTLSCA   :: Maybe FilePath
+    , clckTLSRev  :: Bool
     }
 
 data ClckwrksConfig = ClckwrksConfig
@@ -389,11 +391,24 @@ instance (Functor m, MonadIO m) => IntegerSupply (ClckT url m) where
 nestURL :: (url1 -> url2) -> ClckT url1 m a -> ClckT url2 m a
 nestURL f (ClckT r) = ClckT $ R.nestURL f r
 
+isSecure :: ClckwrksConfig -> Request -> Bool
+isSecure cc req =
+  case rqSecure req of
+    True -> True
+    False -> case clckTLS cc of
+      Nothing -> False
+      Just tlsSettings ->
+        case clckTLSRev tlsSettings of
+          False -> False
+          True -> case getHeaderUnsafe "x-forwarded-proto" req of
+            Nothing -> False
+            Just proto -> proto == "https"
+
 withAbs :: (Happstack m) => ClckT url m a -> ClckT url m a
 withAbs m =
-    do secure <- rqSecure <$> askRq
-       clckState <- get
+    do clckState <- get
        cc <- getConfig (plugins clckState)
+       secure <- isSecure cc <$> askRq
        let base = if secure then (fromJust $ calcTLSBaseURI cc) else calcBaseURI cc
        withAbs' base m
 

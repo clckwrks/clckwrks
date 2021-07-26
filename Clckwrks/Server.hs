@@ -75,13 +75,17 @@ simpleClckwrks cc =
              case clckTLS cc' of
                Nothing -> return Nothing
                (Just TLSSettings{..}) ->
-                   do let tlsConf = nullTLSConf { tlsPort = clckTLSPort
-                                                , tlsCert = clckTLSCert
-                                                , tlsKey  = clckTLSKey
-                                                , tlsCA   = clckTLSCA
-                                                }
-                      tid <- forkIO $ simpleHTTPS tlsConf (handlers cc' clckState'')
-                      return (Just tid)
+                   case (clckTLSCert, clckTLSKey) of
+                   (Just certPath, Just keyPath) -> do
+                     let tlsConf = nullTLSConf { tlsPort = clckTLSPort
+                                               , tlsCert = certPath
+                                               , tlsKey  = keyPath
+                                               , tlsCA   = clckTLSCA
+                                               }
+                     tid <- forkIO $ simpleHTTPS tlsConf (handlers cc' clckState'')
+                     return (Just tid)
+                   _ -> return Nothing
+
 
          httpTID  <- if isNothing mHttpsTID
                        then forkIO $ simpleHTTP (nullConf { port = clckPort cc' }) (handlers cc' clckState'')
@@ -117,7 +121,7 @@ simpleClckwrks cc =
                (Just hostBS) ->
                    if (clckHostname cc == (B.unpack $ B.takeWhile (/= ':') hostBS))
                    then return ()
-                   else escape $ seeOther ((if rqSecure rq then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) <> (Text.pack $ rqUri rq) <> (Text.pack $ rqQuery rq)) (toResponse ())
+                   else escape $ seeOther ((if isSecure cc rq then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) <> (Text.pack $ rqUri rq) <> (Text.pack $ rqQuery rq)) (toResponse ())
 
       -- if https:// is available, then force it to be used.
       -- GET requests will be redirected automatically, POST, PUT, etc will be denied
@@ -185,7 +189,7 @@ pluginsHandler cc plugins@(Plugins tvp) =
                      in
                        localRq (\req -> req { rqQuery       = UTF8.toString $ toLazyByteString $ renderQueryText True params
                                             , rqPaths       = map Text.unpack paths
-                                            , rqUri         = Text.unpack $ (if rqSecure req then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) <> pi <> qry
+                                            , rqUri         = Text.unpack $ (if isSecure cc req then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) <> pi <> qry
                                             , rqInputsQuery = map conv params
                                             }) $ do -- rq <- askRq
                                                     -- liftIO $ print rq
@@ -195,7 +199,7 @@ pluginsHandler cc plugins@(Plugins tvp) =
                          pi  = (decodeUtf8With lenientDecode $ LB.toStrict $ toLazyByteString $ encodePathSegments paths)
                      in
                        do -- liftIO $ putStrLn $ show $ rqQuery req
-                          escape $ seeOther ((fromMaybe (if rqSecure req then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) mBaseURI) <> pi <> qry) (toResponse ())
+                          escape $ seeOther ((fromMaybe (if isSecure cc req then (fromJust $ calcTLSBaseURI cc) else (calcBaseURI cc)) mBaseURI) <> pi <> qry) (toResponse ())
                    Nothing -> cont paths'
 
 --                (Redirect, paths) -> seeOther
