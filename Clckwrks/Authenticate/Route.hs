@@ -9,6 +9,7 @@ import Clckwrks.Authenticate.Page.Login (loginPage)
 import Clckwrks.Authenticate.Page.ChangePassword (changePasswordPanel)
 import Clckwrks.Authenticate.Page.ResetPassword  (resetPasswordPage)
 import Clckwrks.Authenticate.Page.OpenIdRealm    (openIdRealmPanel)
+import Clckwrks.Authenticate.Page.ViewUsers      (viewUsers)
 import Clckwrks.ProfileData.API    (Role(..), requiresRole_)
 import Clckwrks.URL                (ClckURL)
 -- import Clckwrks.Plugin             (clckPlugin)
@@ -40,6 +41,7 @@ routeAuth routeAuthenticate u' =
        ChangePassword -> withClckURL changePasswordPanel
        OpenIdRealm    -> withClckURL openIdRealmPanel
        AuthModes      -> authModesPage u
+       ViewUsers      -> withClckURL viewUsers
 
 checkAuth :: (Happstack m, Monad m) =>
              AuthURL
@@ -55,3 +57,4 @@ checkAuth url =
        AuthModes      -> requiresRole (Set.fromList [Administrator]) url
        ChangePassword -> requiresRole (Set.fromList [Visitor]) url
        OpenIdRealm    -> requiresRole (Set.fromList [Administrator]) url
+       ViewUsers      -> requiresRole (Set.fromList [Administrator]) url

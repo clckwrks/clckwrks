@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.26.4
+Version:             0.27.1
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -46,11 +46,13 @@ Library
                    Clckwrks.Admin.EditSettings
                    Clckwrks.Admin.SystemEmails
                    Clckwrks.Authenticate.API
+                   Clckwrks.Authenticate.Monad
                    Clckwrks.Authenticate.Page.AuthModes
                    Clckwrks.Authenticate.Page.ChangePassword
                    Clckwrks.Authenticate.Page.Login
                    Clckwrks.Authenticate.Page.OpenIdRealm
                    Clckwrks.Authenticate.Page.ResetPassword
+                   Clckwrks.Authenticate.Page.ViewUsers
                    Clckwrks.Authenticate.Plugin
                    Clckwrks.Authenticate.Route
                    Clckwrks.Authenticate.URL
@@ -105,7 +107,7 @@ Library
      containers                   >= 0.4  && < 0.7,
      directory                    >= 1.1  && < 1.4,
      filepath                     >= 1.2  && < 1.5,
-     happstack-authenticate       >= 2.4  && < 2.5,
+     happstack-authenticate       >= 2.4.2  && < 2.5,
      happstack-hsp                == 7.3.*,
      happstack-jmacro             >= 7.0  && < 7.1,
      happstack-server             >= 7.0  && < 7.8,

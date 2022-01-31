@@ -3,6 +3,7 @@ module Clckwrks.Authenticate.Plugin where
 
 import Clckwrks.Monad
 import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreReplyToAddress, coreSendmailPath, getAcidState)
+import Clckwrks.Authenticate.Monad (AcidStateAuthenticate(..))
 import Clckwrks.Authenticate.Route (routeAuth)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
 import Clckwrks.ProfileData.Acid   (HasRole(..))
@@ -14,7 +15,7 @@ import Control.Lens                ((^.))
 import Control.Monad.Reader        (ask)
 import Control.Monad.State         (get)
 import Control.Monad.Trans         (MonadIO, lift)
-import Data.Acid as Acid           (AcidState, query)
+import Data.Acid as Acid           (AcidState, query, openLocalStateFrom)
 import Data.Maybe                  (isJust)
 import Data.Monoid                 ((<>))
 import qualified Data.Set          as Set
@@ -26,16 +27,13 @@ import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
 import Happstack.Authenticate.Core  (AuthenticateState, AuthenticateConfig(..), getToken, tokenUser, userId, usernamePolicy)
 import Happstack.Authenticate.Route (initAuthentication)
-import Happstack.Authenticate.Password.Core (PasswordConfig(..))
-import Happstack.Authenticate.Password.Route (initPassword)
+import Happstack.Authenticate.Password.Core (PasswordConfig(..), initialPasswordState)
+import Happstack.Authenticate.Password.Route (initPassword')
 import Happstack.Authenticate.OpenId.Route (initOpenId)
 import Happstack.Server
-import System.FilePath             ((</>))
+import System.FilePath             ((</>), combine)
 import Web.Plugins.Core            (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin)
 import Web.Routes
-
-newtype AcidStateAuthenticate = AcidStateAuthenticate { acidStateAuthenticate :: AcidState AuthenticateState }
-    deriving Typeable
 
 authenticateHandler
   :: (AuthenticateURL -> RouteT AuthenticateURL (ServerPartT IO) Response)
@@ -60,9 +58,10 @@ addAuthAdminMenu :: ClckT url IO ()
 addAuthAdminMenu =
     do p <- plugins <$> get
        ~(Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
-       addAdminMenu ("Authentication", [(Set.fromList [Visitor]      , "Change Password", authShowURL ChangePassword [])])
-       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "OpenId Realm"   , authShowURL OpenIdRealm    [])])
-       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "Authentication Modes", authShowURL AuthModes [])])
+       addAdminMenu ("Authentication", [(Set.fromList [Visitor]      , "Change Password"     , authShowURL ChangePassword [])])
+       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "OpenId Realm"        , authShowURL OpenIdRealm    [])])
+       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "Authentication Modes", authShowURL AuthModes      [])])
+       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "View Users"          , authShowURL ViewUsers      [])])
 
 authenticateInit
   :: ClckPlugins
@@ -92,10 +91,11 @@ authenticateInit plugins =
                           , _passwordAcceptable = const Nothing
                           }
 
+     passwordState <- openLocalStateFrom (combine basePath "password") initialPasswordState
      (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication (Just basePath) authenticateConfig
-        ((initPassword passwordConfig) : if True then [ initOpenId ] else [])
+        ((initPassword' passwordConfig passwordState) : if True then [ initOpenId ] else [])
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
-     addPluginState plugins (pluginName authenticatePlugin) (AcidStateAuthenticate authenticateState)
+     addPluginState plugins (pluginName authenticatePlugin) (AcidStateAuthenticate authenticateState passwordState)
      addCleanup plugins Always authCleanup
      return Nothing
 {-
@@ -133,14 +133,9 @@ plugin plugins baseURI =
 getUserId :: (Happstack m) => ClckT url m (Maybe UserId)
 getUserId =
   do p <- plugins <$> get
-     ~(Just (AcidStateAuthenticate authenticateState)) <- getPluginState p (pluginName authenticatePlugin)
+     ~(Just (AcidStateAuthenticate authenticateState _)) <- getPluginState p (pluginName authenticatePlugin)
      mToken <- getToken authenticateState
      case mToken of
        Nothing       -> return Nothing
        (Just (token, _)) -> return $ Just (token ^. tokenUser ^. userId)
 
-instance (Functor m, MonadIO m) => GetAcidState (ClckT url m) AuthenticateState where
-    getAcidState =
-      do p <- plugins <$> get
-         ~(Just (AcidStateAuthenticate authenticateState)) <- getPluginState p (pluginName authenticatePlugin)
-         pure authenticateState

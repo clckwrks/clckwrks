@@ -9,7 +9,7 @@ import Language.Haskell.HSX.QQ (hsx)
 
 changePasswordPanel :: ClckT ClckURL (ServerPartT IO) Response
 changePasswordPanel =
-    do template "Change Password" () $ [hsx|
+  do template "Change Password" () $ [hsx|
         <%>
          <h2>Change Password</h2>
          <div ng-controller="UsernamePasswordCtrl">
