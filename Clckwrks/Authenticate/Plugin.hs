@@ -91,7 +91,7 @@ authenticateInit plugins =
                           , _passwordAcceptable = const Nothing
                           }
 
-     passwordState <- openLocalStateFrom (combine basePath "password") initialPasswordState
+     passwordState <- openLocalStateFrom (combine (combine basePath "authenticate") "password") initialPasswordState
      (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication (Just basePath) authenticateConfig
         ((initPassword' passwordConfig passwordState) : if True then [ initOpenId ] else [])
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
