@@ -92,7 +92,7 @@ editProfileDataForPage here uid =
 generateResetLinkFormlet :: ClckForm ProfileDataURL (Maybe Text.Text)
 generateResetLinkFormlet =
   do (fieldset $
-      (divControlGroup $ divControls $ inputSubmit "Change Password"  `setAttrs` [("class" := "btn") :: Attr Text Text]))
+      (divControlGroup $ divControls $ inputSubmit "Generate Change Password Link"  `setAttrs` [("class" := "btn") :: Attr Text Text]))
    where
      divControlGroup = mapView (\xml -> [[hsx|<div class="control-group"><% xml %></div>|]])
      divControls     = mapView (\xml -> [[hsx|<div class="controls"><% xml %></div>|]])
