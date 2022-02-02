@@ -4,21 +4,26 @@ module Clckwrks.ProfileData.EditProfileDataFor where
 import Clckwrks
 import Clckwrks.Admin.Template  (template)
 import Clckwrks.ProfileData.Acid (GetProfileData(..), SetProfileData(..))
-import Clckwrks.Authenticate.Monad ()
+import Clckwrks.Authenticate.Monad (AcidStateAuthenticate(..))
+import Clckwrks.Authenticate.URL   (AuthURL(ResetPassword))
+import Control.Monad.State         (get)
 import Data.Maybe               (fromMaybe)
 import Data.Set                 as Set
 import Data.Text.Lazy           (Text)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text      as Text
 import Data.UserId              (UserId)
+
 import Language.Haskell.HSX.QQ  (hsx)
 import Happstack.Authenticate.Core (Email(..), GetUserByUserId(..), User(..), UserId(..), Username(..))
-import Happstack.Authenticate.Password.Core (SetPassword(..), mkHashedPass)
+import Happstack.Authenticate.Password.Core (SetPassword(..), mkHashedPass, resetTokenForUserId)
 import HSP.XMLGenerator
 import HSP.XML
+import System.FilePath             ((</>))
 import Text.Reform              ((++>), mapView, transformEitherM)
 import Text.Reform.Happstack    (reform)
 import Text.Reform.HSP.Text     (inputCheckboxes, inputPassword, inputText, labelText, inputSubmit, fieldset, ol, li, form, setAttrs)
+import Web.Plugins.Core         (getConfig, getPluginState, getPluginRouteFn)
 
 editProfileDataForPage :: ProfileDataURL -> UserId -> Clck ProfileDataURL Response
 editProfileDataForPage here uid =
@@ -44,12 +49,54 @@ editProfileDataForPage here uid =
                  <% reform (form action) "epd" updated Nothing (profileDataFormlet pd) %>
                  <h2>Update User's Password</h2>
                  <% reform (form action) "pf"  updated Nothing (passwordForFormlet uid) %>
+                 <h2>Generate Password Reset Link</h2>
+                 <% reform (form action) "prl"  (generateResetLink uid) Nothing generateResetLinkFormlet %>
                </div>
                |]
     where
       updated :: () -> Clck ProfileDataURL Response
       updated () =
           do seeOtherURL here
+
+      generateResetLink :: UserId -> Maybe Text.Text -> Clck ProfileDataURL Response
+      generateResetLink uid _ =
+        do p <- plugins <$> get
+           ~(Just (AcidStateAuthenticate authenticateState passwordState)) <- getPluginState p "authenticate"
+           ~(Just authShowURL) <- getPluginRouteFn p "authenticate"
+           cc <- getConfig p
+           let basePath = maybe "_state" (\top -> top </> "_state") (clckTopDir cc)
+               baseUri = case calcTLSBaseURI cc of
+                 Nothing  -> calcBaseURI cc
+                 (Just b) -> b
+
+               resetLink = authShowURL ResetPassword [] <> "/#"
+           eResetTokenLink <- liftIO $ resetTokenForUserId resetLink authenticateState passwordState uid
+           case eResetTokenLink of
+             (Left e) -> template "Reset Password Link" () $
+                [hsx|
+                 <div>
+                  <h2>Reset Password Link Error</h2>
+                  <% show e %>
+                 </div>
+                |]
+             (Right lnk) ->
+               template "Reset Password Link" () $
+                [hsx|
+                 <div>
+                  <h2>Reset Password Link</h2>
+                  <p>Share this link with the user</p>
+                  <% lnk %>
+                 </div>
+                |]
+
+generateResetLinkFormlet :: ClckForm ProfileDataURL (Maybe Text.Text)
+generateResetLinkFormlet =
+  do (fieldset $
+      (divControlGroup $ divControls $ inputSubmit "Change Password"  `setAttrs` [("class" := "btn") :: Attr Text Text]))
+   where
+     divControlGroup = mapView (\xml -> [[hsx|<div class="control-group"><% xml %></div>|]])
+     divControls     = mapView (\xml -> [[hsx|<div class="controls"><% xml %></div>|]])
+
 
 passwordForFormlet :: UserId -> ClckForm ProfileDataURL ()
 passwordForFormlet userid =
