@@ -13,7 +13,8 @@ import Web.Plugins.Core            (getPluginState)
 
 data AcidStateAuthenticate = AcidStateAuthenticate
   { acidStateAuthenticate :: AcidState AuthenticateState
-  , acidStatePassword     :: AcidState PasswordState                                                }
+  , acidStatePassword     :: AcidState PasswordState
+  }
   deriving Typeable
 
 instance (Functor m, MonadIO m) => GetAcidState (ClckT url m) AuthenticateState where

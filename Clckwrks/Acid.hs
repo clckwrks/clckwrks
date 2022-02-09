@@ -26,6 +26,7 @@ import Data.Data                   (Data, Typeable)
 import Data.Maybe                  (fromMaybe)
 import Data.SafeCopy               (Migrate(..), base, deriveSafeCopy, extension)
 import Data.Text                   (Text)
+import qualified Data.Text         as Text
 import Happstack.Authenticate.Core (AuthenticateState, SimpleAddress(..))
 import Happstack.Authenticate.Password.Core (PasswordState)
 import Prelude                     hiding (catch)
@@ -85,11 +86,33 @@ instance Migrate CoreState_2 where
 -- | 'CoreState' holds some values that are required by the core
 -- itself, or which are useful enough to be shared with numerous
 -- plugins/themes.
+data CoreState_3 = CoreState_3
+    { _coreSiteName_3       :: Maybe Text
+    , _coreUACCT_3          :: Maybe UACCT  -- ^ Google Account UAACT
+    , _coreRootRedirect_3   :: Maybe Text
+    , _coreLoginRedirect_3  :: Maybe Text
+    , _coreFromAddress_3    :: Maybe SimpleAddress
+    , _coreReplyToAddress_3 :: Maybe SimpleAddress
+    , _coreSendmailPath_3   :: Maybe FilePath
+    , _coreEnableOpenId_3   :: Bool -- ^ allow OpenId authentication
+    , _coreBodyPolicy_3     :: (FilePath, Int64, Int64, Int64) -- ^ (temp directory for uploads, maxDisk, maxRAM, maxHeader)
+    }
+    deriving (Eq, Data, Typeable, Show)
+$(deriveSafeCopy 3 'extension ''CoreState_3)
+
+instance Migrate CoreState_3 where
+    type MigrateFrom CoreState_3 = CoreState_2
+    migrate (CoreState_2 sn ua rr lr fa rta smp eo) = CoreState_3 sn ua rr lr fa rta smp eo ("/tmp/", (10 * 10^6), (1 * 10^6), (1 * 10^6))
+
+-- | 'CoreState' holds some values that are required by the core
+-- itself, or which are useful enough to be shared with numerous
+-- plugins/themes.
 data CoreState = CoreState
     { _coreSiteName       :: Maybe Text
     , _coreUACCT          :: Maybe UACCT  -- ^ Google Account UAACT
     , _coreRootRedirect   :: Maybe Text
     , _coreLoginRedirect  :: Maybe Text
+    , _coreBackToSiteRedirect :: Text -- ^ where 'Back To <sitename>' link in settings panel should go
     , _coreFromAddress    :: Maybe SimpleAddress
     , _coreReplyToAddress :: Maybe SimpleAddress
     , _coreSendmailPath   :: Maybe FilePath
@@ -97,13 +120,13 @@ data CoreState = CoreState
     , _coreBodyPolicy     :: (FilePath, Int64, Int64, Int64) -- ^ (temp directory for uploads, maxDisk, maxRAM, maxHeader)
     }
     deriving (Eq, Data, Typeable, Show)
-$(deriveSafeCopy 3 'extension ''CoreState)
+$(deriveSafeCopy 4 'extension ''CoreState)
 
 makeLenses ''CoreState
 
 instance Migrate CoreState where
-    type MigrateFrom CoreState = CoreState_2
-    migrate (CoreState_2 sn ua rr lr fa rta smp eo) = CoreState sn ua rr lr fa rta smp eo ("/tmp/", (10 * 10^6), (1 * 10^6), (1 * 10^6))
+    type MigrateFrom CoreState = CoreState_3
+    migrate (CoreState_3 sn ua rr lr fa rta smp eo bp) = CoreState sn ua rr lr (Text.pack "/") fa rta smp eo bp
 
 initialCoreState :: CoreState
 initialCoreState = CoreState
@@ -111,6 +134,7 @@ initialCoreState = CoreState
     , _coreUACCT          = Nothing
     , _coreRootRedirect   = Nothing
     , _coreLoginRedirect  = Nothing
+    , _coreBackToSiteRedirect = (Text.pack "/")
     , _coreFromAddress    = Nothing
     , _coreReplyToAddress = Nothing
     , _coreSendmailPath   = Nothing
@@ -137,6 +161,14 @@ setUACCT mua = coreUACCT .= mua
 -- | get the path that @/@ should redirect to
 getRootRedirect :: Query CoreState (Maybe Text)
 getRootRedirect = view coreRootRedirect
+
+-- | get the path that 'Back To Site' should go to
+getBackToSiteRedirect :: Query CoreState Text
+getBackToSiteRedirect = view coreBackToSiteRedirect
+
+-- | set the path that 'Back To Site' should go to
+setBackToSiteRedirect :: Text -> Update CoreState ()
+setBackToSiteRedirect path = coreBackToSiteRedirect .= path
 
 -- | set the path that @/@ should redirect to
 setRootRedirect :: Maybe Text -> Update CoreState ()
@@ -203,6 +235,8 @@ $(makeAcidic ''CoreState
   , 'setUACCT
   , 'getRootRedirect
   , 'setRootRedirect
+  , 'getBackToSiteRedirect
+  , 'setBackToSiteRedirect
   , 'getLoginRedirect
   , 'setLoginRedirect
   , 'getBodyPolicy

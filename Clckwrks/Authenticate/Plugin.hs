@@ -2,7 +2,7 @@
 module Clckwrks.Authenticate.Plugin where
 
 import Clckwrks.Monad
-import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreReplyToAddress, coreSendmailPath, getAcidState)
+import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreLoginRedirect, coreReplyToAddress, coreSendmailPath, getAcidState)
 import Clckwrks.Authenticate.Monad (AcidStateAuthenticate(..))
 import Clckwrks.Authenticate.Route (routeAuth)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
@@ -77,6 +77,7 @@ authenticateInit plugins =
            Nothing  -> calcBaseURI cc
            (Just b) -> b
      cs <- Acid.query (acidCore acid) GetCoreState
+     -- FIXME: after changing these settings, the server must be restarted. That is silly.
      let authenticateConfig = AuthenticateConfig {
                                 _isAuthAdmin          = \uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator))
                               , _usernameAcceptable   = usernamePolicy
@@ -84,6 +85,7 @@ authenticateInit plugins =
                               , _systemFromAddress    = cs ^. coreFromAddress
                               , _systemReplyToAddress = cs ^. coreReplyToAddress
                               , _systemSendmailPath   = cs ^. coreSendmailPath
+                              , _postLoginRedirect    = cs ^. coreLoginRedirect
                               }
          passwordConfig = PasswordConfig {
                             _resetLink = baseUri <> authShowFn ResetPassword [] <> "/#"

@@ -3,7 +3,7 @@
 module Clckwrks.Admin.EditSettings where
 
 import Clckwrks                  hiding (transform)
-import Clckwrks.Acid             (GetUACCT(..), SetUACCT(..), coreSiteName, coreUACCT, coreRootRedirect, coreLoginRedirect)
+import Clckwrks.Acid             (GetUACCT(..), SetUACCT(..), coreSiteName, coreUACCT, coreRootRedirect, coreLoginRedirect, coreBackToSiteRedirect)
 import Clckwrks.Admin.Template   (template)
 import Control.Lens              ((&), (.~))
 import Data.Maybe                (fromMaybe)
@@ -39,7 +39,7 @@ editSettingsForm c@CoreState{..} =
      fieldset $
        (modifyCoreState <$>
            (divControlGroup $
-             (labelText "site name"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
+             (labelText "site name"                    `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
              (divControls (inputText (fromMaybe mempty _coreSiteName)) `transformEither` toMaybe)))
 
        <*> (divControlGroup $
@@ -51,8 +51,13 @@ editSettingsForm c@CoreState{..} =
              (divControls (inputText (fromMaybe mempty _coreRootRedirect)) `transformEither` toMaybe))
 
        <*> (divControlGroup $
-             (labelText "after login redirect to"               `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
+             (labelText "Back To Site location"         `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
+             (divControls (inputText _coreBackToSiteRedirect)))
+
+       <*> (divControlGroup $
+             (labelText "after login redirect to"        `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
              (divControls (inputText (fromMaybe mempty _coreLoginRedirect)) `transformEither` toMaybe))
+
        <*> bodyPolicyForm
        <*
         (divControlGroup $ divControls $ inputSubmit "Update" `setAttrs` [("class" := "btn") :: Attr Text Text])
@@ -105,10 +110,11 @@ editSettingsForm c@CoreState{..} =
              then Right $ Nothing
              else Right $ Just txt
 
-      modifyCoreState sn ua rr lr bp =
+      modifyCoreState sn ua rr bts lr bp =
         c & coreSiteName      .~ sn
           & coreUACCT         .~ ua
           & coreRootRedirect  .~ rr
+          & coreBackToSiteRedirect .~ bts
           & coreLoginRedirect .~ lr
           & coreBodyPolicy    .~ bp
 

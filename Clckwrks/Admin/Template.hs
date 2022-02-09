@@ -3,7 +3,7 @@ module Clckwrks.Admin.Template where
 
 import Control.Applicative     ((<$>))
 import Control.Monad.Trans     (lift)
-import Clckwrks.Acid           (GetSiteName(..))
+import Clckwrks.Acid           (GetSiteName(..), GetBackToSiteRedirect(..))
 import Clckwrks.Monad          (ClckT(..), ClckState(adminMenus), plugins, query)
 import Clckwrks.URL            (ClckURL(JS))
 import Clckwrks.JS.URL         (JSURL(..))
@@ -31,6 +31,7 @@ template ::
     ) => String -> headers -> body -> ClckT url m Response
 template title headers body = do
    siteName <- (fromMaybe "Your Site") <$> query GetSiteName
+   backURL  <- query GetBackToSiteRedirect
    p <- plugins <$> get
    ~(Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
    ~(Just clckShowURL) <- getPluginRouteFn p "clck"
@@ -56,7 +57,7 @@ template title headers body = do
       <div class="navbar">
        <div class="navbar-inner">
         <div class="container-fluid">
-         <a href="/" class="brand">Back to <% siteName %></a>
+         <a href=backURL class="brand">Back to <% siteName %></a>
         </div>
        </div>
       </div>
