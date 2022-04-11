@@ -2,17 +2,17 @@
 module Clckwrks.ProfileData.EditProfileDataFor where
 
 import Clckwrks
-import Clckwrks.Admin.Template  (template)
+import Clckwrks.Admin.Template   (template)
 import Clckwrks.ProfileData.Acid (GetProfileData(..), SetProfileData(..))
-import Clckwrks.Authenticate.Monad (AcidStateAuthenticate(..))
-import Clckwrks.Authenticate.URL   (AuthURL(ResetPassword))
-import Control.Monad.State         (get)
-import Data.Maybe               (fromMaybe)
-import Data.Set                 as Set
-import Data.Text.Lazy           (Text)
-import qualified Data.Text.Lazy as LT
-import qualified Data.Text      as Text
-import Data.UserId              (UserId)
+import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
+import Clckwrks.Authenticate.URL (AuthURL(ResetPassword))
+import Control.Monad.State       (get)
+import Data.Maybe                (fromMaybe)
+import Data.Set                  as Set
+import Data.Text.Lazy            (Text)
+import qualified Data.Text.Lazy  as LT
+import qualified Data.Text       as Text
+import Data.UserId               (UserId)
 
 import Language.Haskell.HSX.QQ  (hsx)
 import Happstack.Authenticate.Core (Email(..), GetUserByUserId(..), User(..), UserId(..), Username(..))
@@ -61,7 +61,7 @@ editProfileDataForPage here uid =
       generateResetLink :: UserId -> Maybe Text.Text -> Clck ProfileDataURL Response
       generateResetLink uid _ =
         do p <- plugins <$> get
-           ~(Just (AcidStateAuthenticate authenticateState passwordState)) <- getPluginState p "authenticate"
+           ~(Just aps) <- getPluginState p "authenticate"
            ~(Just authShowURL) <- getPluginRouteFn p "authenticate"
            cc <- getConfig p
            let basePath = maybe "_state" (\top -> top </> "_state") (clckTopDir cc)
@@ -70,7 +70,7 @@ editProfileDataForPage here uid =
                  (Just b) -> b
 
                resetLink = authShowURL ResetPassword [] <> "/#"
-           eResetTokenLink <- liftIO $ resetTokenForUserId resetLink authenticateState passwordState uid
+           eResetTokenLink <- liftIO $ resetTokenForUserId resetLink (acidStateAuthenticate aps) (acidStatePassword aps) uid
            case eResetTokenLink of
              (Left e) -> template "Reset Password Link" () $
                 [hsx|

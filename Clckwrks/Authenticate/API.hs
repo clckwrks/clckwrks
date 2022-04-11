@@ -5,27 +5,30 @@ module Clckwrks.Authenticate.API
        , getUser
        , getUsername
        , insecureUpdateUser
+       , setCreateUserCallback
        ) where
 
-import Clckwrks.Monad               (Clck, plugins)
+import Clckwrks.Authenticate.Plugin (authenticatePlugin)
+import Clckwrks.Authenticate.Monad  (AuthenticatePluginState(..))
+import Clckwrks.Monad               (Clck, ClckPlugins, plugins)
+import Control.Concurrent.STM       (atomically)
+import Control.Concurrent.STM.TVar  (modifyTVar')
 import Control.Monad                (join)
 import Control.Monad.State          (get)
 import Control.Monad.Trans          (liftIO)
-import Clckwrks.Authenticate.Plugin (authenticatePlugin)
-import Clckwrks.Authenticate.Monad  (AcidStateAuthenticate(..))
 import Data.Acid as Acid            (AcidState, query, update)
 import Data.Maybe                   (maybe)
 import Data.Monoid                  (mempty)
 import Data.Text                    (Text)
 import Data.UserId                  (UserId)
-import Happstack.Authenticate.Core  (GetUserByUserId(..), Email(..), UpdateUser(..), User(..), Username(..))
-import Web.Plugins.Core             (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin)
+import Happstack.Authenticate.Core  (AuthenticateConfig(_createUserCallback), GetUserByUserId(..), Email(..), UpdateUser(..), User(..), Username(..))
+import Web.Plugins.Core             (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin, modifyPluginState')
 
 getUser :: UserId -> Clck url (Maybe User)
 getUser uid =
   do p <- plugins <$> get
-     ~(Just (AcidStateAuthenticate authenticateState _)) <- getPluginState p (pluginName authenticatePlugin)
-     liftIO $ Acid.query authenticateState (GetUserByUserId uid)
+     ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
+     liftIO $ Acid.query (acidStateAuthenticate aps) (GetUserByUserId uid)
 
 -- | Update an existing 'User'. Must already have a valid 'UserId'.
 --
@@ -34,8 +37,8 @@ getUser uid =
 insecureUpdateUser :: User -> Clck url ()
 insecureUpdateUser user =
   do p <- plugins <$> get
-     ~(Just (AcidStateAuthenticate authenticateState _)) <- getPluginState p (pluginName authenticatePlugin)
-     liftIO $ Acid.update authenticateState (UpdateUser user)
+     ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
+     liftIO $ Acid.update (acidStateAuthenticate aps) (UpdateUser user)
 
 getUsername :: UserId -> Clck url (Maybe Username)
 getUsername uid =
@@ -46,3 +49,9 @@ getEmail :: UserId -> Clck url (Maybe Email)
 getEmail uid =
   do mUser <- getUser uid
      pure $ join $ _email <$> mUser
+
+setCreateUserCallback :: ClckPlugins -> Maybe (User -> IO ()) -> IO ()
+setCreateUserCallback p mcb =
+  do ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
+     liftIO $ atomically $ modifyTVar' (apsAuthenticateConfigTV aps) $ (\ac -> ac { _createUserCallback = mcb })
+     pure ()

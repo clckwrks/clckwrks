@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveDataTypeable, RecordWildCards, FlexibleContexts, Rank2Types, OverloadedStrings, MultiParamTypeClasses #-}
 module Clckwrks.Authenticate.Plugin where
 
+import Control.Concurrent.STM      (atomically)
+import Control.Concurrent.STM.TVar (TVar, newTVar)
 import Clckwrks.Monad
 import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreLoginRedirect, coreReplyToAddress, coreSendmailPath, getAcidState)
-import Clckwrks.Authenticate.Monad (AcidStateAuthenticate(..))
+import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.Authenticate.Route (routeAuth)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
 import Clckwrks.ProfileData.Acid   (HasRole(..))
@@ -77,7 +79,6 @@ authenticateInit plugins =
            Nothing  -> calcBaseURI cc
            (Just b) -> b
      cs <- Acid.query (acidCore acid) GetCoreState
-     -- FIXME: after changing these settings, the server must be restarted. That is silly.
      let authenticateConfig = AuthenticateConfig {
                                 _isAuthAdmin          = \uid -> Acid.query (acidProfileData acid) (HasRole uid (Set.singleton Administrator))
                               , _usernameAcceptable   = usernamePolicy
@@ -86,6 +87,7 @@ authenticateInit plugins =
                               , _systemReplyToAddress = cs ^. coreReplyToAddress
                               , _systemSendmailPath   = cs ^. coreSendmailPath
                               , _postLoginRedirect    = cs ^. coreLoginRedirect
+                              , _createUserCallback   = Nothing
                               }
          passwordConfig = PasswordConfig {
                             _resetLink = baseUri <> authShowFn ResetPassword [] <> "/#"
@@ -94,10 +96,11 @@ authenticateInit plugins =
                           }
 
      passwordState <- openLocalStateFrom (combine (combine basePath "authenticate") "password") initialPasswordState
-     (authCleanup, routeAuthenticate, authenticateState) <- initAuthentication (Just basePath) authenticateConfig
-        ((initPassword' passwordConfig passwordState) : if True then [ initOpenId ] else [])
+     passwordConfigTV <- atomically $ newTVar passwordConfig
+     (authCleanup, routeAuthenticate, authenticateState, authenticateConfigTV) <- initAuthentication (Just basePath) authenticateConfig
+        ((initPassword' passwordConfigTV passwordState) : if True then [ initOpenId ] else [])
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
-     addPluginState plugins (pluginName authenticatePlugin) (AcidStateAuthenticate authenticateState passwordState)
+     addPluginState plugins (pluginName authenticatePlugin) (AuthenticatePluginState authenticateState passwordState authenticateConfigTV passwordConfigTV)
      addCleanup plugins Always authCleanup
      return Nothing
 {-
@@ -135,8 +138,8 @@ plugin plugins baseURI =
 getUserId :: (Happstack m) => ClckT url m (Maybe UserId)
 getUserId =
   do p <- plugins <$> get
-     ~(Just (AcidStateAuthenticate authenticateState _)) <- getPluginState p (pluginName authenticatePlugin)
-     mToken <- getToken authenticateState
+     ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
+     mToken <- getToken (acidStateAuthenticate aps)
      case mToken of
        Nothing       -> return Nothing
        (Just (token, _)) -> return $ Just (token ^. tokenUser ^. userId)

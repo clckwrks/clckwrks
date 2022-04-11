@@ -5,7 +5,7 @@ import Clckwrks
 import Clckwrks.Monad              (plugins)
 import Clckwrks.Admin.Template     (template)
 import Clckwrks.Authenticate.Plugin (authenticatePlugin)
-import Clckwrks.Authenticate.Monad (AcidStateAuthenticate(..))
+import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.ProfileData.Acid   (GetProfileData(..), SetProfileData(..))
 import Control.Monad.State         (get)
 import Control.Monad.Trans         (liftIO)
@@ -34,8 +34,8 @@ editProfileDataPage here =
          (Just uid) ->
              do -- pd <- query (GetProfileData uid)
                 p <- plugins <$> get
-                ~(Just (AcidStateAuthenticate authenticateState _)) <- getPluginState p (pluginName authenticatePlugin)
-                ~(Just user) <- liftIO $ Acid.query authenticateState (GetUserByUserId uid)
+                ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
+                ~(Just user) <- liftIO $ Acid.query (acidStateAuthenticate aps) (GetUserByUserId uid)
                 pd <- query (GetProfileData uid)
                 action <- showURL here
                 template "Edit Profile Data" () $ [hsx|
@@ -71,8 +71,8 @@ profileDataFormlet u@User{..} pd =
       do let user = u { _email       = if Text.null eml then Nothing else (Just (Email eml))
                       }
          p <- plugins <$> get
-         ~(Just (AcidStateAuthenticate authenticateState _)) <- getPluginState p (pluginName authenticatePlugin)
-         liftIO $ Acid.update authenticateState  (UpdateUser user)
+         ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
+         liftIO $ Acid.update (acidStateAuthenticate aps)  (UpdateUser user)
          pd <- query (GetProfileData _userId)
          update (SetProfileData (pd { displayName = if Text.null dn then Nothing else Just (DisplayName dn) }))
          pure $ Right ()

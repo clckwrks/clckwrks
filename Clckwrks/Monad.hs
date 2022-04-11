@@ -327,9 +327,9 @@ type ClckForm url    = Form (ClckT url (ServerPartT IO)) [Input] ClckFormError [
 ------------------------------------------------------------------------------
 
 data ClckPluginsSt = ClckPluginsSt
-    { cpsPreProcessors :: forall m. (Functor m, MonadIO m, Happstack m) => [TL.Text -> ClckT ClckURL m TL.Text]
-    , cpsNavBarLinks   :: [ClckT ClckURL IO (String, [NamedLink])]
-    , cpsAcid          :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
+    { cpsPreProcessors      :: forall m. (Functor m, MonadIO m, Happstack m) => [TL.Text -> ClckT ClckURL m TL.Text]
+    , cpsNavBarLinks        :: [ClckT ClckURL IO (String, [NamedLink])]
+    , cpsAcid               :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
     }
 
 initialClckPluginsSt :: Acid -> ClckPluginsSt

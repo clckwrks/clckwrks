@@ -6,7 +6,7 @@ import Clckwrks
 import Clckwrks.Monad              (getRedirectCookie)
 import Clckwrks.Admin.Template     (emptyTemplate)
 import Clckwrks.Authenticate.Plugin (authenticatePlugin)
-import Clckwrks.Authenticate.Monad (AcidStateAuthenticate(..))
+import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.ProfileData.Acid   (GetProfileData(..), SetProfileData(..))
 import Clckwrks.ProfileData.EditProfileData(profileDataFormlet)
 import Control.Monad.State         (get)
@@ -35,8 +35,8 @@ editNewProfileDataPage here =
          (Just uid) ->
              do -- pd <- query (GetProfileData uid)
                 p <- plugins <$> get
-                ~(Just (AcidStateAuthenticate authenticateState _)) <- getPluginState p (pluginName authenticatePlugin)
-                ~(Just user) <- liftIO $ Acid.query authenticateState (GetUserByUserId uid)
+                ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
+                ~(Just user) <- liftIO $ Acid.query (acidStateAuthenticate aps) (GetUserByUserId uid)
                 pd <- query (GetProfileData uid)
                 action <- showURL here
                 emptyTemplate "Edit Profile Data" () $
