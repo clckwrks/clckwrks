@@ -107,7 +107,7 @@ Library
      containers                   >= 0.4  && < 0.7,
      directory                    >= 1.1  && < 1.4,
      filepath                     >= 1.2  && < 1.5,
-     happstack-authenticate       >= 2.6.1  && < 2.7,
+     happstack-authenticate       >= 2.6  && < 2.7,
      happstack-hsp                == 7.3.*,
      happstack-jmacro             >= 7.0  && < 7.1,
      happstack-server             >= 7.0  && < 7.8,
