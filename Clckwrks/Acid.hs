@@ -56,11 +56,13 @@ data CoreState_1 = CoreState_1
 
     }
     deriving (Eq, Data, Typeable, Show)
-$(deriveSafeCopy 1 'extension ''CoreState_1)
 
 instance Migrate CoreState_1 where
     type MigrateFrom CoreState_1 = CoreState_v0
     migrate (CoreState_v0 ua rr) = CoreState_1 Nothing ua rr Nothing
+
+$(deriveSafeCopy 1 'extension ''CoreState_1)
+
 
 
 -- | 'CoreState' holds some values that are required by the core
@@ -120,13 +122,15 @@ data CoreState = CoreState
     , _coreBodyPolicy     :: (FilePath, Int64, Int64, Int64) -- ^ (temp directory for uploads, maxDisk, maxRAM, maxHeader)
     }
     deriving (Eq, Data, Typeable, Show)
-$(deriveSafeCopy 4 'extension ''CoreState)
-
-makeLenses ''CoreState
 
 instance Migrate CoreState where
     type MigrateFrom CoreState = CoreState_3
     migrate (CoreState_3 sn ua rr lr fa rta smp eo bp) = CoreState sn ua rr lr (Text.pack "/") fa rta smp eo bp
+
+$(deriveSafeCopy 4 'extension ''CoreState)
+
+makeLenses ''CoreState
+
 
 initialCoreState :: CoreState
 initialCoreState = CoreState

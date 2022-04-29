@@ -696,8 +696,8 @@ getPreProcessors :: (MonadIO m) =>
                 Plugins theme n hook config ClckPluginsSt
              -> (forall mm. (Functor mm, MonadIO mm, Happstack mm) => ClckT url m [TL.Text -> ClckT ClckURL mm TL.Text])
 getPreProcessors plugins =
-    mapClckT liftIO $
-      (cpsPreProcessors <$> getPluginsSt plugins)
+  do st <- liftIO $ getPluginsSt plugins
+     pure (cpsPreProcessors st)
 
 -- | create a google analytics tracking code block
 --

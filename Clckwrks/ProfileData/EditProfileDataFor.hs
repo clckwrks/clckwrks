@@ -8,6 +8,7 @@ import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.Authenticate.URL (AuthURL(ResetPassword))
 import Control.Monad.State       (get)
 import Data.Maybe                (fromMaybe)
+import Data.Monoid               ((<>))
 import Data.Set                  as Set
 import Data.Text.Lazy            (Text)
 import qualified Data.Text.Lazy  as LT
@@ -69,7 +70,7 @@ editProfileDataForPage here uid =
                  Nothing  -> calcBaseURI cc
                  (Just b) -> b
 
-               resetLink = authShowURL ResetPassword [] <> "/#"
+               resetLink = (authShowURL ResetPassword []) <> "/#"
            eResetTokenLink <- liftIO $ resetTokenForUserId resetLink (acidStateAuthenticate aps) (acidStatePassword aps) uid
            case eResetTokenLink of
              (Left e) -> template "Reset Password Link" () $
