@@ -90,7 +90,7 @@ authenticateInit plugins =
                               , _createUserCallback   = Nothing
                               }
          passwordConfig = PasswordConfig {
-                            _resetLink = baseUri <> authShowFn ResetPassword [] <> "/#"
+                            _resetLink = authShowFn ResetPassword [] <> "/#" -- we should not need 'baseUri <>', but at some point we did
                           , _domain = Text.pack $ clckHostname cc
                           , _passwordAcceptable = const Nothing
                           }
