@@ -7,7 +7,6 @@ module Clckwrks.URL
      ) where
 
 import Clckwrks.Admin.URL          (AdminURL(..))
-import Clckwrks.JS.URL             (JSURL)
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
 import Control.Applicative         ((<$>), many)
 import Data.Data                   (Data, Typeable)
@@ -33,7 +32,6 @@ data ClckURL
     | PluginData Text FilePath
     | Admin AdminURL
     | Profile ProfileDataURL
-    | JS JSURL
       deriving (Eq, Ord, Data, Typeable, Read, Show)
 
 $(derivePathInfo ''ClckURL)

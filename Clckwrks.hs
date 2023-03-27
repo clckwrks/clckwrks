@@ -9,7 +9,6 @@ module Clckwrks
     , module Clckwrks.Types
     , module Clckwrks.Unauthorized
     , module Clckwrks.URL
-    , module Clckwrks.JS.URL
     , module Control.Applicative
     , module Control.Monad
     , module Control.Monad.Trans
@@ -23,7 +22,6 @@ module Clckwrks
 import Clckwrks.Acid
 import Clckwrks.Authenticate.Plugin (getUserId)
 import Clckwrks.Admin.URL
-import Clckwrks.JS.URL
 import Clckwrks.Monad
 import Clckwrks.ProfileData.API
 import Clckwrks.ProfileData.Types

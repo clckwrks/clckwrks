@@ -39,6 +39,7 @@ clckwrksOpts def =
     , Option [] ["jqueryui-path"] (ReqArg setJQueryUIPath "path") ("path to jqueryui directory, default: " ++ show (clckJQueryUIPath def))
     , Option [] ["jstree-path"]   (ReqArg setJSTreePath   "path") ("path to jstree directory, default: " ++ show (clckJSTreePath def))
     , Option [] ["json2-path"]    (ReqArg setJSON2Path    "path") ("path to json2 directory, default: " ++ show (clckJSON2Path def))
+    , Option [] ["happstack-authenticate-client-path"] (ReqArg setHACPath    "path") ("path to happstack-authenticate-client, default: " ++ show (clckHappstackAuthenticateClientPath def))
     , Option [] ["top"]           (ReqArg setTopDir       "path") ("path to directory that holds the state directory, uploads, etc")
     , Option [] ["enable-analytics"] (NoArg setAnalytics)         "enable google analytics tracking"
     ]
@@ -66,6 +67,7 @@ clckwrksOpts def =
       setJQueryUIPath str = ModifyConfig $ \c -> c { clckJQueryUIPath = str      }
       setJSTreePath   str = ModifyConfig $ \c -> c { clckJSTreePath   = str      }
       setJSON2Path    str = ModifyConfig $ \c -> c { clckJSON2Path    = str      }
+      setHACPath      str = ModifyConfig $ \c -> c { clckHappstackAuthenticateClientPath = Just str }
       setTopDir       str = ModifyConfig $ \c -> c { clckTopDir       = Just str }
       setAnalytics        = ModifyConfig $ \c -> c { clckEnableAnalytics = True  }
 

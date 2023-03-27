@@ -16,8 +16,10 @@ import qualified Data.Text       as Text
 import Data.UserId               (UserId)
 
 import Language.Haskell.HSX.QQ  (hsx)
-import Happstack.Authenticate.Core (Email(..), GetUserByUserId(..), User(..), UserId(..), Username(..))
-import Happstack.Authenticate.Password.Core (SetPassword(..), mkHashedPass, resetTokenForUserId)
+import Happstack.Authenticate.Core (Email(..), User(..), Username(..))
+import Happstack.Authenticate.Handlers (GetUserByUserId(..))
+import Happstack.Authenticate.Password.Core (mkHashedPass)
+import Happstack.Authenticate.Password.Handlers (SetPassword(..), resetTokenForUserId)
 import HSP.XMLGenerator
 import HSP.XML
 import System.FilePath             ((</>))

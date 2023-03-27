@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, QuasiQuotes #-}
-module Clckwrks.Authenticate.Page.ResetPassword where
+module Clckwrks.Authenticate.Page.CreateAccount where
 
 import Control.Applicative ((<$>))
 import Clckwrks.Monad (ClckT, ThemeStyleId(..), plugins, themeTemplate)
@@ -10,13 +10,11 @@ import Happstack.Server (Response, ServerPartT)
 import HSP
 import Language.Haskell.HSX.QQ (hsx)
 
-resetPasswordPage :: ClckT ClckURL (ServerPartT IO) Response
-resetPasswordPage =
+createAccountPage :: ClckT ClckURL (ServerPartT IO) Response
+createAccountPage =
   do plugins <- plugins <$> get
-     themeTemplate plugins (ThemeStyleId 0) "Reset Password" () [hsx|
-      <div class="happstack-authenticate happstack-authenticate-reset-password">
-        <h2>Reset Password</h2>
-        <div>
-          <up-reset-password />
-        </div>
+     themeTemplate plugins (ThemeStyleId 0) "Create New Account" () [hsx|
+      <div class="happstack-authenticate happstack-authenticate-create-account">
+       <h2>Create A New Account</h2>
+       <up-signup-password />
       </div> |]

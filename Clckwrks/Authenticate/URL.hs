@@ -12,6 +12,8 @@ import Web.Routes.TH               (derivePathInfo)
 data AuthURL
   = Auth AuthenticateURL
   | Login
+  | ForgotPassword
+  | CreateAccount
   | ResetPassword
   | ChangePassword
   | OpenIdRealm

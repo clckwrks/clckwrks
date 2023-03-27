@@ -8,7 +8,6 @@ import Clckwrks.BasicTemplate      (basicTemplate)
 import Clckwrks.Monad              (calcTLSBaseURI, withAbs, query)
 import Clckwrks.ProfileData.API    (requiresRole)
 import Clckwrks.ProfileData.Route  (routeProfileData)
-import Clckwrks.JS.Route           (routeJS)
 import Control.Monad.State         (MonadState(get))
 import Data.Maybe                  (fromJust)
 import Data.Monoid                 ((<>))
@@ -30,7 +29,6 @@ checkAuth url =
       ThemeDataNoEscape{}  -> return url
       PluginData{}         -> return url
       Admin{}              -> requiresRole (Set.singleton Administrator) url
-      JS   {}              -> return url
       Profile EditProfileData{}    -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditNewProfileData{} -> requiresRole (Set.fromList [Administrator, Visitor]) url
       Profile EditProfileDataFor{} -> requiresRole (Set.fromList [Administrator]) url
@@ -78,7 +76,3 @@ routeClck url' =
 
          (Profile profileDataURL) ->
              do nestURL Profile $ routeProfileData profileDataURL
-
-         (JS jsURL) ->
-             do b <- query GetEnableOpenId
-                nestURL JS $ routeJS b jsURL

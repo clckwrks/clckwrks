@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, RecordWildCards, FlexibleContexts, Rank2Types, OverloadedStrings, MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable, RecordWildCards, FlexibleContexts, Rank2Types, OverloadedStrings, MultiParamTypeClasses, QuasiQuotes #-}
 module Clckwrks.Authenticate.Plugin where
 
 import Control.Concurrent.STM      (atomically)
@@ -18,6 +18,7 @@ import Control.Monad.Reader        (ask)
 import Control.Monad.State         (get)
 import Control.Monad.Trans         (MonadIO, lift)
 import Data.Acid as Acid           (AcidState, query, openLocalStateFrom)
+import qualified Data.Map          as Map
 import Data.Maybe                  (isJust)
 import Data.Monoid                 ((<>))
 import qualified Data.Set          as Set
@@ -27,13 +28,20 @@ import qualified Data.Text         as Text
 import qualified Data.Set          as Set
 import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
-import Happstack.Authenticate.Core  (AuthenticateState, AuthenticateConfig(..), getToken, tokenUser, userId, usernamePolicy)
+import Happstack.Authenticate.Core  (tokenUser, userId)
+import Happstack.Authenticate.Handlers  (AuthenticateState, AuthenticateConfig(..), getToken, usernamePolicy)
 import Happstack.Authenticate.Route (initAuthentication)
-import Happstack.Authenticate.Password.Core (PasswordConfig(..), initialPasswordState)
+import Happstack.Authenticate.Password.Handlers (PasswordConfig(..), initialPasswordState)
 import Happstack.Authenticate.Password.Route (initPassword')
-import Happstack.Authenticate.OpenId.Route (initOpenId)
+-- import Happstack.Authenticate.OpenId.Route (initOpenId)
 import Happstack.Server
+import HSP
+import HSP.JMacro              ()
+import Language.Haskell.HSX.QQ      (hsx)
+import Language.Javascript.JMacro           (jmacro)
+import Language.Javascript.JMacro
 import System.FilePath             ((</>), combine)
+import Text.PrettyPrint.Leijen.Text        (Doc, displayT, renderOneLine)
 import Web.Plugins.Core            (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin)
 import Web.Routes
 
@@ -87,10 +95,11 @@ authenticateInit plugins =
                               , _systemReplyToAddress = cs ^. coreReplyToAddress
                               , _systemSendmailPath   = cs ^. coreSendmailPath
                               , _postLoginRedirect    = cs ^. coreLoginRedirect
+                              , _happstackAuthenticateClientPath = clckHappstackAuthenticateClientPath cc
                               , _createUserCallback   = Nothing
                               }
          passwordConfig = PasswordConfig {
-                            _resetLink = baseUri <> authShowFn ResetPassword [] <> "/#"
+                            _resetLink = authShowFn ResetPassword [] <> "/#"
                           , _domain = Text.pack $ clckHostname cc
                           , _passwordAcceptable = const Nothing
                           }
@@ -98,11 +107,46 @@ authenticateInit plugins =
      passwordState <- openLocalStateFrom (combine (combine basePath "authenticate") "password") initialPasswordState
      passwordConfigTV <- atomically $ newTVar passwordConfig
      (authCleanup, routeAuthenticate, authenticateState, authenticateConfigTV) <- initAuthentication (Just basePath) authenticateConfig
-        ((initPassword' passwordConfigTV passwordState) : if True then [ initOpenId ] else [])
+        [ initPassword' passwordConfigTV passwordState ]
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
-     addPluginState plugins (pluginName authenticatePlugin) (AuthenticatePluginState authenticateState passwordState authenticateConfigTV passwordConfigTV)
+     addPluginState plugins (pluginName authenticatePlugin) (AuthenticatePluginState authenticateState passwordState authenticateConfigTV passwordConfigTV Map.empty)
+     authenticatePluginLoader plugins
      addCleanup plugins Always authCleanup
      return Nothing
+
+authenticatePluginLoader :: ClckPlugins -> IO ()
+authenticatePluginLoader plugins =
+  do ~(Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
+     ~(Just aps) <- getPluginState plugins (pluginName authenticatePlugin)
+     let pluginURLs = apsSignupPluginURLs aps
+     let script =
+          [jmacro|
+            // console.log('xhr request start.');
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function ()
+            {
+              if ((xhr.status == 200) && (xhr.readyState == 4)) {
+                 var r = Function(xhr.responseText)();
+                }
+
+            };
+            xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) []`);
+            xhr.send();
+            |]
+
+     let mkScript :: XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML]
+         mkScript =
+           do s <- genElement (Nothing, "script")
+                      [ asAttr ((fromStringLit "type" := fromStringLit "text/javascript") :: Attr TL.Text TL.Text)
+                      , asAttr ((fromStringLit "id" := fromStringLit "happstack-authenticate-script") :: Attr TL.Text TL.Text)
+                      -- FIXME: shouldn't be hard coded, though it is unlikely to change.
+                      , asAttr ((fromStringLit "data-base-url" := fromStringLit "/authenticate/auth") :: Attr TL.Text TL.Text)
+                      ]
+                      [asChild (displayT $ renderOneLine $ renderPrefixJs (show 1) script)]
+              pure [s]
+     setExtraHeadTags plugins (pluginName authenticatePlugin, mkScript )
+     pure ()
+
 {-
 addClckAdminMenu :: ClckT url IO ()
 addClckAdminMenu =

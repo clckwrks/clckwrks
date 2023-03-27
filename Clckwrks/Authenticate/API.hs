@@ -6,9 +6,10 @@ module Clckwrks.Authenticate.API
        , getUsername
        , insecureUpdateUser
        , setCreateUserCallback
+       , setSignupPluginURL
        ) where
 
-import Clckwrks.Authenticate.Plugin (authenticatePlugin)
+import Clckwrks.Authenticate.Plugin (authenticatePlugin, authenticatePluginLoader)
 import Clckwrks.Authenticate.Monad  (AuthenticatePluginState(..))
 import Clckwrks.Monad               (Clck, ClckPlugins, plugins)
 import Control.Concurrent.STM       (atomically)
@@ -17,11 +18,14 @@ import Control.Monad                (join)
 import Control.Monad.State          (get)
 import Control.Monad.Trans          (liftIO)
 import Data.Acid as Acid            (AcidState, query, update)
+import           Data.Map           (Map)
+import qualified Data.Map           as Map
 import Data.Maybe                   (maybe)
 import Data.Monoid                  (mempty)
 import Data.Text                    (Text)
 import Data.UserId                  (UserId)
-import Happstack.Authenticate.Core  (AuthenticateConfig(_createUserCallback), GetUserByUserId(..), Email(..), UpdateUser(..), User(..), Username(..))
+import Happstack.Authenticate.Core  (Email(..), User(..), Username(..))
+import Happstack.Authenticate.Handlers  (AuthenticateConfig(_createUserCallback), GetUserByUserId(..), UpdateUser(..))
 import Web.Plugins.Core             (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin, modifyPluginState')
 
 getUser :: UserId -> Clck url (Maybe User)
@@ -55,3 +59,14 @@ setCreateUserCallback p mcb =
   do ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
      liftIO $ atomically $ modifyTVar' (apsAuthenticateConfigTV aps) $ (\ac -> ac { _createUserCallback = mcb })
      pure ()
+
+setSignupPluginURL :: ClckPlugins
+                   -> Text
+                   -> Text
+                   -> IO ()
+setSignupPluginURL plugins pn pu =
+  do modifyPluginState' plugins (pluginName authenticatePlugin) $ \aps ->
+       aps { apsSignupPluginURLs = Map.insert pn pu (apsSignupPluginURLs aps) }
+     authenticatePluginLoader plugins
+     pure ()
+

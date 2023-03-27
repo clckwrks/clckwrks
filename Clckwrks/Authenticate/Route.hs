@@ -7,6 +7,8 @@ import Clckwrks.Authenticate.URL   (AuthURL(..))
 import Clckwrks.Authenticate.Page.AuthModes (authModesPage)
 import Clckwrks.Authenticate.Page.Login (loginPage)
 import Clckwrks.Authenticate.Page.ChangePassword (changePasswordPanel)
+import Clckwrks.Authenticate.Page.CreateAccount  (createAccountPage)
+import Clckwrks.Authenticate.Page.ForgotPassword (forgotPasswordPage)
 import Clckwrks.Authenticate.Page.ResetPassword  (resetPasswordPage)
 import Clckwrks.Authenticate.Page.OpenIdRealm    (openIdRealmPanel)
 import Clckwrks.Authenticate.Page.ViewUsers      (viewUsers)
@@ -37,6 +39,8 @@ routeAuth routeAuthenticate u' =
             ~(Just authShowFn) <- getPluginRouteFn p "authenticate"
             lift $ runRouteT routeAuthenticate (authShowFn . Auth) authenticateURL
        Login          -> withClckURL loginPage
+       CreateAccount  -> withClckURL createAccountPage
+       ForgotPassword -> withClckURL forgotPasswordPage
        ResetPassword  -> withClckURL resetPasswordPage
        ChangePassword -> withClckURL changePasswordPanel
        OpenIdRealm    -> withClckURL openIdRealmPanel
@@ -52,9 +56,11 @@ checkAuth url =
      let requiresRole = requiresRole_ clckShowFn
      case url of
        (Auth {})      -> pure url
+       CreateAccount  -> pure url
        Login          -> pure url
        ResetPassword  -> pure url
        AuthModes      -> requiresRole (Set.fromList [Administrator]) url
        ChangePassword -> requiresRole (Set.fromList [Visitor]) url
+       ForgotPassword -> pure url
        OpenIdRealm    -> requiresRole (Set.fromList [Administrator]) url
        ViewUsers      -> requiresRole (Set.fromList [Administrator]) url

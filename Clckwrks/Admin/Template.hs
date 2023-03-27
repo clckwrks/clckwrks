@@ -5,8 +5,6 @@ import Control.Applicative     ((<$>))
 import Control.Monad.Trans     (lift)
 import Clckwrks.Acid           (GetSiteName(..), GetBackToSiteRedirect(..))
 import Clckwrks.Monad          (ClckT(..), ClckState(adminMenus), plugins, query)
-import Clckwrks.URL            (ClckURL(JS))
-import Clckwrks.JS.URL         (JSURL(..))
 import {-# SOURCE #-} Clckwrks.Authenticate.Plugin (authenticatePlugin)
 import Clckwrks.Authenticate.URL    (AuthURL(Auth))
 import Clckwrks.ProfileData.API (getUserRoles)
@@ -17,7 +15,7 @@ import Data.Text.Lazy          (Text)
 import qualified               Data.Text as T
 import Data.Set                (Set)
 import qualified Data.Set      as Set
-import Happstack.Authenticate.Core (AuthenticateURL(Controllers))
+import Happstack.Authenticate.Core (AuthenticateURL(HappstackAuthenticateClient))
 import Happstack.Server        (Happstack, Response, toResponse)
 import HSP.XMLGenerator
 import HSP.XML                 (XML, fromStringLit)
@@ -34,8 +32,6 @@ template title headers body = do
    backURL  <- query GetBackToSiteRedirect
    p <- plugins <$> get
    ~(Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
-   ~(Just clckShowURL) <- getPluginRouteFn p "clck"
---   let passwordShowURL u = authShowURL (Auth (AuthenticationMethods $ Just (passwordAuthenticationMethod, toPathSegments u))) []
    toResponse <$> (unXMLGenT $ [hsx|
     <html>
      <head>
@@ -45,11 +41,7 @@ template title headers body = do
       <script type="text/javascript" src="/jquery/jquery.js" ></script>
       <script type="text/javascript" src="/json2/json2.js" ></script>
       <script type="text/javascript" src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js" ></script>
-      <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.24/angular.min.js"></script>
-      <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.24/angular-route.min.js"></script>
---      <script src=(passwordShowURL UsernamePasswordCtrl)></script>
-      <script src=(clckShowURL (JS ClckwrksApp) [])></script>
-      <script src=(authShowURL (Auth Controllers) [])></script>
+      <script src=(authShowURL (Auth HappstackAuthenticateClient) [])></script>
       <title><% title %></title>
       <% headers %>
      </head>

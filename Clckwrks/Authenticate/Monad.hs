@@ -7,9 +7,13 @@ import Control.Concurrent.STM.TVar (TVar)
 import Control.Monad.State         (get)
 import Control.Monad.Trans         (MonadIO, lift)
 import Data.Acid as Acid           (AcidState, query)
+import           Data.Map          (Map)
+import qualified Data.Map          as Map
+import Data.Text                   (Text)
 import Data.Typeable               (Typeable)
-import Happstack.Authenticate.Core (AuthenticateState, AuthenticateConfig(..), User, getToken, tokenUser, userId, usernamePolicy)
-import Happstack.Authenticate.Password.Core (PasswordConfig, PasswordState)
+import Happstack.Authenticate.Core (userId)
+import Happstack.Authenticate.Handlers (AuthenticateConfig(..), AuthenticateState, getToken, usernamePolicy)
+import Happstack.Authenticate.Password.Handlers (PasswordConfig, PasswordState)
 import Web.Plugins.Core            (getPluginState)
 
 data AuthenticatePluginState = AuthenticatePluginState
@@ -17,6 +21,7 @@ data AuthenticatePluginState = AuthenticatePluginState
   , acidStatePassword       :: AcidState PasswordState
   , apsAuthenticateConfigTV :: TVar AuthenticateConfig
   , apsPasswordConfigTV     :: TVar PasswordConfig
+  , apsSignupPluginURLs     :: Map Text Text
   }
   deriving Typeable
 

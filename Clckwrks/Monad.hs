@@ -30,10 +30,11 @@ module Clckwrks.Monad
 --    , markupToContent
 --    , addPreProcessor
     , addAdminMenu
+    , addPreProc
     , appendRequestInit
     , getNavBarLinks
-    , addPreProc
     , addNavBarCallback
+    , getExtraHeadTags
     , getPreProcessors
 --     , getPrefix
     , getEnableAnalytics
@@ -49,6 +50,7 @@ module Clckwrks.Monad
     , withAbs
     , withAbs'
     , segments
+    , setExtraHeadTags
     , transform
     , module HSP.XML
     , module HSP.XMLGenerator
@@ -178,7 +180,10 @@ themeTemplate plugins tsid ttl hdrs bdy =
              case lookupThemeStyle tsid (themeStyles theme) of
                Nothing -> escape $ internalServerError $ toResponse $ ("The current theme does not seem to contain any theme styles." :: T.Text)
                (Just themeStyle) ->
-                  fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl hdrs bdy)
+                 do extraHdrs <- map (unXMLGenT . snd) <$> getExtraHeadTags plugins
+                    extraHdrsXML <- concat <$> sequence extraHdrs :: ClckT ClckURL (ServerPartT IO) [XML]
+                    hdrsXML <- (fmap (map unClckChild) $ unXMLGenT $ asChild hdrs) :: ClckT ClckURL (ServerPartT IO) [XML]
+                    fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl (extraHdrsXML ++ hdrsXML) bdy)
 
 lookupThemeStyle :: ThemeStyleId -> [a] -> Maybe a
 lookupThemeStyle                   _ [] = Nothing
@@ -218,6 +223,7 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJQueryUIPath    :: FilePath       -- ^ path to @jquery-ui.js@ on disk
     , clckJSTreePath      :: FilePath       -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath       -- ^ path to @JSON2.js@ on disk
+    , clckHappstackAuthenticateClientPath :: Maybe FilePath -- ^ path to @happstack-authenticate-client@
     , clckTopDir          :: Maybe FilePath -- ^ path to top-level directory for all acid-state files/file uploads/etc
     , clckEnableAnalytics :: Bool           -- ^ enable google analytics
     , clckInitHook        :: T.Text -> ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
@@ -330,6 +336,7 @@ data ClckPluginsSt = ClckPluginsSt
     { cpsPreProcessors      :: forall m. (Functor m, MonadIO m, Happstack m) => [TL.Text -> ClckT ClckURL m TL.Text]
     , cpsNavBarLinks        :: [ClckT ClckURL IO (String, [NamedLink])]
     , cpsAcid               :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
+    , cpsExtraHeadTags      :: [(Text.Text, XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML])]
     }
 
 initialClckPluginsSt :: Acid -> ClckPluginsSt
@@ -337,6 +344,7 @@ initialClckPluginsSt acid = ClckPluginsSt
     { cpsPreProcessors = []
     , cpsNavBarLinks   = []
     , cpsAcid          = acid
+    , cpsExtraHeadTags = []
     }
 
 -- | ClckPlugins
@@ -611,6 +619,13 @@ addPreProc :: (MonadIO m) =>
 addPreProc plugins p =
     modifyPluginsSt plugins $ \cps -> cps { cpsPreProcessors = p : (cpsPreProcessors cps) }
 
+getPreProcessors :: (MonadIO m) =>
+                Plugins theme n hook config ClckPluginsSt
+             -> (forall mm. (Functor mm, MonadIO mm, Happstack mm) => ClckT url m [TL.Text -> ClckT ClckURL mm TL.Text])
+getPreProcessors plugins =
+  do st <- liftIO $ getPluginsSt plugins
+     pure (cpsPreProcessors st)
+
 -- * Preprocess
 
 data Segment cmd
@@ -662,11 +677,13 @@ plainText =
 
 -- * Require Role
 
+-- | set the redirect cookie
 setRedirectCookie :: (Happstack m) =>
                      String -> m ()
 setRedirectCookie url =
     addCookie Session (mkCookie "clckwrks-authenticate-redirect" url)
 
+-- | get and clear the redirect cookie
 getRedirectCookie :: (Happstack m) =>
                      m (Maybe String)
 getRedirectCookie =
@@ -692,12 +709,31 @@ getNavBarLinks plugins =
       do genNavBarLinks <- (cpsNavBarLinks <$> getPluginsSt plugins)
          NavBarLinks <$> sequenceA genNavBarLinks
 
-getPreProcessors :: (MonadIO m) =>
-                Plugins theme n hook config ClckPluginsSt
-             -> (forall mm. (Functor mm, MonadIO mm, Happstack mm) => ClckT url m [TL.Text -> ClckT ClckURL mm TL.Text])
-getPreProcessors plugins =
+
+------------------------------------------------------------------------------
+-- Extra <head> tags
+------------------------------------------------------------------------------
+
+setExtraHeadTags :: (MonadIO m) =>
+              Plugins theme n hook config ClckPluginsSt
+           -> (Text.Text, XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML])
+           -> m ()
+setExtraHeadTags plugins (extraName, extraTags) =
+    modifyPluginsSt plugins $ \cps ->
+      cps { cpsExtraHeadTags = setKeyValue extraName extraTags (cpsExtraHeadTags cps) }
+
+setKeyValue :: (Eq k) => k -> v -> [(k, v)] -> [(k, v)]
+setKeyValue k v [] = [(k, v)]
+setKeyValue k v ((k', v') : r)
+  | k == k'   = (k,v) : r
+  | otherwise = (k', v') : setKeyValue k v r
+
+getExtraHeadTags :: (MonadIO m) =>
+                    Plugins theme n hook config ClckPluginsSt
+                 -> ClckT url m [(Text.Text, XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML])]
+getExtraHeadTags plugins =
   do st <- liftIO $ getPluginsSt plugins
-     pure (cpsPreProcessors st)
+     pure (cpsExtraHeadTags st)
 
 -- | create a google analytics tracking code block
 --

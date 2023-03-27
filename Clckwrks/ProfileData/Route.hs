@@ -22,15 +22,17 @@ routeProfileData url =
                (Just userId) ->
                    do (_, new) <- update (NewProfileData (defaultProfileDataFor userId))
                       if new
-                         then seeOtherURL EditNewProfileData
-                         else do mRedirect <- query GetLoginRedirect
-                                 case mRedirect of
-                                   (Just url) -> seeOther url (toResponse ())
-                                   Nothing    -> do
-                                     mRedirectCookie <- getRedirectCookie
-                                     case mRedirectCookie of
-                                       (Just u) -> seeOther u (toResponse ())
-                                       Nothing  -> seeOtherURL EditProfileData
+                        then seeOtherURL EditNewProfileData
+                        else do mRedirectCookie <- getRedirectCookie -- first priority for the redirect is if the user was trying to get somewhere already
+                                case mRedirectCookie of
+                                  (Just u) -> seeOther u (toResponse ())
+                                  Nothing  -> do
+                                    mRedirect <- query GetLoginRedirect
+                                    case mRedirect of
+                                      (Just url) -> seeOther url (toResponse ()) -- second priority is if the redirect after login is set
+                                      Nothing    -> do
+                                        seeOtherURL EditProfileData -- third priority is the edit profile data page
+
       EditProfileData ->
              do editProfileDataPage url
       EditNewProfileData ->
