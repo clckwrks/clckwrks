@@ -77,7 +77,8 @@ authenticateInit
   :: ClckPlugins
   -> IO (Maybe Text)
 authenticateInit plugins =
-  do ~(Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
+  do -- putStrLn "*** authenticateInit ***"
+     ~(Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
      addNavBarCallback plugins (authMenuCallback authShowFn)
      -- addHandler plugins (pluginName clckPlugin) (authenticateHandler clckShowFn)
      cc <- getConfig plugins
@@ -110,7 +111,9 @@ authenticateInit plugins =
         [ initPassword' passwordConfigTV passwordState ]
      addHandler     plugins (pluginName authenticatePlugin) (authenticateHandler routeAuthenticate authShowFn)
      addPluginState plugins (pluginName authenticatePlugin) (AuthenticatePluginState authenticateState passwordState authenticateConfigTV passwordConfigTV Map.empty)
+     -- putStrLn $ "*** before authenticatePluginLoader ***"
      authenticatePluginLoader plugins
+     -- putStrLn $ "*** after authenticatePluginLoader ***"
      addCleanup plugins Always authCleanup
      return Nothing
 
@@ -118,6 +121,7 @@ authenticatePluginLoader :: ClckPlugins -> IO ()
 authenticatePluginLoader plugins =
   do ~(Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
      ~(Just aps) <- getPluginState plugins (pluginName authenticatePlugin)
+     -- putStrLn $ "*** authenticatePluginLoader ***"
      let pluginURLs = apsSignupPluginURLs aps
      let script =
           [jmacro|

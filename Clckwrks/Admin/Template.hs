@@ -13,6 +13,7 @@ import Control.Monad.State     (get)
 import Data.Maybe              (mapMaybe, fromMaybe)
 import Data.Text.Lazy          (Text)
 import qualified               Data.Text as T
+import qualified               Data.Text.Lazy as TL
 import Data.Set                (Set)
 import qualified Data.Set      as Set
 import Happstack.Authenticate.Core (AuthenticateURL(HappstackAuthenticateClient))
@@ -20,6 +21,9 @@ import Happstack.Server        (Happstack, Response, toResponse)
 import HSP.XMLGenerator
 import HSP.XML                 (XML, fromStringLit)
 import Language.Haskell.HSX.QQ (hsx)
+import Language.Javascript.JMacro           (jmacro)
+import Language.Javascript.JMacro
+import Text.PrettyPrint.Leijen.Text (Doc, displayT, renderOneLine)
 import Web.Plugins.Core        (pluginName, getPluginRouteFn)
 
 template ::
@@ -31,7 +35,33 @@ template title headers body = do
    siteName <- (fromMaybe "Your Site") <$> query GetSiteName
    backURL  <- query GetBackToSiteRedirect
    p <- plugins <$> get
-   ~(Just authShowURL) <- getPluginRouteFn p (pluginName authenticatePlugin)
+   ~(Just authRouteFn) <- getPluginRouteFn p (pluginName authenticatePlugin)
+--  ~(Just authRouteFn)       <- getPluginRouteFn p (pluginName authenticatePlugin)
+   let authScriptInit =
+          [jmacro|
+            // console.log('xhr request start.');
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function ()
+            {
+              if ((xhr.status == 200) && (xhr.readyState == 4)) {
+                 var r = Function(xhr.responseText)();
+                }
+
+            };
+            xhr.open("GET", `authRouteFn (Auth HappstackAuthenticateClient) []`);
+            xhr.send();
+            |]
+   let -- mkScript :: XMLGenT (ClckT url m) [XML]
+       mkScript =
+           do s <- genElement (Nothing, "script")
+                      [ asAttr ((fromStringLit "type" := fromStringLit "text/javascript") :: Attr TL.Text TL.Text)
+                      , asAttr ((fromStringLit "id" := fromStringLit "happstack-authenticate-script") :: Attr TL.Text TL.Text)
+                      -- FIXME: shouldn't be hard coded, though it is unlikely to change.
+                      , asAttr ((fromStringLit "data-base-url" := fromStringLit "/authenticate/auth") :: Attr TL.Text TL.Text)
+                      ]
+                      [asChild (displayT $ renderOneLine $ renderPrefixJs (show 1) authScriptInit)]
+              pure [s]
+
    toResponse <$> (unXMLGenT $ [hsx|
     <html>
      <head>
@@ -41,7 +71,7 @@ template title headers body = do
       <script type="text/javascript" src="/jquery/jquery.js" ></script>
       <script type="text/javascript" src="/json2/json2.js" ></script>
       <script type="text/javascript" src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js" ></script>
-      <script src=(authShowURL (Auth HappstackAuthenticateClient) [])></script>
+      <% mkScript %>
       <title><% title %></title>
       <% headers %>
      </head>
