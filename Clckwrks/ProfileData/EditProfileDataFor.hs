@@ -72,7 +72,7 @@ editProfileDataForPage here uid =
                  Nothing  -> calcBaseURI cc
                  (Just b) -> b
 
-               resetLink = (authShowURL ResetPassword []) <> "/#"
+               resetLink = (authShowURL ResetPassword []) <> "/"
            eResetTokenLink <- liftIO $ resetTokenForUserId resetLink (acidStateAuthenticate aps) (acidStatePassword aps) uid
            case eResetTokenLink of
              (Left e) -> template "Reset Password Link" () $

@@ -100,10 +100,10 @@ authenticateInit plugins =
                               , _createUserCallback   = Nothing
                               }
          passwordConfig = PasswordConfig {
-                            _resetLink = authShowFn ResetPassword [] <> "/#"
-                          , _domain = Text.pack $ clckHostname cc
-                          , _passwordAcceptable = const Nothing
-                          }
+                             _resetLink = authShowFn ResetPassword [] <> "/"
+                           , _domain = Text.pack $ clckHostname cc
+                           , _passwordAcceptable = const Nothing
+                           }
 
      passwordState <- openLocalStateFrom (combine (combine basePath "authenticate") "password") initialPasswordState
      passwordConfigTV <- atomically $ newTVar passwordConfig
