@@ -4,7 +4,7 @@ module Clckwrks.Authenticate.Plugin where
 import Control.Concurrent.STM      (atomically)
 import Control.Concurrent.STM.TVar (TVar, newTVar)
 import Clckwrks.Monad
-import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreLoginRedirect, coreReplyToAddress, coreSendmailPath, getAcidState)
+import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreLoginRedirect, coreSignupRedirect, coreReplyToAddress, coreSendmailPath, getAcidState)
 import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.Authenticate.Route (routeAuth)
 import Clckwrks.Authenticate.URL   (AuthURL(..))
@@ -26,6 +26,8 @@ import Data.Text                   (Text)
 import Data.Typeable               (Typeable)
 import qualified Data.Text         as Text
 import qualified Data.Set          as Set
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
 import Happstack.Authenticate.Core  (tokenUser, userId)
@@ -96,13 +98,18 @@ authenticateInit plugins =
                               , _systemReplyToAddress = cs ^. coreReplyToAddress
                               , _systemSendmailPath   = cs ^. coreSendmailPath
                               , _postLoginRedirect    = cs ^. coreLoginRedirect
+                              , _postSignupRedirect   = cs ^. coreSignupRedirect
                               , _happstackAuthenticateClientPath = clckHappstackAuthenticateClientPath cc
                               , _createUserCallback   = Nothing
                               }
          passwordConfig = PasswordConfig {
                              _resetLink = authShowFn ResetPassword [] <> "/"
                            , _domain = Text.pack $ clckHostname cc
-                           , _passwordAcceptable = const Nothing
+                           , _passwordAcceptable =
+                             \t ->
+                               if T.length t >= 8
+                               then Nothing
+                               else Just "Your password must be at least 8 characters, but 14 or more is recommended."
                            }
 
      passwordState <- openLocalStateFrom (combine (combine basePath "authenticate") "password") initialPasswordState

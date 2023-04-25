@@ -58,6 +58,10 @@ editSettingsForm c@CoreState{..} =
              (labelText "after login redirect to"        `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
              (divControls (inputText (fromMaybe mempty _coreLoginRedirect)) `transformEither` toMaybe))
 
+       <*> (divControlGroup $
+             (labelText "after signup redirect to"        `setAttrs` [("class":="control-label") :: Attr Text Text]) ++>
+             (divControls (inputText (fromMaybe mempty _coreSignupRedirect)) `transformEither` toMaybe))
+
        <*> bodyPolicyForm
        <*
         (divControlGroup $ divControls $ inputSubmit "Update" `setAttrs` [("class" := "btn") :: Attr Text Text])
@@ -110,13 +114,14 @@ editSettingsForm c@CoreState{..} =
              then Right $ Nothing
              else Right $ Just txt
 
-      modifyCoreState sn ua rr bts lr bp =
-        c & coreSiteName      .~ sn
-          & coreUACCT         .~ ua
-          & coreRootRedirect  .~ rr
+      modifyCoreState sn ua rr bts lr sr bp =
+        c & coreSiteName       .~ sn
+          & coreUACCT          .~ ua
+          & coreRootRedirect   .~ rr
           & coreBackToSiteRedirect .~ bts
-          & coreLoginRedirect .~ lr
-          & coreBodyPolicy    .~ bp
+          & coreLoginRedirect  .~ lr
+          & coreSignupRedirect .~ sr
+          & coreBodyPolicy     .~ bp
 
 {-
 editUACCTForm :: Maybe UACCT -> ClckForm ClckURL (Maybe UACCT)

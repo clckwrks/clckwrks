@@ -11,7 +11,7 @@
 }:
 mkDerivation {
   pname = "clckwrks";
-  version = "0.23.10";
+  version = "0.29.0";
   src = nix-gitignore.gitignoreSource [] ./.;
   libraryHaskellDepends = [
     acid-state aeson aeson-qq attoparsec base blaze-html bytestring

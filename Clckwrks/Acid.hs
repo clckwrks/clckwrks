@@ -54,7 +54,6 @@ data CoreState_1 = CoreState_1
     , coreUACCT_1         :: Maybe UACCT  -- ^ Google Account UAACT
     , coreRootRedirect_1  :: Maybe Text
     , coreLoginRedirect_1 :: Maybe Text
-
     }
     deriving (Eq, Data, Typeable, Show)
 
@@ -110,11 +109,36 @@ instance Migrate CoreState_3 where
 -- | 'CoreState' holds some values that are required by the core
 -- itself, or which are useful enough to be shared with numerous
 -- plugins/themes.
+data CoreState_4 = CoreState_4
+    { _coreSiteName_4       :: Maybe Text
+    , _coreUACCT_4          :: Maybe UACCT  -- ^ Google Account UAACT
+    , _coreRootRedirect_4   :: Maybe Text
+    , _coreLoginRedirect_4  :: Maybe Text
+    , _coreBackToSiteRedirect_4 :: Text -- ^ where 'Back To <sitename>' link in settings panel should go
+    , _coreFromAddress_4    :: Maybe SimpleAddress
+    , _coreReplyToAddress_4 :: Maybe SimpleAddress
+    , _coreSendmailPath_4   :: Maybe FilePath
+    , _coreEnableOpenId_4   :: Bool -- ^ allow OpenId authentication
+    , _coreBodyPolicy_4     :: (FilePath, Int64, Int64, Int64) -- ^ (temp directory for uploads, maxDisk, maxRAM, maxHeader)
+    }
+    deriving (Eq, Data, Typeable, Show)
+
+instance Migrate CoreState_4 where
+    type MigrateFrom CoreState_4 = CoreState_3
+    migrate (CoreState_3 sn ua rr lr fa rta smp eo bp) = CoreState_4 sn ua rr lr (Text.pack "/") fa rta smp eo bp
+
+$(deriveSafeCopy 4 'extension ''CoreState_4)
+makeLenses ''CoreState_4
+
+-- | 'CoreState' holds some values that are required by the core
+-- itself, or which are useful enough to be shared with numerous
+-- plugins/themes.
 data CoreState = CoreState
     { _coreSiteName       :: Maybe Text
     , _coreUACCT          :: Maybe UACCT  -- ^ Google Account UAACT
     , _coreRootRedirect   :: Maybe Text
     , _coreLoginRedirect  :: Maybe Text
+    , _coreSignupRedirect  :: Maybe Text -- ^ were to redirect to after a new account is created
     , _coreBackToSiteRedirect :: Text -- ^ where 'Back To <sitename>' link in settings panel should go
     , _coreFromAddress    :: Maybe SimpleAddress
     , _coreReplyToAddress :: Maybe SimpleAddress
@@ -125,11 +149,10 @@ data CoreState = CoreState
     deriving (Eq, Data, Typeable, Show)
 
 instance Migrate CoreState where
-    type MigrateFrom CoreState = CoreState_3
-    migrate (CoreState_3 sn ua rr lr fa rta smp eo bp) = CoreState sn ua rr lr (Text.pack "/") fa rta smp eo bp
+    type MigrateFrom CoreState = CoreState_4
+    migrate (CoreState_4 sn ua rr lr bts fa rta smp eo bp) = CoreState sn ua rr lr lr bts fa rta smp eo bp
 
-$(deriveSafeCopy 4 'extension ''CoreState)
-
+$(deriveSafeCopy 5 'extension ''CoreState)
 makeLenses ''CoreState
 
 
@@ -139,6 +162,7 @@ initialCoreState = CoreState
     , _coreUACCT          = Nothing
     , _coreRootRedirect   = Nothing
     , _coreLoginRedirect  = Nothing
+    , _coreSignupRedirect = Nothing
     , _coreBackToSiteRedirect = (Text.pack "/")
     , _coreFromAddress    = Nothing
     , _coreReplyToAddress = Nothing
@@ -195,6 +219,14 @@ getLoginRedirect = view coreLoginRedirect
 setLoginRedirect :: Maybe Text -> Update CoreState ()
 setLoginRedirect path = coreLoginRedirect .= path
 
+-- | get the path that we should redirect to after signup
+getSignupRedirect :: Query CoreState (Maybe Text)
+getSignupRedirect = view coreSignupRedirect
+
+-- | set the path that we should redirect to after signup
+setSignupRedirect :: Maybe Text -> Update CoreState ()
+setSignupRedirect path = coreSignupRedirect .= path
+
 -- | get the From: address for system emails
 getFromAddress :: Query CoreState (Maybe SimpleAddress)
 getFromAddress = view coreFromAddress
@@ -244,6 +276,8 @@ $(makeAcidic ''CoreState
   , 'setBackToSiteRedirect
   , 'getLoginRedirect
   , 'setLoginRedirect
+  , 'getSignupRedirect
+  , 'setSignupRedirect
   , 'getBodyPolicy
   , 'setBodyPolicy
   , 'getSiteName

@@ -4,6 +4,7 @@ module Clckwrks.ProfileData.Acid
     , initialProfileDataState
     , SetProfileData(..)
     , GetProfileData(..)
+    , GetUserIdDisplayNames(..)
     , NewProfileData(..)
     , UpdateProfileData(..)
     , HasRole(..)
@@ -12,7 +13,7 @@ module Clckwrks.ProfileData.Acid
     , RemoveRole(..)
     ) where
 
-import Clckwrks.ProfileData.Types  (ProfileData(..), Role(..), defaultProfileDataFor)
+import Clckwrks.ProfileData.Types  (DisplayName(..), ProfileData(..), Role(..), defaultProfileDataFor)
 import Control.Applicative         ((<$>))
 import Control.Monad.Reader        (ask)
 import Control.Monad.State         (get, put)
@@ -111,9 +112,15 @@ removeRole uid role =
     where
       fn profileData = profileData { roles = Set.delete role (roles profileData) }
 
+getUserIdDisplayNames :: Query ProfileDataState [(UserId, Maybe DisplayName)]
+getUserIdDisplayNames =
+  do pds <- ask
+     pure $ map (\pd ->  (dataFor pd, displayName pd)) (toList (profileData pds))
+
 $(makeAcidic ''ProfileDataState
   [ 'setProfileData
   , 'getProfileData
+  , 'getUserIdDisplayNames
   , 'newProfileData
   , 'updateProfileData
   , 'getRoles
