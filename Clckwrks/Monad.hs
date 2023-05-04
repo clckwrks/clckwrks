@@ -183,7 +183,7 @@ themeTemplate plugins tsid ttl hdrs bdy =
                  do extraHdrs <- map (unXMLGenT . snd) <$> getExtraHeadTags plugins
                     extraHdrsXML <- concat <$> sequence extraHdrs :: ClckT ClckURL (ServerPartT IO) [XML]
                     hdrsXML <- (fmap (map unClckChild) $ unXMLGenT $ asChild hdrs) :: ClckT ClckURL (ServerPartT IO) [XML]
-                    liftIO $ putStrLn $ "extraHdrsXML = " ++ show extraHdrsXML
+                    -- liftIO $ putStrLn $ "extraHdrsXML = " ++ show extraHdrsXML
                     fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl (extraHdrsXML ++ hdrsXML) bdy)
 
 lookupThemeStyle :: ThemeStyleId -> [a] -> Maybe a
