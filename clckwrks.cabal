@@ -105,6 +105,7 @@ Library
      cereal                       >= 0.4  && < 0.6,
      containers                   >= 0.4  && < 0.7,
      directory                    >= 1.1  && < 1.4,
+     exceptions,
      filepath                     >= 1.2  && < 1.5,
      happstack-authenticate       >= 3.0  && < 3.2,
      happstack-hsp                == 7.3.*,
