@@ -314,7 +314,7 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
     -- create sockets to allow `clckwrks-cli` to talk to the databases
-    bracket (openState (basePath </> "core_socket") profileData) closeState $ const $
+    bracket (openState (basePath </> "core_socket") core) closeState $ const $
     bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
     bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
     f (Acid profileData core navBar)
