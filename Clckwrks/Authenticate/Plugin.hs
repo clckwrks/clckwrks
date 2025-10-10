@@ -31,7 +31,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
 import Happstack.Authenticate.Core  (tokenUser, userId)
-import Happstack.Authenticate.Handlers  (AuthenticateState, AuthenticateConfig(..), getToken, usernamePolicy)
+import Happstack.Authenticate.Handlers  (AuthenticateState, AuthenticateConfig(..), GetTurnstile(..), Turnstile(..), getToken, usernamePolicy)
 import Happstack.Authenticate.Route (initAuthentication)
 import Happstack.Authenticate.Password.Handlers (PasswordConfig(..), initialPasswordState)
 import Happstack.Authenticate.Password.Route (initPassword')
@@ -73,7 +73,9 @@ addAuthAdminMenu =
        addAdminMenu ("Authentication", [(Set.fromList [Visitor]      , "Change Password"     , authShowURL ChangePassword [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "OpenId Realm"        , authShowURL OpenIdRealm    [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "Authentication Modes", authShowURL AuthModes      [])])
+       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "Turnstile"           , authShowURL TurnstileConfig [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "View Users"          , authShowURL ViewUsers      [])])
+
 
 authenticateInit
   :: ClckPlugins
@@ -128,6 +130,7 @@ authenticatePluginLoader :: ClckPlugins -> IO ()
 authenticatePluginLoader plugins =
   do ~(Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
      ~(Just aps) <- getPluginState plugins (pluginName authenticatePlugin)
+     mTurnstile <- Acid.query (acidStateAuthenticate aps) GetTurnstile
      -- putStrLn $ "*** authenticatePluginLoader ***"
      let pluginURLs = apsSignupPluginURLs aps
      let script =
@@ -145,14 +148,20 @@ authenticatePluginLoader plugins =
             xhr.send();
             |]
 
+         turnstileKey =
+              case mTurnstile of
+                Nothing -> []
+                (Just turnstile) ->
+                  [asAttr ((fromStringLit "data-turnstile-key" := TL.fromStrict (turnstileSiteKey turnstile)) :: Attr TL.Text TL.Text)]
+
      let mkScript :: XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML]
          mkScript =
            do s <- genElement (Nothing, "script")
-                      [ asAttr ((fromStringLit "type" := fromStringLit "text/javascript") :: Attr TL.Text TL.Text)
+                      ([ asAttr ((fromStringLit "type" := fromStringLit "text/javascript") :: Attr TL.Text TL.Text)
                       , asAttr ((fromStringLit "id" := fromStringLit "happstack-authenticate-script") :: Attr TL.Text TL.Text)
                       -- FIXME: shouldn't be hard coded, though it is unlikely to change.
                       , asAttr ((fromStringLit "data-base-url" := fromStringLit "/authenticate/auth") :: Attr TL.Text TL.Text)
-                      ]
+                      ] ++ turnstileKey)
                       [asChild (displayT $ renderOneLine $ renderPrefixJs (show 1) script)]
               pure [s]
      setExtraHeadTags plugins (pluginName authenticatePlugin, mkScript )
