@@ -24,5 +24,3 @@ createAccountPage =
            <up-signup-password />
           </div>
           |]
-
---             <div class="cf-turnstile" data-sitekey="0x4AAAAAAB5XHoRpWSAmDLBQ"></div>

@@ -16,7 +16,7 @@ import Control.Applicative         ((<$>))
 import Control.Lens                ((^.))
 import Control.Monad.Reader        (ask)
 import Control.Monad.State         (get)
-import Control.Monad.Trans         (MonadIO, lift)
+import Control.Monad.Trans         (MonadIO, lift, liftIO)
 import Data.Acid as Acid           (AcidState, query, openLocalStateFrom)
 import qualified Data.Map          as Map
 import Data.Maybe                  (isJust)
@@ -130,7 +130,6 @@ authenticatePluginLoader :: ClckPlugins -> IO ()
 authenticatePluginLoader plugins =
   do ~(Just authShowFn) <- getPluginRouteFn plugins (pluginName authenticatePlugin)
      ~(Just aps) <- getPluginState plugins (pluginName authenticatePlugin)
-     mTurnstile <- Acid.query (acidStateAuthenticate aps) GetTurnstile
      -- putStrLn $ "*** authenticatePluginLoader ***"
      let pluginURLs = apsSignupPluginURLs aps
      let script =
@@ -148,15 +147,16 @@ authenticatePluginLoader plugins =
             xhr.send();
             |]
 
-         turnstileKey =
-              case mTurnstile of
-                Nothing -> []
-                (Just turnstile) ->
-                  [asAttr ((fromStringLit "data-turnstile-key" := TL.fromStrict (turnstileSiteKey turnstile)) :: Attr TL.Text TL.Text)]
 
      let mkScript :: XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML]
          mkScript =
-           do s <- genElement (Nothing, "script")
+           do mTurnstile <- liftIO $ Acid.query (acidStateAuthenticate aps) GetTurnstile
+              let turnstileKey =
+                    case mTurnstile of
+                      Nothing -> []
+                      (Just turnstile) ->
+                        [asAttr ((fromStringLit "data-turnstile-key" := TL.fromStrict (turnstileSiteKey turnstile)) :: Attr TL.Text TL.Text)]
+              s <- genElement (Nothing, "script")
                       ([ asAttr ((fromStringLit "type" := fromStringLit "text/javascript") :: Attr TL.Text TL.Text)
                       , asAttr ((fromStringLit "id" := fromStringLit "happstack-authenticate-script") :: Attr TL.Text TL.Text)
                       -- FIXME: shouldn't be hard coded, though it is unlikely to change.
