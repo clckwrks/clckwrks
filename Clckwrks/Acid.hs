@@ -321,37 +321,22 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
     bracket (openLocalStateFrom (basePath </> "rebac")       initialRebacState)       (createArchiveCheckpointAndClose) $ \rebac ->
     -- create sockets to allow `clckwrks-cli` to talk to the databases
-#if MIN_VERSION_acid_state (0,16,0)
-    bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "core_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "core_socket"))) $ const $
-
-#else
-    bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "core_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "core_socket"))) $ const $
-#endif
-#if MIN_VERSION_acid_state (0,16,0)
-    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "profileData_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))) $ const $
-#else
-    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "profileData_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))) $ const $
-#endif
-#if MIN_VERSION_acid_state (0,16,0)
-    bracket (forkIO (tryRemoveFile (basePath </> "navBar_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "navBar_socket") navBar))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "navBar_socket"))) $ const $
-#else
-    bracket (forkIO (tryRemoveFile (basePath </> "navBar_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "navBar_socket") navBar))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "navBar_socket"))) $ const $
-#endif
-#if MIN_VERSION_acid_state (0,16,0)
-    bracket (forkIO (tryRemoveFile (basePath </> "rebac_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "rebac_socket") rebac))
-            (\tid -> killThread tid >> tryRemoveFile (basePath </> "rebac_socket"))
-#else
-    bracket (forkIO (tryRemoveFile (basePath </> "rebac_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "rebac_socket") rebac))
-            (\tid -> killThread tid >> tryRemoveFile (basePath </> "rebac_socket"))
-#endif
-            (const $ f (Acid profileData core navBar rebac))
+    bracket (openState (basePath </> "core_socket") core) closeState $ const $
+    bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
+    bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
+    bracket (openState (basePath </> "rebac_socket") rebac) closeState $ const $
     where
+ #if MIN_VERSION_acid_state (0,16,0)
+      openState :: forall st. FilePath -> AcidState st -> m ThreadId
+      openState socketName acidState = forkIO (tryRemoveFile socketName >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix socketName) acidState)
+      closeState :: ThreadId -> m ()
+      closeState {-socketName-} tid = liftIO (killThread tid {->> tryRemoveFile socketName-})
+#else
+      openState :: forall st. FilePath -> AcidState st -> m ThreadId
+      openState socketName acidState = forkIO (tryRemoveFile socketName >> acidServer skipAuthenticationCheck (UnixSocket socketName) acidState)
+      closeState :: ThreadId -> m ()
+      closeState {-socketName-} tid = liftIO (killThread tid {->> tryRemoveFile socketName-})
+#endif
       openLocalStateFrom path ini = liftIO $ Data.Acid.Local.openLocalStateFrom path ini
       forkIO = liftIO . Control.Concurrent.forkIO
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)
