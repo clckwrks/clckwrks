@@ -12,7 +12,7 @@ import Control.Applicative         ((<$>))
 import Control.Exception           (throw)
 import Control.Lens                ((?=), (.=), (^.), (.~), makeLenses, view, set)
 import Control.Lens.At             (IxValue(..), Ixed(..), Index(..), At(at))
-import Control.Concurrent          (killThread, forkIO)
+import Control.Concurrent          (killThread, forkIO, ThreadId)
 import Control.Monad.Catch         (bracket, catch, MonadMask)
 import Control.Monad.IO.Class      (liftIO, MonadIO)
 import Control.Monad.Reader        (ask)
@@ -312,7 +312,7 @@ data Acid = Acid
 class GetAcidState m st where
     getAcidState :: m (AcidState st)
 
-withAcid :: (MonadIO m, MonadMask m) => Maybe FilePath -> (Acid -> m a) -> m a
+withAcid :: forall m a. (MonadIO m, MonadMask m) => Maybe FilePath -> (Acid -> m a) -> m a
 withAcid mBasePath f =
     let basePath = fromMaybe "_state" mBasePath in
     -- open acid-state databases
@@ -325,8 +325,9 @@ withAcid mBasePath f =
     bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
     bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
     bracket (openState (basePath </> "rebac_socket") rebac) closeState $ const $
+    f (Acid profileData core navBar rebac)
     where
- #if MIN_VERSION_acid_state (0,16,0)
+#if MIN_VERSION_acid_state (0,16,0)
       openState :: forall st. FilePath -> AcidState st -> m ThreadId
       openState socketName acidState = forkIO (tryRemoveFile socketName >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix socketName) acidState)
       closeState :: ThreadId -> m ()
