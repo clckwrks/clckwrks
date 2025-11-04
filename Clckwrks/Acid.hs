@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, DeriveDataTypeable, DeriveGeneric, FlexibleInstances, MultiParamTypeClasses, QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.Acid where
 
 import AccessControl.Relation      (ObjectType(..), Relation(..), RelationTuple(..), object, rels)
