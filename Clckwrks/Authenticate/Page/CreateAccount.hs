@@ -13,8 +13,14 @@ import Language.Haskell.HSX.QQ (hsx)
 createAccountPage :: ClckT ClckURL (ServerPartT IO) Response
 createAccountPage =
   do plugins <- plugins <$> get
-     themeTemplate plugins (ThemeStyleId 0) "Create New Account" () [hsx|
-      <div class="happstack-authenticate happstack-authenticate-create-account">
-       <h2>Create A New Account</h2>
-       <up-signup-password />
-      </div> |]
+     themeTemplate plugins (ThemeStyleId 0) "Create New Account"
+        [hsx|
+           <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer=""></script>
+        |]
+        [hsx|
+          <div class="happstack-authenticate happstack-authenticate-create-account">
+           <h2>Create A New Account</h2>
+
+           <up-signup-password />
+          </div>
+          |]

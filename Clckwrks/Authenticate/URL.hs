@@ -19,6 +19,7 @@ data AuthURL
   | OpenIdRealm
   | AuthModes
   | ViewUsers
+  | TurnstileConfig
   deriving (Eq, Ord, Data, Typeable, Generic, Read, Show)
 
 derivePathInfo ''AuthURL

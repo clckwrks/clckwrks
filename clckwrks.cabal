@@ -55,6 +55,7 @@ Library
                    Clckwrks.Authenticate.Page.Login
                    Clckwrks.Authenticate.Page.OpenIdRealm
                    Clckwrks.Authenticate.Page.ResetPassword
+                   Clckwrks.Authenticate.Page.Turnstile
                    Clckwrks.Authenticate.Page.ViewUsers
                    Clckwrks.Authenticate.Plugin
                    Clckwrks.Authenticate.Route

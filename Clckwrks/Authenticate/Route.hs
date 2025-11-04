@@ -11,6 +11,7 @@ import Clckwrks.Authenticate.Page.CreateAccount  (createAccountPage)
 import Clckwrks.Authenticate.Page.ForgotPassword (forgotPasswordPage)
 import Clckwrks.Authenticate.Page.ResetPassword  (resetPasswordPage)
 import Clckwrks.Authenticate.Page.OpenIdRealm    (openIdRealmPanel)
+import Clckwrks.Authenticate.Page.Turnstile      (turnstileConfig)
 import Clckwrks.Authenticate.Page.ViewUsers      (viewUsers)
 import Clckwrks.ProfileData.API    (Role(..), requiresRole_)
 import Clckwrks.URL                (ClckURL)
@@ -46,6 +47,7 @@ routeAuth routeAuthenticate u' =
        OpenIdRealm    -> withClckURL openIdRealmPanel
        AuthModes      -> authModesPage u
        ViewUsers      -> withClckURL viewUsers
+       TurnstileConfig -> turnstileConfig u
 
 checkAuth :: (Happstack m, Monad m) =>
              AuthURL
@@ -64,3 +66,4 @@ checkAuth url =
        ForgotPassword -> pure url
        OpenIdRealm    -> requiresRole (Set.fromList [Administrator]) url
        ViewUsers      -> requiresRole (Set.fromList [Administrator]) url
+       TurnstileConfig -> requiresRole (Set.fromList [Administrator]) url
