@@ -18,6 +18,7 @@ module Clckwrks.Monad
     , ThemeName
     , getThemeStyles
     , themeTemplate
+    , themeTemplate'
     , calcBaseURI
     , calcTLSBaseURI
     , evalClckT
@@ -185,6 +186,32 @@ themeTemplate plugins tsid ttl hdrs bdy =
                     hdrsXML <- (fmap (map unClckChild) $ unXMLGenT $ asChild hdrs) :: ClckT ClckURL (ServerPartT IO) [XML]
                     -- liftIO $ putStrLn $ "extraHdrsXML = " ++ show extraHdrsXML
                     fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl (extraHdrsXML ++ hdrsXML) bdy)
+
+themeTemplate' :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) prependHeaders
+                  , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) appendHeaders
+                  , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body
+                  ) =>
+                 ClckPlugins
+              -> ThemeStyleId
+              -> T.Text
+              -> prependHeaders
+              -> appendHeaders
+              -> body
+              -> ClckT ClckURL (ServerPartT IO) Response
+themeTemplate' plugins tsid ttl preHdrs appHdrs bdy =
+    do mTheme <- getTheme plugins
+       case mTheme of
+         Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: T.Text)
+         (Just theme) ->
+             case lookupThemeStyle tsid (themeStyles theme) of
+               Nothing -> escape $ internalServerError $ toResponse $ ("The current theme does not seem to contain any theme styles." :: T.Text)
+               (Just themeStyle) ->
+                 do extraHdrs <- map (unXMLGenT . snd) <$> getExtraHeadTags plugins
+                    extraHdrsXML <- concat <$> sequence extraHdrs :: ClckT ClckURL (ServerPartT IO) [XML]
+                    preHdrsXML <- (fmap (map unClckChild) $ unXMLGenT $ asChild preHdrs) :: ClckT ClckURL (ServerPartT IO) [XML]
+                    appHdrsXML <- (fmap (map unClckChild) $ unXMLGenT $ asChild appHdrs) :: ClckT ClckURL (ServerPartT IO) [XML]
+                    -- liftIO $ putStrLn $ "extraHdrsXML = " ++ show extraHdrsXML
+                    fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl (preHdrsXML ++ extraHdrsXML ++ appHdrsXML) bdy)
 
 lookupThemeStyle :: ThemeStyleId -> [a] -> Maybe a
 lookupThemeStyle                   _ [] = Nothing
