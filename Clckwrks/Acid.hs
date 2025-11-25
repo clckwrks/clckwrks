@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.Acid where
 
 import Clckwrks.NavBar.Acid        (NavBarState       , initialNavBarState)
@@ -9,7 +9,7 @@ import Control.Applicative         ((<$>))
 import Control.Exception           (throw)
 import Control.Lens                ((?=), (.=), (^.), (.~), makeLenses, view, set)
 import Control.Lens.At             (IxValue(..), Ixed(..), Index(..), At(at))
-import Control.Concurrent          (killThread, forkIO)
+import Control.Concurrent          (killThread, forkIO, ThreadId)
 import Control.Monad.Catch         (bracket, catch, MonadMask)
 import Control.Monad.IO.Class      (liftIO, MonadIO)
 import Control.Monad.Reader        (ask)
@@ -306,7 +306,7 @@ data Acid = Acid
 class GetAcidState m st where
     getAcidState :: m (AcidState st)
 
-withAcid :: (MonadIO m, MonadMask m) => Maybe FilePath -> (Acid -> m a) -> m a
+withAcid :: forall m a. (MonadIO m, MonadMask m) => Maybe FilePath -> (Acid -> m a) -> m a
 withAcid mBasePath f =
     let basePath = fromMaybe "_state" mBasePath in
     -- open acid-state databases
@@ -314,30 +314,22 @@ withAcid mBasePath f =
     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
     -- create sockets to allow `clckwrks-cli` to talk to the databases
-#if MIN_VERSION_acid_state (0,16,0)
-    bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "core_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "core_socket"))) $ const $
-
-#else
-    bracket (forkIO (tryRemoveFile (basePath </> "core_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "core_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "core_socket"))) $ const $
-#endif
-#if MIN_VERSION_acid_state (0,16,0)
-    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "profileData_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))) $ const $
-#else
-    bracket (forkIO (tryRemoveFile (basePath </> "profileData_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "profileData_socket") profileData))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "profileData_socket"))) $ const $
-#endif
-#if MIN_VERSION_acid_state (0,16,0)
-    bracket (forkIO (tryRemoveFile (basePath </> "navBar_socket") >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix $ basePath </> "navBar_socket") navBar))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "navBar_socket")))
-#else
-    bracket (forkIO (tryRemoveFile (basePath </> "navBar_socket") >> acidServer skipAuthenticationCheck (UnixSocket $ basePath </> "navBar_socket") navBar))
-            (\tid -> liftIO (killThread tid >> tryRemoveFile (basePath </> "navBar_socket")))
-#endif
-            (const $ f (Acid profileData core navBar))
+    bracket (openState (basePath </> "core_socket") core) closeState $ const $
+    bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
+    bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
+    f (Acid profileData core navBar)
     where
+#if MIN_VERSION_acid_state (0,16,0)
+      openState :: forall st. FilePath -> AcidState st -> m ThreadId
+      openState socketName acidState = forkIO (tryRemoveFile socketName >> acidServerSockAddr skipAuthenticationCheck (SockAddrUnix socketName) acidState)
+      closeState :: ThreadId -> m ()
+      closeState {-socketName-} tid = liftIO (killThread tid {->> tryRemoveFile socketName-})
+#else
+      openState :: forall st. FilePath -> AcidState st -> m ThreadId
+      openState socketName acidState = forkIO (tryRemoveFile socketName >> acidServer skipAuthenticationCheck (UnixSocket socketName) acidState)
+      closeState :: ThreadId -> m ()
+      closeState {-socketName-} tid = liftIO (killThread tid {->> tryRemoveFile socketName-})
+#endif
       openLocalStateFrom path ini = liftIO $ Data.Acid.Local.openLocalStateFrom path ini
       forkIO = liftIO . Control.Concurrent.forkIO
       tryRemoveFile fp = removeFile fp `catch` (\e -> if isDoesNotExistError e then return () else throw e)

@@ -16,7 +16,7 @@ import Control.Applicative         ((<$>))
 import Control.Lens                ((^.))
 import Control.Monad.Reader        (ask)
 import Control.Monad.State         (get)
-import Control.Monad.Trans         (MonadIO, lift)
+import Control.Monad.Trans         (MonadIO, lift, liftIO)
 import Data.Acid as Acid           (AcidState, query, openLocalStateFrom)
 import qualified Data.Map          as Map
 import Data.Maybe                  (isJust)
@@ -31,7 +31,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
 import Happstack.Authenticate.Core  (tokenUser, userId)
-import Happstack.Authenticate.Handlers  (AuthenticateState, AuthenticateConfig(..), getToken, usernamePolicy)
+import Happstack.Authenticate.Handlers  (AuthenticateState, AuthenticateConfig(..), GetTurnstile(..), Turnstile(..), getToken, usernamePolicy)
 import Happstack.Authenticate.Route (initAuthentication)
 import Happstack.Authenticate.Password.Handlers (PasswordConfig(..), initialPasswordState)
 import Happstack.Authenticate.Password.Route (initPassword')
@@ -73,7 +73,9 @@ addAuthAdminMenu =
        addAdminMenu ("Authentication", [(Set.fromList [Visitor]      , "Change Password"     , authShowURL ChangePassword [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "OpenId Realm"        , authShowURL OpenIdRealm    [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "Authentication Modes", authShowURL AuthModes      [])])
+       addAdminMenu ("Authentication", [(Set.fromList [Administrator], "Turnstile"           , authShowURL TurnstileConfig [])])
        addAdminMenu ("Authentication", [(Set.fromList [Administrator], "View Users"          , authShowURL ViewUsers      [])])
+
 
 authenticateInit
   :: ClckPlugins
@@ -133,26 +135,35 @@ authenticatePluginLoader plugins =
      let script =
           [jmacro|
             // console.log('xhr request start.');
-            var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function ()
-            {
-              if ((xhr.status == 200) && (xhr.readyState == 4)) {
-                 var r = Function(xhr.responseText)();
+            window.addEventListener("load", function(event) {
+              var xhr = new XMLHttpRequest();
+              xhr.onreadystatechange = function ()
+              {
+                if ((xhr.status == 200) && (xhr.readyState == 4)) {
+                   var r = Function(xhr.responseText)();
                 }
 
-            };
-            xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) []`);
-            xhr.send();
+              };
+              xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) []`);
+              xhr.send();
+            });
             |]
+
 
      let mkScript :: XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML]
          mkScript =
-           do s <- genElement (Nothing, "script")
-                      [ asAttr ((fromStringLit "type" := fromStringLit "text/javascript") :: Attr TL.Text TL.Text)
+           do mTurnstile <- liftIO $ Acid.query (acidStateAuthenticate aps) GetTurnstile
+              let turnstileKey =
+                    case mTurnstile of
+                      Nothing -> []
+                      (Just turnstile) ->
+                        [asAttr ((fromStringLit "data-turnstile-key" := TL.fromStrict (turnstileSiteKey turnstile)) :: Attr TL.Text TL.Text)]
+              s <- genElement (Nothing, "script")
+                      ([ asAttr ((fromStringLit "type" := fromStringLit "text/javascript") :: Attr TL.Text TL.Text)
                       , asAttr ((fromStringLit "id" := fromStringLit "happstack-authenticate-script") :: Attr TL.Text TL.Text)
                       -- FIXME: shouldn't be hard coded, though it is unlikely to change.
                       , asAttr ((fromStringLit "data-base-url" := fromStringLit "/authenticate/auth") :: Attr TL.Text TL.Text)
-                      ]
+                      ] ++ turnstileKey)
                       [asChild (displayT $ renderOneLine $ renderPrefixJs (show 1) script)]
               pure [s]
      setExtraHeadTags plugins (pluginName authenticatePlugin, mkScript )
