@@ -1,16 +1,21 @@
-{-# LANGUAGE CPP, DeriveDataTypeable, DeriveGeneric, FlexibleInstances, MultiParamTypeClasses, QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
 module Clckwrks.Rebac.Acid where
 
 import AccessControl.Relation      (ObjectType(..), Relation(..), RelationTuple(..), Tag(..), hasTag, object, rels)
-import AccessControl.Schema        (Schema, schema)
+import AccessControl.Schema        (Schema(definitions), parseSchema, schema)
+import AccessControl.Validate      (RelPerm(..), Valid(..), ValidationError(..), isValid, mkDefMap, ppValidationError, validate)
+import Clckwrks.Rebac.Types        (SchemaId(..), SchemaText(..))
 import Control.Monad.Reader        (ask)
 import Control.Monad.State         (put, get)
 import Data.Acid                   (Query, Update, makeAcidic)
 import Data.Data                   (Data)
 import Data.List                   (partition, union)
+import           Data.Map          (Map)
+import qualified Data.Map          as Map
 import Data.SafeCopy               (SafeCopy(..), base, contain, safeGet, safePut)
+import Data.String.QQ              (s)
 import Data.Time.Clock             (UTCTime)
-import Data.Time.Clock.POSIX       (posixSecondsToUTCTime)
+import Data.Time.Clock.POSIX       (getCurrentTime)
 import Data.Text                   (Text)
 import Data.Typeable               (Typeable)
 import GHC.Generics                (Generic)
@@ -39,13 +44,19 @@ instance SafeCopy RLEAction where version = 1 ; kind = base
 It may seem like the Timestamp and Transaction Id are nearly duplicates. But fast transactions could result in identical time stamps and there are sitautions where the clock could appear to jump back in time.
 
 -}
-data RelationLogEntry = RelationLogEntry
-  { rleTimestamp     :: UTCTime
-  , rleRelationTuple :: RelationTuple
-  , rleAction        :: RLEAction
-  , rleComment       :: Text
-  , rleTxId          :: RelationTxId
-  }
+data RelationLogEntry
+  = RelationLogEntry
+    { rleTimestamp     :: UTCTime
+    , rleRelationTuple :: RelationTuple
+    , rleAction        :: RLEAction
+    , rleComment       :: Text
+    , rleTxId          :: RelationTxId
+    }
+  | SchemaUpdate
+    { rleSchemaUpdateTimestamp :: UTCTime
+    , rleSchemaId              :: SchemaId
+    , rleComment               :: Text
+    }
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 
 instance SafeCopy RelationLogEntry where version = 1 ; kind = base
@@ -84,16 +95,102 @@ It is not clear that modifying a relation is a sensible operation.
 
 Let's stick with read/write/delete.
 
+The `rsDefMap` is derived from the Schema. It seems a bit silly to
+have both the Schema and the DefMap in the acid-state. But we do
+actually need use the data in both forms. We could modify the
+`SafeCopy` instance so that when the data is serialized, the DefMap
+make is not actually stored, and is instead recalculated during
+deserialization. But that seems like premature optimization.
+
 -}
 
 data RebacState = RebacState
-  { rsTuples :: [ RelationTuple ]    -- currently important tuples
-  , rsLog    :: [ RelationLogEntry ] -- how did we get here
-  , rsTxId   :: RelationTxId         -- next unassigned TxId
+  { rsSchema        :: SchemaText           -- currently active schema
+  , rsSchemaHistory :: Map SchemaId SchemaText
+  , rsDefMap        :: Map Text RelPerm     -- derived from Schema.
+  , rsTuples        :: [ RelationTuple ]    -- currently important tuples
+  , rsLog           :: [ RelationLogEntry ] -- how did we get here
+  , rsTxId          :: RelationTxId         -- next unassigned TxId
+  , rsSchemaId      :: SchemaId             -- next unassigned SchemaId
   }
   deriving (Eq, Ord, Read, Show, Generic)
 
 instance SafeCopy RebacState where version = 1 ; kind = base
+
+getSchema :: Query RebacState SchemaText
+getSchema = rsSchema <$> ask
+
+getSchemaById :: SchemaId -> Query RebacState (Maybe SchemaText)
+getSchemaById schemaId =
+  do sh <- rsSchemaHistory <$> ask
+     pure $ Map.lookup schemaId sh
+
+data UpdateSchemaError
+  = SchemaDoesNotAllowRelations [ValidationError]
+  | SchemaParseError String
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy UpdateSchemaError where version = 1 ; kind = base
+
+ppUpdateSchemaError :: UpdateSchemaError -> Doc
+ppUpdateSchemaError (SchemaDoesNotAllowRelations vErrors) = PP.text "Schema does not allow the following relations. " $+$ (PP.nest 2 (PP.vcat $ map ppValidationError vErrors))
+ppUpdateSchemaError (SchemaParseError errStr) = (PP.text "Schema parse error") <+> (PP.vcat $ map PP.text (lines errStr))
+
+data UpdateSchemaResult
+  = SchemaUpdated SchemaId
+  | SchemaUpdateFailed UpdateSchemaError
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy UpdateSchemaResult where version = 1 ; kind = base
+
+updateSchema :: UTCTime -> SchemaText -> Text -> Update RebacState UpdateSchemaResult
+updateSchema now newSchemaText@(SchemaText schemaText) comment =
+  do case parseSchema schemaText of
+       (Left e) -> pure (SchemaUpdateFailed (SchemaParseError e))
+       (Right newSchema) ->
+         do rs <- get
+            let newDefMap = mkDefMap (definitions newSchema)
+            case partition isValid (map (validate newDefMap) (rsTuples rs)) of
+              (_, []) ->
+                do let rle = SchemaUpdate { rleSchemaUpdateTimestamp = now
+                                          , rleSchemaId              = (rsSchemaId rs)
+                                          , rleComment               = comment
+                                          }
+                   put $ rs { rsSchema = newSchemaText
+                            , rsSchemaHistory = Map.insert (rsSchemaId rs) newSchemaText (rsSchemaHistory rs)
+                            , rsDefMap = newDefMap
+                            , rsLog    = rle : (rsLog rs)
+                            , rsSchemaId = succ (rsSchemaId rs)
+                            }
+                   pure (SchemaUpdated (rsSchemaId rs))
+              (_, rejected) ->
+                pure (SchemaUpdateFailed (SchemaDoesNotAllowRelations (map (\(NotValid a) -> a) rejected)))
+
+checkSchema :: SchemaText -> Query RebacState (Maybe UpdateSchemaError)
+checkSchema newSchemaText@(SchemaText schemaText) =
+  case parseSchema schemaText of
+    (Left e) -> pure (Just (SchemaParseError e))
+    (Right newSchema) ->
+      do rs <- ask
+         let newDefMap = mkDefMap (definitions newSchema)
+         case partition isValid (map (validate newDefMap) (rsTuples rs)) of
+           (_, []) -> pure Nothing
+           (_, rejected) ->
+             pure (Just (SchemaDoesNotAllowRelations (map (\(NotValid a) -> a) rejected)))
+
+
+getDefMap :: Query RebacState (Map Text RelPerm)
+getDefMap = rsDefMap <$> ask
+
+data AddRelationTupleError
+  = RelationTupleNotValid ValidationError
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy AddRelationTupleError
+
+ppAddRelationTupleError :: AddRelationTupleError -> Doc
+ppAddRelationTupleError (RelationTupleNotValid ve) =
+  ppValidationError ve
 
 -- | add a 'RelationTuple' to the database
 --
@@ -104,26 +201,30 @@ instance SafeCopy RebacState where version = 1 ; kind = base
 addRelationTuple :: RelationTuple -- ^ 'RelationTuple' to add
                  -> UTCTime       -- ^ approximate wall time this relation tuple was added
                  -> Text          -- ^ a human readable comment explaining how/why this relation got added
-                 -> Update RebacState RelationLogEntry
+                 -> Update RebacState (Either AddRelationTupleError RelationLogEntry)
 addRelationTuple rt now comment =
   do rs <- get
-     let rle = (RelationLogEntry { rleTimestamp     = now
-                                 , rleRelationTuple = rt
-                                 , rleAction        = RLEAdd
-                                 , rleComment       = comment
-                                 , rleTxId          = rsTxId rs
-                                 })
-     put $ rs { rsTuples = if rt `elem` (rsTuples rs) then (rsTuples rs) else (rt : (rsTuples rs))  -- don't insert into rsTuples cache if it already exists
-              , rsLog = rle : (rsLog rs)
-              , rsTxId = succRelationIxId (rsTxId rs)
-              }
-     pure rle
+     case validate (rsDefMap rs) rt of
+       Valid ->
+         do let rle = (RelationLogEntry { rleTimestamp     = now
+                                         , rleRelationTuple = rt
+                                         , rleAction        = RLEAdd
+                                         , rleComment       = comment
+                                         , rleTxId          = rsTxId rs
+                                         })
+            put $ rs { rsTuples = if rt `elem` (rsTuples rs) then (rsTuples rs) else (rt : (rsTuples rs))  -- don't insert into rsTuples cache if it already exists
+                     , rsLog = rle : (rsLog rs)
+                     , rsTxId = succRelationIxId (rsTxId rs)
+                     }
+            pure (Right rle)
+       (NotValid ve) ->
+         pure (Left (RelationTupleNotValid ve))
 
 
 
 addRelationTuples :: [RelationTuple] -- ^ 'RelationTuple's to add
-                  -> UTCTime       -- ^ approximate wall time this relation tuple was added
-                  -> Text          -- ^ a human readable comment explaining how/why this relation got added
+                  -> UTCTime         -- ^ approximate wall time this relation tuple was added
+                  -> Text            -- ^ a human readable comment explaining how/why this relation got added
                   -> Update RebacState [RelationLogEntry]
 addRelationTuples [] now comment = pure []
 addRelationTuples rts now comment =
@@ -217,6 +318,11 @@ makeAcidic ''RebacState
  , 'replaceRelationTuplesByTag
  , 'getRelationTuples
  , 'getRelationLog
+ , 'getDefMap
+ , 'getSchema
+ , 'getSchemaById
+ , 'checkSchema
+ , 'updateSchema
  ]
 
 
@@ -228,9 +334,9 @@ makeAcidic ''RebacState
 -- from the database so that the schema updates can be tracked in a
 -- revision control system?
 
-clckwrksSchema :: Schema
-clckwrksSchema =
-  [schema|
+clckwrksSchema :: SchemaText
+clckwrksSchema = SchemaText
+  [s|
          definition user {}
 
          definition platform {
@@ -279,7 +385,7 @@ clckwrksSchema =
          /* schema for clckwrks-plugin-page */
          definition page {
            relation admin: user
-           relation viewer: user | usergroup#member
+           relation viewer: user | usergroup#member | user:*
 
            permission view = viewer + admin
            permission edit = admin
@@ -300,10 +406,10 @@ clckwrksSchema =
 
 clckwrksRels :: [ RelationTuple ]
 clckwrksRels =
+--          page:admin#controller@platform:clckwrks                     # platform admins are also page admins
   [rels|
          platform:clckwrks#administrator@user:1                      # security warning - the first account created automatically gets admin access
          clck:admin#controller@platform:clckwrks                     # platform admins are also clck admins
-         page:admin#controller@platform:clckwrks                     # platform admins are also page admins
          page:1#viewer@user:*
          rebac_api:schema#controller@platform:clckwrks
          rebac_api:relations#controller@platform:clckwrks
@@ -319,12 +425,33 @@ clckwrksRels =
 -- we want to populate the relation log to include the entries that
 -- were originally added by `initialRebacState`. Those entries will
 -- have a timestamp of epoch time.
-initialRebacState :: RebacState
-initialRebacState = RebacState
-  { rsTuples = clckwrksRels
+initialRebacState :: IO RebacState
+initialRebacState =
+  do now <- getCurrentTime
+     pure $ RebacState
+       { rsSchema    = clckwrksSchema
+       , rsSchemaHistory = Map.singleton (SchemaId 1) clckwrksSchema
+       , rsDefMap    = case parseSchema (unSchemaText clckwrksSchema) of
+                         (Right s) -> mkDefMap (definitions s)
+       , rsTuples    = clckwrksRels
+       , rsLog       = (map (fakeLog now) clckwrksRels) ++ [SchemaUpdate now (SchemaId 1) "initial schema"]
+       , rsTxId      = RelationTxId 1
+       , rsSchemaId  = SchemaId 2
+       }
+  where
+    fakeLog :: UTCTime -> RelationTuple -> RelationLogEntry
+    fakeLog now rt = RelationLogEntry now rt RLEAdd "initial rebac state" (RelationTxId 0)
+
+    {-
+initialRebacState :: SchemaText -> RebacState
+initialRebacState schemaText = RebacState
+  { rsSchema = schemaText
+  , rsDefMap = mkDefMap (definitions schema)
+  , rsTuples = clckwrksRels
   , rsLog    = map fakeLog clckwrksRels
   , rsTxId   = RelationTxId 1
   }
   where
     fakeLog :: RelationTuple -> RelationLogEntry
     fakeLog rt = RelationLogEntry (posixSecondsToUTCTime 0) rt RLEAdd "initial rebac state" (RelationTxId 0)
+-}

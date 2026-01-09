@@ -2,7 +2,7 @@
 module Clckwrks.Rebac.Page.RelationLog where
 
 import AccessControl.Schema          (KnownPermission, Permission(..), ToPermission(..), Schema(..), ppSchema, knownObjectTypes, knownRelations)
-import AccessControl.Relation        (Object(..), ObjectId(..), ObjectType(..), Relation(..), RelationTuple(..), ToObject(..), ToRelation(..), WildcardObjectId(..), Tag(..), ppRelationTuple, ppRelationTuples)
+import AccessControl.Relation        (Object(..), ObjectId(..), ObjectType(..), Relation(..), RelationTuple(..), ToObject(..), ToRelation(..), WildcardObjectId(..), Tag(..), formatExpiration, ppRelationTuple, ppRelationTuples)
 import Clckwrks
 import Clckwrks.AccessControl      (checkAccess)
 import Clckwrks.Monad              (plugins)
@@ -12,6 +12,7 @@ import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.ProfileData.Acid   (GetProfileData(..), SetProfileData(..))
 import Clckwrks.Rebac.Acid         (RelationLogEntry(..), RLEAction(..), RelationTxId(..))
 import Clckwrks.Rebac.API          (RebacApi(..), addRelationTuple, removeRelationTuple, getRelationLog)
+import Clckwrks.Rebac.Types        (SchemaId(..))
 import Clckwrks.Rebac.URL          (RebacURL(..))
 import Clckwrks.Unauthorized       (unauthorizedPage)
 import Control.Monad.State         (get)
@@ -56,7 +57,7 @@ relationLogTable logEntries =
        <caption>Relation Log</caption>
        <thead>
         <tr>
-         <th colspan="7">Relation</th>
+         <th colspan="8">Relation</th>
          <th>Timestamp</th>
          <th>Action</th>
          <th>TxId</th>
@@ -65,7 +66,7 @@ relationLogTable logEntries =
         <tr>
          <th colspan="2">Resource</th>
          <th>Relation</th>
-         <th colspan="3">Subject</th>
+         <th colspan="5">Subject</th>
         </tr>
         <tr>
          <th>Object Type</th>
@@ -74,6 +75,7 @@ relationLogTable logEntries =
          <th>Object Type</th>
          <th>Object ID</th>
          <th>Subject Relation</th>
+         <th>Expiration</th>
          <th>Tag</th>
         </tr>
        </thead>
@@ -89,7 +91,16 @@ relationLogTable logEntries =
       showAction :: RLEAction -> Text
       showAction RLEAdd    = "added"
       showAction RLERemove = "removed"
-      mkRow (RelationLogEntry ts (RelationTuple (Object (ObjectType rot) (ObjectId rid)) (Relation rel) (Object (ObjectType sot) wsid) mSubRel mTag) action comment (RelationTxId txId)) =
+      mkRow (SchemaUpdate updatedAt schemaId@(SchemaId schemaIdInt) comment) =
+        do u <- showURL (ViewSchema schemaId)
+           [hsx| <tr>
+                   <td colspan="8">Updated Schema to <a href=u><% show schemaIdInt %></a></td>
+                   <td><% show updatedAt %></td>
+                   <td></td>
+                   <td></td>
+                   <td colspan="1"><% comment %></td>
+                 </tr> |]
+      mkRow (RelationLogEntry ts (RelationTuple (Object (ObjectType rot) (ObjectId rid)) (Relation rel) (Object (ObjectType sot) wsid) mSubRel mTag mExpiration) action comment (RelationTxId txId)) =
         let sid = case wsid of
                     Wildcard -> "*"
                     (Specific (ObjectId i)) -> i
@@ -102,6 +113,7 @@ relationLogTable logEntries =
                <td><% sid %></td>
                <td><% maybe "" (\(Relation r) -> r) mSubRel %></td>
                <td><% maybe "" unTag mTag %></td>
+               <td><% maybe "" formatExpiration mExpiration %></td>
                <td><% show ts %></td>
                <td><% showAction action %></td>
                <td><% Text.pack $ show txId %></td>

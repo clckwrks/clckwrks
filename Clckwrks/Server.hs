@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes, RecordWildCards #-}
 module Clckwrks.Server where
 
-import AccessControl.Check          (mkDefMap)
 import AccessControl.Schema         (Schema(definitions), parseSchema, ppSchema)
+import AccessControl.Validate       (mkDefMap)
 import Clckwrks
 import Clckwrks.Admin.Route         (routeAdmin)
 import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), calcBaseURI, calcTLSBaseURI, initialClckPluginsSt)
@@ -12,6 +12,7 @@ import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), calcBa
 import Clckwrks.ProfileData.Types   (Role(..))
 import Clckwrks.ProfileData.URL     (ProfileDataURL(..))
 import Clckwrks.Rebac.Acid          (clckwrksSchema)
+import Clckwrks.Rebac.Types         (SchemaText(..))
 import Control.Arrow                (second)
 import Control.Concurrent           (forkIO, killThread)
 import Control.Concurrent.STM       (atomically, newTVar, readTVar)
@@ -32,6 +33,7 @@ import qualified Data.Text.Encoding as Text
 import qualified Data.Text          as Text
 import Data.Text.Encoding (decodeUtf8, decodeUtf8With)
 import Data.Text.Encoding.Error (lenientDecode)
+import Data.Text.IO                 as Text
 import qualified Data.UUID.Types    as UUID
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Happstack.Server.Internal.Multipart (simpleInput)
@@ -54,14 +56,15 @@ withClckwrks cc action = do
       clckwrksSchema' <- case clckRebacSchemaPath cc of
         Nothing -> pure clckwrksSchema
         (Just p) ->
-          do c <- BS.readFile p
+          do c <- Text.readFile p
+             pure (SchemaText c)
+{-
              pure $ case parseSchema $ Text.decodeUtf8 $ c of
                       (Left e)  -> error e
-                      (Right s) ->  s
+                      (Right s) ->  (s
+-}
       u <- atomically $ newTVar 0
       let clckState = ClckState { acidState           = acid
-                                , rebacSchema         = clckwrksSchema'
-                                , rebacDefMap         = mkDefMap (definitions clckwrksSchema')
 --                                        , currentPage      = PageId 0
                                 , uniqueId            = u
                                 , adminMenus          = []

@@ -18,6 +18,7 @@ module Clckwrks.Monad
     , ThemeName
     , getThemeStyles
     , themeTemplate
+    , themeTemplate'
     , calcBaseURI
     , calcTLSBaseURI
     , evalClckT
@@ -57,14 +58,14 @@ module Clckwrks.Monad
     )
 where
 
-import AccessControl.Check           (RelPerm)
 import AccessControl.Relation        (RelationTuple(..))
 import AccessControl.Schema          (Schema(..))
+import AccessControl.Validate        (RelPerm)
 import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), GetUACCT(..))
 import Clckwrks.ProfileData.Acid     (ProfileDataState, GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
-import Clckwrks.Rebac.Acid           (RebacState(..))
+import Clckwrks.Rebac.Acid           (RebacState(..), AddRelationTupleError(..), UpdateSchemaError(..), ppAddRelationTupleError, ppUpdateSchemaError)
 import Clckwrks.NavBar.Acid          (NavBarState)
 import Clckwrks.NavBar.Types         (NavBarLinks(..))
 import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
@@ -190,6 +191,32 @@ themeTemplate plugins tsid ttl hdrs bdy =
                     -- liftIO $ putStrLn $ "extraHdrsXML = " ++ show extraHdrsXML
                     fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl (extraHdrsXML ++ hdrsXML) bdy)
 
+themeTemplate' :: ( EmbedAsChild (ClckT ClckURL (ServerPartT IO)) prependHeaders
+                  , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) appendHeaders
+                  , EmbedAsChild (ClckT ClckURL (ServerPartT IO)) body
+                  ) =>
+                 ClckPlugins
+              -> ThemeStyleId
+              -> T.Text
+              -> prependHeaders
+              -> appendHeaders
+              -> body
+              -> ClckT ClckURL (ServerPartT IO) Response
+themeTemplate' plugins tsid ttl preHdrs appHdrs bdy =
+    do mTheme <- getTheme plugins
+       case mTheme of
+         Nothing -> escape $ internalServerError $ toResponse $ ("No theme package is loaded." :: T.Text)
+         (Just theme) ->
+             case lookupThemeStyle tsid (themeStyles theme) of
+               Nothing -> escape $ internalServerError $ toResponse $ ("The current theme does not seem to contain any theme styles." :: T.Text)
+               (Just themeStyle) ->
+                 do extraHdrs <- map (unXMLGenT . snd) <$> getExtraHeadTags plugins
+                    extraHdrsXML <- concat <$> sequence extraHdrs :: ClckT ClckURL (ServerPartT IO) [XML]
+                    preHdrsXML <- (fmap (map unClckChild) $ unXMLGenT $ asChild preHdrs) :: ClckT ClckURL (ServerPartT IO) [XML]
+                    appHdrsXML <- (fmap (map unClckChild) $ unXMLGenT $ asChild appHdrs) :: ClckT ClckURL (ServerPartT IO) [XML]
+                    -- liftIO $ putStrLn $ "extraHdrsXML = " ++ show extraHdrsXML
+                    fmap toResponse $ unXMLGenT $ ((themeStyleTemplate themeStyle) ttl (preHdrsXML ++ extraHdrsXML ++ appHdrsXML) bdy)
+
 lookupThemeStyle :: ThemeStyleId -> [a] -> Maybe a
 lookupThemeStyle                   _ [] = Nothing
 lookupThemeStyle (ThemeStyleId 0) (t:_) = Just t
@@ -254,8 +281,8 @@ calcTLSBaseURI c =
 
 data ClckState = ClckState
     { acidState        :: Acid
-    , rebacSchema      :: Schema
-    , rebacDefMap      :: Map T.Text RelPerm -- this is derived from rebacSchema and should be recalculated when rebacSchema is modified
+--    , rebacSchema      :: Schema
+--    , rebacDefMap      :: Map T.Text RelPerm -- this is derived from rebacSchema and should be recalculated when rebacSchema is modified
     , uniqueId         :: TVar Integer -- only unique for this request
     , adminMenus       :: [(T.Text, [(Set Role, T.Text, T.Text)])]
     , enableAnalytics  :: Bool          -- ^ enable Google Analytics
@@ -324,6 +351,9 @@ data ClckFormError
     = ClckCFE (CommonFormError [Input])
     | EmptyUsername
     | InvalidDecimal T.Text
+    | InvalidISO8601Date T.Text
+    | AddRelationTupleError AddRelationTupleError
+    | UpdateSchemaError UpdateSchemaError
       deriving (Show)
 
 instance FormError ClckFormError where
@@ -580,7 +610,17 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
 
 instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckFormError where
-    asChild formError = asChild (show formError)
+    asChild (ClckCFE formError) = asChild (show formError)
+    asChild EmptyUsername = asChild $ pcdata "Empty Username"
+    asChild (InvalidDecimal txt) = asChild $ pcdata $ "Could not parse as a decimal '" <> (TL.fromStrict txt) <> "'"
+    asChild (InvalidISO8601Date txt) = asChild $ pcdata $ "Could not parse as an ISO8601 date '" <> (TL.fromStrict txt) <> "'"
+    asChild (AddRelationTupleError rte) =
+      asChild $ genElement (toName ("pre" :: Text.Text)) [] $
+        [ asChild $ pcdata $ TL.pack $ show $ ppAddRelationTupleError rte ]
+    asChild (UpdateSchemaError use) =
+      asChild $ genElement (toName ("pre" :: Text.Text)) [] $
+        [ asChild $ pcdata $ TL.pack $ show $ ppUpdateSchemaError use ]
+
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
     asChild () = return []

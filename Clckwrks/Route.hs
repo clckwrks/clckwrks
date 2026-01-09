@@ -21,6 +21,7 @@ import qualified Data.Set          as Set
 import Data.Text                   (Text, pack)
 import qualified Data.Text         as Text
 import qualified Data.Text.Lazy    as TL
+import Data.Time.Clock.POSIX       (getPOSIXTime)
 import Data.UserId                 (UserId(..))
 import Happstack.Server.FileServe.BuildingBlocks (guessContentTypeM, isSafePath, serveFile)
 import Network.URI                 (unEscapeString)
@@ -41,7 +42,8 @@ checkAuth url =
            if Set.member Administrator roles
              then pure url
              else do let clckAdmin = Object (ObjectType "clck") (ObjectId "admin") :: Object NoWildcard
-                     r <- checkAccess clckAdmin (Permission "admin")
+                     now <- liftIO getPOSIXTime
+                     r <- checkAccess clckAdmin (Permission "admin") (Just now)
                      case r of
                        Allowed -> pure url
                        (NotAllowed reasons) ->

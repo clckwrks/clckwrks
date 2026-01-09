@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.30.0
+Version:             0.30.1
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -85,9 +85,10 @@ Library
                    Clckwrks.Rebac.API
 --                   Clckwrks.Rebac.Monad
 --                   Clckwrks.Rebac.Plugin
-                   Clckwrks.Rebac.Page.Schema
                    Clckwrks.Rebac.Page.Relations
                    Clckwrks.Rebac.Page.RelationLog
+                   Clckwrks.Rebac.Page.Schema
+                   Clckwrks.Rebac.Page.ViewSchema
                    Clckwrks.Rebac.Route
                    Clckwrks.Rebac.Types
                    Clckwrks.Rebac.URL
@@ -145,6 +146,7 @@ Library
      reform-hsp                   >= 0.2  && < 0.3,
      safecopy                     >= 0.10,
      stm                          >= 2.2  && < 2.6,
+     string-qq                               < 0.1,
      text                         >= 0.11 && < 2.2,
      time                         >= 1.2  && < 1.16,
      time-locale-compat           >= 0.1  && < 0.2,

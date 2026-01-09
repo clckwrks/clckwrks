@@ -5,7 +5,7 @@ import AccessControl.Relation      (ObjectType(..), Relation(..), RelationTuple(
 import AccessControl.Schema        (schema)
 import Clckwrks.NavBar.Acid        (NavBarState       , initialNavBarState)
 import Clckwrks.ProfileData.Acid   (ProfileDataState, initialProfileDataState)
-import Clckwrks.Rebac.Acid         (RebacState, initialRebacState)
+import Clckwrks.Rebac.Acid         (RebacState, initialRebacState, clckwrksSchema)
 import Clckwrks.Types              (UUID)
 import Clckwrks.URL                (ClckURL)
 import Control.Applicative         ((<$>))
@@ -313,19 +313,20 @@ class GetAcidState m st where
     getAcidState :: m (AcidState st)
 
 withAcid :: forall m a. (MonadIO m, MonadMask m) => Maybe FilePath -> (Acid -> m a) -> m a
-withAcid mBasePath f =
-    let basePath = fromMaybe "_state" mBasePath in
+withAcid mBasePath f =  do
+    let basePath = fromMaybe "_state" mBasePath
+    initialRebacState' <- liftIO initialRebacState
     -- open acid-state databases
     bracket (openLocalStateFrom (basePath </> "core")        initialCoreState)        (createArchiveCheckpointAndClose) $ \core ->
-    bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
-    bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
-    bracket (openLocalStateFrom (basePath </> "rebac")       initialRebacState)       (createArchiveCheckpointAndClose) $ \rebac ->
-    -- create sockets to allow `clckwrks-cli` to talk to the databases
-    bracket (openState (basePath </> "core_socket") core) closeState $ const $
-    bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
-    bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
-    bracket (openState (basePath </> "rebac_socket") rebac) closeState $ const $
-    f (Acid profileData core navBar rebac)
+     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
+     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
+     bracket (openLocalStateFrom (basePath </> "rebac")       initialRebacState')      (createArchiveCheckpointAndClose) $ \rebac ->
+     -- create sockets to allow `clckwrks-cli` to talk to the databases
+     bracket (openState (basePath </> "core_socket") core) closeState $ const $
+     bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
+     bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
+     bracket (openState (basePath </> "rebac_socket") rebac) closeState $ const $
+     f (Acid profileData core navBar rebac)
     where
 #if MIN_VERSION_acid_state (0,16,0)
       openState :: forall st. FilePath -> AcidState st -> m ThreadId

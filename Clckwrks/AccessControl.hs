@@ -6,16 +6,17 @@ import AccessControl.Schema          (KnownPermission, Permission(..), ToPermiss
 import AccessControl.Relation        ( Relation(..), ToRelation(..), ToObject(..), Object(..), ObjectId(..), ObjectType(..), ppObject)
 import Clckwrks.Authenticate.Plugin  (getUserId)
 import Clckwrks.Monad
-import Clckwrks.Rebac.Acid           (RebacState, GetRelationTuples(..))
+import Clckwrks.Rebac.Acid           (RebacState, GetDefMap(..), GetRelationTuples(..), GetSchema(..))
 import Control.Monad.State           (get)
 import Control.Monad.Trans           (MonadIO(..))
 import Clckwrks.Types
 import Clckwrks.Unauthorized         (unauthorizedPage)
+import Data.Data                     (Data)
 import Data.SafeCopy                 (SafeCopy)
 import           Data.Text           (Text)
 import qualified Data.Text           as Text
 import qualified Data.Text.Lazy      as TL
-import Data.Data                     (Data)
+import Data.Time.Clock.POSIX         (POSIXTime)
 import Data.Typeable                 (Typeable)
 import Data.UserId                   (UserId(..))
 import Happstack.Server              (Happstack, askRq, escape, rqUri, rqQuery)
@@ -34,12 +35,12 @@ emptyAccessList :: AccessList
 emptyAccessList = AccessList False [] []
 
 -- | find out if the current user has permession to access a resource
-checkAccess :: (KnownPermission resource permission (Maybe UserId), Happstack m, MonadIO m) => resource -> permission -> ClckT url m Access
-checkAccess res perm =
+checkAccess :: (KnownPermission resource permission (Maybe UserId), Happstack m, MonadIO m) => resource -> permission -> Maybe POSIXTime -> ClckT url m Access
+checkAccess res perm now =
   do mu <- getUserId
      rts <- query GetRelationTuples
-     scm <- rebacDefMap <$> get
-     pure $ check scm rts (toObject res) (toPermission perm) (toObject mu)
+     scm <- query GetDefMap
+     pure $ check scm rts (toObject res) (toPermission perm) (toObject mu) now
 --     query (Check (toObject res) (toPermission perm) (toObject mu))
 {-
      case mu of
@@ -49,9 +50,9 @@ checkAccess res perm =
 -}
 
 -- | assert that a user has permission to access a resource. If this assertion is wrong, show an 'unauthorized access' page
-assertAccess ::(KnownPermission resource permission (Maybe UserId), Happstack m, MonadIO m) => resource -> permission -> ClckT url m ()
-assertAccess res perm =
-  do a <- checkAccess res perm
+assertAccess ::(KnownPermission resource permission (Maybe UserId), Happstack m, MonadIO m) => resource -> permission -> Maybe POSIXTime -> ClckT url m ()
+assertAccess res perm now =
+  do a <- checkAccess res perm now
      case a of
        Allowed -> pure ()
        NotAllowed reasons ->

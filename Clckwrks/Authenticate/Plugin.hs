@@ -135,16 +135,18 @@ authenticatePluginLoader plugins =
      let script =
           [jmacro|
             // console.log('xhr request start.');
-            var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function ()
-            {
-              if ((xhr.status == 200) && (xhr.readyState == 4)) {
-                 var r = Function(xhr.responseText)();
+            window.addEventListener("load", function(event) {
+              var xhr = new XMLHttpRequest();
+              xhr.onreadystatechange = function ()
+              {
+                if ((xhr.status == 200) && (xhr.readyState == 4)) {
+                   var r = Function(xhr.responseText)();
                 }
 
-            };
-            xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) []`);
-            xhr.send();
+              };
+              xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) []`);
+              xhr.send();
+            });
             |]
 
 
