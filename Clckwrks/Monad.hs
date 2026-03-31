@@ -58,10 +58,14 @@ module Clckwrks.Monad
     )
 where
 
+import AccessControl.Relation        (RelationTuple(..))
+import AccessControl.Schema          (Schema(..))
+import AccessControl.Validate        (RelPerm)
 import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), GetUACCT(..))
 import Clckwrks.ProfileData.Acid     (ProfileDataState, GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
+import Clckwrks.Rebac.Acid           (RebacState(..), AddRelationTupleError(..), UpdateSchemaError(..), ppAddRelationTupleError, ppUpdateSchemaError)
 import Clckwrks.NavBar.Acid          (NavBarState)
 import Clckwrks.NavBar.Types         (NavBarLinks(..))
 import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
@@ -252,6 +256,7 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJSTreePath      :: FilePath       -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath       -- ^ path to @JSON2.js@ on disk
     , clckHappstackAuthenticateClientPath :: Maybe FilePath -- ^ path to @happstack-authenticate-client@
+    , clckRebacSchemaPath :: Maybe FilePath -- ^ path to rebac schema
     , clckTopDir          :: Maybe FilePath -- ^ path to top-level directory for all acid-state files/file uploads/etc
     , clckEnableAnalytics :: Bool           -- ^ enable google analytics
     , clckInitHook        :: T.Text -> ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
@@ -276,6 +281,8 @@ calcTLSBaseURI c =
 
 data ClckState = ClckState
     { acidState        :: Acid
+--    , rebacSchema      :: Schema
+--    , rebacDefMap      :: Map T.Text RelPerm -- this is derived from rebacSchema and should be recalculated when rebacSchema is modified
     , uniqueId         :: TVar Integer -- only unique for this request
     , adminMenus       :: [(T.Text, [(Set Role, T.Text, T.Text)])]
     , enableAnalytics  :: Bool          -- ^ enable Google Analytics
@@ -344,6 +351,9 @@ data ClckFormError
     = ClckCFE (CommonFormError [Input])
     | EmptyUsername
     | InvalidDecimal T.Text
+    | InvalidISO8601Date T.Text
+    | AddRelationTupleError AddRelationTupleError
+    | UpdateSchemaError UpdateSchemaError
       deriving (Show)
 
 instance FormError ClckFormError where
@@ -483,6 +493,9 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) NavBarState where
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
 
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) RebacState where
+    getAcidState = (acidRebac . acidState) <$> get
+
 -- * XMLGen / XMLGenerator instances for Clck
 
 instance (Functor m, Monad m) => XMLGen (ClckT url m) where
@@ -597,7 +610,17 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
 
 instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckFormError where
-    asChild formError = asChild (show formError)
+    asChild (ClckCFE formError) = asChild (show formError)
+    asChild EmptyUsername = asChild $ pcdata "Empty Username"
+    asChild (InvalidDecimal txt) = asChild $ pcdata $ "Could not parse as a decimal '" <> (TL.fromStrict txt) <> "'"
+    asChild (InvalidISO8601Date txt) = asChild $ pcdata $ "Could not parse as an ISO8601 date '" <> (TL.fromStrict txt) <> "'"
+    asChild (AddRelationTupleError rte) =
+      asChild $ genElement (toName ("pre" :: Text.Text)) [] $
+        [ asChild $ pcdata $ TL.pack $ show $ ppAddRelationTupleError rte ]
+    asChild (UpdateSchemaError use) =
+      asChild $ genElement (toName ("pre" :: Text.Text)) [] $
+        [ asChild $ pcdata $ TL.pack $ show $ ppUpdateSchemaError use ]
+
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
     asChild () = return []

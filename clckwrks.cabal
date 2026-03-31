@@ -1,5 +1,5 @@
 Name:                clckwrks
-Version:             0.29.1
+Version:             0.30.2
 Synopsis:            A secure, reliable content management system (CMS) and blogging platform
 Description:         clckwrks (pronounced, clockworks) aims to compete
                      directly with popular PHP-based blogging and CMS
@@ -38,6 +38,7 @@ Library
   Build-tool-depends: hsx2hs:hsx2hs
   default-language: Haskell2010
   Exposed-modules: Clckwrks
+                   Clckwrks.AccessControl
                    Clckwrks.Acid
                    Clckwrks.Admin.Template
                    Clckwrks.Admin.URL
@@ -80,6 +81,17 @@ Library
                    Clckwrks.ProfileData.EditProfileData
                    Clckwrks.ProfileData.EditNewProfileData
                    Clckwrks.ProfileData.EditProfileDataFor
+                   Clckwrks.Rebac.Acid
+                   Clckwrks.Rebac.API
+--                   Clckwrks.Rebac.Monad
+--                   Clckwrks.Rebac.Plugin
+                   Clckwrks.Rebac.Page.Relations
+                   Clckwrks.Rebac.Page.RelationLog
+                   Clckwrks.Rebac.Page.Schema
+                   Clckwrks.Rebac.Page.ViewSchema
+                   Clckwrks.Rebac.Route
+                   Clckwrks.Rebac.Types
+                   Clckwrks.Rebac.URL
                    Clckwrks.Route
                    Clckwrks.Server
                    Clckwrks.Types
@@ -124,14 +136,17 @@ Library
      mime-mail                    >= 0.4  && < 0.6,
      mtl                          >= 2.0  && < 2.4,
      old-locale                   ==  1.0.*,
+     pretty                       >= 1.1 && < 1.2,
      process                      >= 1.0  && < 1.7,
 --     plugins-auto == 0.0.1.1,
      random                       >= 1.0  && < 1.4,
+     rebac,
      reform                       >= 0.2 && < 0.4,
      reform-happstack             == 0.2.*,
      reform-hsp                   >= 0.2  && < 0.3,
      safecopy                     >= 0.10,
      stm                          >= 2.2  && < 2.6,
+     string-qq                               < 0.1,
      text                         >= 0.11 && < 2.2,
      time                         >= 1.2  && < 1.16,
      time-locale-compat           >= 0.1  && < 0.2,

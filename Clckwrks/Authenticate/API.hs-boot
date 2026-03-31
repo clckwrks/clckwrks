@@ -9,7 +9,7 @@ module Clckwrks.Authenticate.API
        , setSignupPluginURL
        ) where
 
-import Clckwrks.Authenticate.Plugin (authenticatePlugin, authenticatePluginLoader)
+-- import Clckwrks.Authenticate.Plugin (authenticatePlugin, authenticatePluginLoader)
 import Clckwrks.Authenticate.Monad  (AuthenticatePluginState(..))
 import Clckwrks.Monad               (ClckT, ClckPlugins, plugins)
 import Control.Concurrent.STM       (atomically)
@@ -30,44 +30,12 @@ import Happstack.Authenticate.Handlers  (AuthenticateConfig(_createUserCallback)
 import Web.Plugins.Core             (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin, modifyPluginState')
 
 getUser :: (Happstack m) => UserId -> ClckT url m (Maybe User)
-getUser uid =
-  do p <- plugins <$> get
-     ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
-     liftIO $ Acid.query (acidStateAuthenticate aps) (GetUserByUserId uid)
-
--- | Update an existing 'User'. Must already have a valid 'UserId'.
---
--- no security checks are performed to ensure that the caller is
--- authorized to change data for the 'User'.
 insecureUpdateUser :: (Happstack m) => User -> ClckT url m ()
-insecureUpdateUser user =
-  do p <- plugins <$> get
-     ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
-     liftIO $ Acid.update (acidStateAuthenticate aps) (UpdateUser user)
-
 getUsername :: (Happstack m) => UserId -> ClckT url m (Maybe Username)
-getUsername uid =
-  do mUser <- getUser uid
-     pure $ _username <$> mUser
-
 getEmail :: (Happstack m) => UserId -> ClckT url m (Maybe Email)
-getEmail uid =
-  do mUser <- getUser uid
-     pure $ join $ _email <$> mUser
-
 setCreateUserCallback :: ClckPlugins -> Maybe (User -> IO ()) -> IO ()
-setCreateUserCallback p mcb =
-  do ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
-     liftIO $ atomically $ modifyTVar' (apsAuthenticateConfigTV aps) $ (\ac -> ac { _createUserCallback = mcb })
-     pure ()
-
 setSignupPluginURL :: ClckPlugins
                    -> Text
                    -> Text
                    -> IO ()
-setSignupPluginURL plugins pn pu =
-  do modifyPluginState' plugins (pluginName authenticatePlugin) $ \aps ->
-       aps { apsSignupPluginURLs = Map.insert pn pu (apsSignupPluginURLs aps) }
-     authenticatePluginLoader plugins
-     pure ()
 

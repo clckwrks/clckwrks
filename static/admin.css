@@ -77,3 +77,35 @@ ul#admin-menu
     font-size: 1.1em;
     padding-left: 1em;
 }
+
+table.rebac-relations
+{
+    border: 1px solid;
+}
+
+.rebac-relations th
+{
+    background-color: lightgray;
+    border: 1px solid;
+}
+
+.rebac-relations td
+{
+    border: 1px solid;
+
+}
+
+.rebac-relations td
+{
+
+}
+
+.rebac-relations input[type="text"]
+{
+    width: auto;
+}
+
+.rebac-relations select
+{
+    width: auto;
+}
