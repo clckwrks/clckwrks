@@ -2,7 +2,7 @@
 module Clckwrks.Authenticate.Plugin where
 
 import Control.Concurrent.STM      (atomically)
-import Control.Concurrent.STM.TVar (TVar, newTVar, readTVar)
+import Control.Concurrent.STM.TVar (TVar, newTVar)
 import Clckwrks.Monad
 import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreLoginRedirect, coreSignupRedirect, coreReplyToAddress, coreSendmailPath, getAcidState)
 import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
@@ -32,7 +32,7 @@ import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
 import Happstack.Authenticate.Core  (tokenUser, userId)
 import Happstack.Authenticate.Handlers  (AuthenticateState, AuthenticateConfig(..), GetTurnstile(..), Turnstile(..), getToken, usernamePolicy)
-import Happstack.Authenticate.Route (initAuthentication, happstackAuthenticateClientHash)
+import Happstack.Authenticate.Route (initAuthentication)
 import Happstack.Authenticate.Password.Handlers (PasswordConfig(..), initialPasswordState)
 import Happstack.Authenticate.Password.Route (initPassword')
 -- import Happstack.Authenticate.OpenId.Route (initOpenId)
@@ -132,13 +132,6 @@ authenticatePluginLoader plugins =
      ~(Just aps) <- getPluginState plugins (pluginName authenticatePlugin)
      -- putStrLn $ "*** authenticatePluginLoader ***"
      let pluginURLs = apsSignupPluginURLs aps
-     -- embed a content-hash of the happstack-authenticate-client javascript
-     -- file as a query parameter so that a change in its content changes
-     -- the URL, forcing a fresh fetch even for clients whose browser
-     -- already cached the old URL (see 'happstackAuthenticateClientHash').
-     authenticateConfig <- atomically $ readTVar (apsAuthenticateConfigTV aps)
-     mClientHash <- happstackAuthenticateClientHash authenticateConfig
-     let clientURLParams = maybe [] (\h -> [("etag", Just (Text.pack h))]) mClientHash
      let script =
           [jmacro|
             // console.log('xhr request start.');
@@ -151,7 +144,7 @@ authenticatePluginLoader plugins =
                 }
 
               };
-              xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) clientURLParams`);
+              xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) []`);
               xhr.send();
             });
             |]

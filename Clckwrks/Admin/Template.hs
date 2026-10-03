@@ -2,11 +2,8 @@
 module Clckwrks.Admin.Template where
 
 import Control.Applicative     ((<$>))
-import Control.Concurrent.STM  (atomically)
-import Control.Concurrent.STM.TVar (readTVar)
-import Control.Monad.Trans     (lift, liftIO)
+import Control.Monad.Trans     (lift)
 import Clckwrks.Acid           (GetSiteName(..), GetBackToSiteRedirect(..))
-import Clckwrks.Authenticate.Monad (AuthenticatePluginState(apsAuthenticateConfigTV))
 import Clckwrks.Monad          (ClckT(..), ClckState(adminMenus), plugins, query)
 import {-# SOURCE #-} Clckwrks.Authenticate.Plugin (authenticatePlugin)
 import Clckwrks.Authenticate.URL    (AuthURL(Auth))
@@ -20,7 +17,6 @@ import qualified               Data.Text.Lazy as TL
 import Data.Set                (Set)
 import qualified Data.Set      as Set
 import Happstack.Authenticate.Core (AuthenticateURL(HappstackAuthenticateClient))
-import Happstack.Authenticate.Route (happstackAuthenticateClientHash)
 import Happstack.Server        (Happstack, Response, toResponse)
 import HSP.XMLGenerator
 import HSP.XML                 (XML, fromStringLit)
@@ -28,7 +24,7 @@ import Language.Haskell.HSX.QQ (hsx)
 import Language.Javascript.JMacro           (jmacro)
 import Language.Javascript.JMacro
 import Text.PrettyPrint.Leijen.Text (Doc, displayT, renderOneLine)
-import Web.Plugins.Core        (pluginName, getPluginRouteFn, getPluginState)
+import Web.Plugins.Core        (pluginName, getPluginRouteFn)
 
 template ::
     ( Happstack m
@@ -40,15 +36,7 @@ template title headers body = do
    backURL  <- query GetBackToSiteRedirect
    p <- plugins <$> get
    ~(Just authRouteFn) <- getPluginRouteFn p (pluginName authenticatePlugin)
-   ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
 --  ~(Just authRouteFn)       <- getPluginRouteFn p (pluginName authenticatePlugin)
-   -- embed a content-hash of the happstack-authenticate-client javascript
-   -- file as a query parameter so that a change in its content changes the
-   -- URL, forcing a fresh fetch even for clients whose browser already
-   -- cached the old URL (see 'happstackAuthenticateClientHash').
-   authenticateConfig <- liftIO $ atomically $ readTVar (apsAuthenticateConfigTV aps)
-   mClientHash <- liftIO $ happstackAuthenticateClientHash authenticateConfig
-   let clientURLParams = maybe [] (\h -> [("etag", Just (T.pack h))]) mClientHash
    let authScriptInit =
           [jmacro|
             // console.log('xhr request start.');
@@ -60,7 +48,7 @@ template title headers body = do
                 }
 
             };
-            xhr.open("GET", `authRouteFn (Auth HappstackAuthenticateClient) clientURLParams`);
+            xhr.open("GET", `authRouteFn (Auth HappstackAuthenticateClient) []`);
             xhr.send();
             |]
    let -- mkScript :: XMLGenT (ClckT url m) [XML]
