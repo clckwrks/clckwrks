@@ -13,7 +13,7 @@ let
       , safecopy, stdenv, stm, text, time, time-locale-compat
       , unordered-containers, userid, utf8-string, uuid-orphans
       , uuid-types, vector, web-plugins, web-routes, web-routes-happstack
-      , web-routes-hsp, web-routes-th, xss-sanitize, cabal-install, Cabal
+      , web-routes-hsp, web-routes-th, xss-sanitize, cabal-install, Cabal, megaparsec, rebac
       }:
       mkDerivation {
         pname = "clckwrks";
@@ -29,7 +29,7 @@ let
           time-locale-compat unordered-containers userid utf8-string
           uuid-orphans uuid-types vector web-plugins web-routes
           web-routes-happstack web-routes-hsp web-routes-th xss-sanitize
-          cabal-install
+          cabal-install megaparsec rebac
         ];
         librarySystemDepends = [ openssl ];
         homepage = "http://www.clckwrks.com/";

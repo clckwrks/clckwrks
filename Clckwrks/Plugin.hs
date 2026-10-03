@@ -2,6 +2,7 @@
 module Clckwrks.Plugin where
 
 import Clckwrks
+import Clckwrks.Rebac.URL          (RebacURL(..))
 import Clckwrks.Types              (NamedLink(..))
 import Clckwrks.Route              (routeClck)
 import Control.Monad.State         (get)
@@ -46,6 +47,12 @@ addClckAdminMenu =
                       , (Set.singleton Administrator, "Edit Settings" , clckShowURL (Admin EditSettings) [])
                       , (Set.singleton Administrator, "Edit Nav Bar"  , clckShowURL (Admin EditNavBar)   [])
                       , (Set.singleton Administrator, "System Emails" , clckShowURL (Admin SystemEmails) [])
+                      ]
+                    )
+       addAdminMenu ( "Access Control"
+                    , [ (Set.singleton Administrator, "Schema"       , clckShowURL (Rebac SchemaPanel)      [])
+                      , (Set.singleton Administrator, "Relations"    , clckShowURL (Rebac RelationsPanel)   [])
+                      , (Set.singleton Administrator, "Relation Log" , clckShowURL (Rebac RelationLogPanel) [])
                       ]
                     )
 
