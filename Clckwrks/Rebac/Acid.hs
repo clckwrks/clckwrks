@@ -9,10 +9,10 @@ import Control.Monad.Reader        (ask)
 import Control.Monad.State         (put, get)
 import Data.Acid                   (Query, Update, makeAcidic)
 import Data.Data                   (Data)
-import Data.List                   (partition, union)
+import Data.List                   (mapAccumL, partition, union)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
-import Data.SafeCopy               (SafeCopy(..), base, contain, safeGet, safePut)
+import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, contain, extension, safeGet, safePut)
 import Data.String.QQ              (s)
 import Data.Time.Clock             (UTCTime)
 import Data.Time.Clock.POSIX       (getCurrentTime)
@@ -56,10 +56,45 @@ data RelationLogEntry
     { rleSchemaUpdateTimestamp :: UTCTime
     , rleSchemaId              :: SchemaId
     , rleComment               :: Text
+    , rleSchemaFromTxId        :: RelationTxId -- ^ this schema applies to relation log entries whose 'rleTxId' is >= this
     }
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 
-instance SafeCopy RelationLogEntry where version = 1 ; kind = base
+-- | 2026-10-29: version 2 adds 'rleSchemaFromTxId'.
+--
+-- There is deliberately no 'Migrate' instance from 'RelationLogEntry_v1'. The
+-- correct 'rleSchemaFromTxId' depends on where the entry sits in 'rsLog', which a
+-- per-entry migration cannot see. The conversion is done by the 'Migrate'
+-- instance for 'RebacState' instead, and anything else that tries to read a v1
+-- entry fails loudly rather than getting a made-up value.
+instance SafeCopy RelationLogEntry where version = 2 ; kind = base
+
+data RelationLogEntry_v1
+  = RelationLogEntry_v1
+    { rleTimestamp_v1     :: UTCTime
+    , rleRelationTuple_v1 :: RelationTuple
+    , rleAction_v1        :: RLEAction
+    , rleComment_v1       :: Text
+    , rleTxId_v1          :: RelationTxId
+    }
+  | SchemaUpdate_v1
+    { rleSchemaUpdateTimestamp_v1 :: UTCTime
+    , rleSchemaId_v1              :: SchemaId
+    , rleComment_v1               :: Text
+    }
+  deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
+
+instance SafeCopy RelationLogEntry_v1 where version = 1 ; kind = base
+
+-- | the 'SchemaId' that was active when relation transaction 'txId' was performed
+--
+-- When several schema updates share a 'rleSchemaFromTxId' (no relation changes
+-- happened between them) the most recent one, the highest 'SchemaId', wins.
+schemaIdForTxId :: RelationTxId -> [RelationLogEntry] -> Maybe SchemaId
+schemaIdForTxId txId rles =
+  case [ (fromTxId, sid) | SchemaUpdate { rleSchemaId = sid, rleSchemaFromTxId = fromTxId } <- rles, fromTxId <= txId ] of
+    [] -> Nothing
+    xs -> Just (snd (maximum xs))
 
 {-
 
@@ -115,7 +150,54 @@ data RebacState = RebacState
   }
   deriving (Eq, Ord, Read, Show, Generic)
 
-instance SafeCopy RebacState where version = 1 ; kind = base
+-- | 2026-10-29: version 2, the 'rsLog' entries gained 'rleSchemaFromTxId'
+instance SafeCopy RebacState where version = 2 ; kind = extension
+
+instance Migrate RebacState where
+  type MigrateFrom RebacState = RebacState_v1
+  migrate rs =
+    RebacState
+      { rsSchema        = rsSchema_v1 rs
+      , rsSchemaHistory = rsSchemaHistory_v1 rs
+      , rsDefMap        = rsDefMap_v1 rs
+      , rsTuples        = rsTuples_v1 rs
+      , rsLog           = migrateRelationLog_v1 (rsLog_v1 rs)
+      , rsTxId          = rsTxId_v1 rs
+      , rsSchemaId      = rsSchemaId_v1 rs
+      }
+
+-- | fill in 'rleSchemaFromTxId', which v1 did not record
+--
+-- A v1 'SchemaUpdate' is only placed by its position in 'rsLog', which is
+-- newest first. Walk it oldest first: a schema update applies from the
+-- transaction after the last relation entry that preceded it, or from 0 if
+-- none did (the initial schema precedes the initial tuples, which have
+-- 'RelationTxId' 0).
+--
+-- 'removeRelationTuplesByTag' can consume a 'RelationTxId' without logging
+-- anything, so the value computed here may be lower than the 'rsTxId' was at
+-- the time. It still separates the entries before the update from the ones
+-- after it, which is all 'schemaIdForTxId' relies on.
+migrateRelationLog_v1 :: [RelationLogEntry_v1] -> [RelationLogEntry]
+migrateRelationLog_v1 = reverse . snd . mapAccumL step (RelationTxId 0) . reverse
+  where
+    step next (RelationLogEntry_v1 ts rt action comment txId) =
+      (max next (succRelationIxId txId), RelationLogEntry ts rt action comment txId)
+    step next (SchemaUpdate_v1 ts sid comment) =
+      (next, SchemaUpdate ts sid comment next)
+
+data RebacState_v1 = RebacState_v1
+  { rsSchema_v1        :: SchemaText
+  , rsSchemaHistory_v1 :: Map SchemaId SchemaText
+  , rsDefMap_v1        :: Map Text RelPerm
+  , rsTuples_v1        :: [ RelationTuple ]
+  , rsLog_v1           :: [ RelationLogEntry_v1 ]
+  , rsTxId_v1          :: RelationTxId
+  , rsSchemaId_v1      :: SchemaId
+  }
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy RebacState_v1 where version = 1 ; kind = base
 
 getSchema :: Query RebacState SchemaText
 getSchema = rsSchema <$> ask
@@ -155,6 +237,7 @@ updateSchema now newSchemaText@(SchemaText schemaText) comment =
                 do let rle = SchemaUpdate { rleSchemaUpdateTimestamp = now
                                           , rleSchemaId              = (rsSchemaId rs)
                                           , rleComment               = comment
+                                          , rleSchemaFromTxId        = rsTxId rs
                                           }
                    put $ rs { rsSchema = newSchemaText
                             , rsSchemaHistory = Map.insert (rsSchemaId rs) newSchemaText (rsSchemaHistory rs)
@@ -310,6 +393,12 @@ getRelationLog =
   do rs <- ask
      pure $ rsLog rs
 
+-- | get the 'SchemaId' that was active when relation transaction 'txId' was performed
+getSchemaIdForTxId :: RelationTxId -> Query RebacState (Maybe SchemaId)
+getSchemaIdForTxId txId =
+  do rs <- ask
+     pure $ schemaIdForTxId txId (rsLog rs)
+
 makeAcidic ''RebacState
  [ 'addRelationTuple
  , 'addRelationTuples
@@ -318,6 +407,7 @@ makeAcidic ''RebacState
  , 'replaceRelationTuplesByTag
  , 'getRelationTuples
  , 'getRelationLog
+ , 'getSchemaIdForTxId
  , 'getDefMap
  , 'getSchema
  , 'getSchemaById
@@ -434,7 +524,7 @@ initialRebacState =
        , rsDefMap    = case parseSchema (unSchemaText clckwrksSchema) of
                          (Right s) -> mkDefMap (definitions s)
        , rsTuples    = clckwrksRels
-       , rsLog       = (map (fakeLog now) clckwrksRels) ++ [SchemaUpdate now (SchemaId 1) "initial schema"]
+       , rsLog       = (map (fakeLog now) clckwrksRels) ++ [SchemaUpdate now (SchemaId 1) "initial schema" (RelationTxId 0)]
        , rsTxId      = RelationTxId 1
        , rsSchemaId  = SchemaId 2
        }

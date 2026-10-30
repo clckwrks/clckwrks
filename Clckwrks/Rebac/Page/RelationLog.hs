@@ -91,13 +91,13 @@ relationLogTable logEntries =
       showAction :: RLEAction -> Text
       showAction RLEAdd    = "added"
       showAction RLERemove = "removed"
-      mkRow (SchemaUpdate updatedAt schemaId@(SchemaId schemaIdInt) comment) =
+      mkRow (SchemaUpdate updatedAt schemaId@(SchemaId schemaIdInt) comment (RelationTxId fromTxId)) =
         do u <- showURL (ViewSchema schemaId)
            [hsx| <tr>
                    <td colspan="8">Updated Schema to <a href=u><% show schemaIdInt %></a></td>
                    <td><% show updatedAt %></td>
                    <td></td>
-                   <td></td>
+                   <td><% Text.pack $ "from " ++ show fromTxId %></td>
                    <td colspan="1"><% comment %></td>
                  </tr> |]
       mkRow (RelationLogEntry ts (RelationTuple (Object (ObjectType rot) (ObjectId rid)) (Relation rel) (Object (ObjectType sot) wsid) mSubRel mTag mExpiration) action comment (RelationTxId txId)) =
