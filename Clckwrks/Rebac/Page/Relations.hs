@@ -48,7 +48,7 @@ relationsPanel here =
             (Left e)  -> pure ([], [], [])
             (Right (SchemaText st)) ->
               case parseSchema st of
-                (Right s) -> pure (knownObjectTypes s, knownRelations s, [ Relation "membership" ]) -- FIXME: should be calculated. Also it is called a subject relation, but it seems like it is a permission?
+                (Right s) -> pure (knownObjectTypes s, knownRelations s, [ Relation "member" ]) -- FIXME: should be calculated. Also it is called a subject relation, but it seems like it is a permission?
      now <- liftIO getPOSIXTime
      canMod <- checkAccess RelationsR (Permission "modify") (Just now)
      action <- showURL here

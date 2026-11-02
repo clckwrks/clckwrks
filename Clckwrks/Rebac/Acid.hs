@@ -469,7 +469,7 @@ clckwrksSchema = SchemaText
          definition usergroup {
            relation direct_member: user | usergroup#member
 
-           permission membership = direct_member
+           permission member = direct_member
          }
 
          /* schema for clckwrks-plugin-page */
@@ -488,7 +488,7 @@ clckwrksSchema = SchemaText
  |]
 
     {-
-         page:1#viewer@usergroup:subscribers#membership
+         page:1#viewer@usergroup:subscribers#member
          page:1#admin@user:1
          page:1#viewer@user:2
          usergroup:subscribers#direct_member@user:1
