@@ -2,6 +2,7 @@
 module Clckwrks.Plugin where
 
 import Clckwrks
+import Clckwrks.Rebac.Acid         (clckwrksFragment)
 import Clckwrks.Rebac.URL          (RebacURL(..))
 import Clckwrks.Types              (NamedLink(..))
 import Clckwrks.Route              (routeClck)
@@ -29,6 +30,7 @@ clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
     do ~(Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
+       addRebacFragment plugins (pluginName clckPlugin) clckwrksFragment
        addNavBarCallback plugins clckMenuCallback
        addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing

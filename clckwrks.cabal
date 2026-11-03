@@ -89,6 +89,7 @@ Library
                    Clckwrks.Rebac.Page.RelationLog
                    Clckwrks.Rebac.Page.Schema
                    Clckwrks.Rebac.Page.ViewSchema
+                   Clckwrks.Rebac.Reconcile
                    Clckwrks.Rebac.Route
                    Clckwrks.Rebac.Types
                    Clckwrks.Rebac.URL

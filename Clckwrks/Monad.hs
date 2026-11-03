@@ -35,6 +35,8 @@ module Clckwrks.Monad
     , appendRequestInit
     , getNavBarLinks
     , addNavBarCallback
+    , addRebacFragment
+    , getRebacFragments
     , getExtraHeadTags
     , getPreProcessors
 --     , getPrefix
@@ -66,6 +68,7 @@ import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), Get
 import Clckwrks.ProfileData.Acid     (ProfileDataState, GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
 import Clckwrks.Rebac.Acid           (RebacState(..), AddRelationTupleError(..), UpdateSchemaError(..), ppAddRelationTupleError, ppUpdateSchemaError)
+import AccessControl.SchemaFragment  (SchemaFragment)
 import Clckwrks.NavBar.Acid          (NavBarState)
 import Clckwrks.NavBar.Types         (NavBarLinks(..))
 import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
@@ -75,7 +78,7 @@ import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), ma
 #if MIN_VERSION_base (4,9,0) && !MIN_VERSION_base (4,13,0)
 import Control.Monad.Fail            (MonadFail)
 #endif
-import Control.Monad                 (MonadPlus, foldM)
+import Control.Monad                 (MonadPlus, foldM, when)
 import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT, get, mapStateT, modify, put, runStateT)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
 import Control.Monad.Trans           (MonadIO(liftIO), MonadTrans(lift))
@@ -130,7 +133,7 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
-import Web.Plugins.Core              (Plugins, getConfig, getPluginsSt, modifyPluginsSt, getTheme)
+import Web.Plugins.Core              (PluginName, Plugins, getConfig, getPluginsSt, modifyPluginsSt, getTheme)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
@@ -375,14 +378,16 @@ data ClckPluginsSt = ClckPluginsSt
     , cpsNavBarLinks        :: [ClckT ClckURL IO (String, [NamedLink])]
     , cpsAcid               :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
     , cpsExtraHeadTags      :: [(Text.Text, XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML])]
+    , cpsRebacFragments     :: Map PluginName SchemaFragment -- ^ each plugin's part of the rebac schema, see 'addRebacFragment'
     }
 
 initialClckPluginsSt :: Acid -> ClckPluginsSt
 initialClckPluginsSt acid = ClckPluginsSt
-    { cpsPreProcessors = []
-    , cpsNavBarLinks   = []
-    , cpsAcid          = acid
-    , cpsExtraHeadTags = []
+    { cpsPreProcessors  = []
+    , cpsNavBarLinks    = []
+    , cpsAcid           = acid
+    , cpsExtraHeadTags  = []
+    , cpsRebacFragments = Map.empty
     }
 
 -- | ClckPlugins
@@ -759,6 +764,33 @@ getNavBarLinks plugins =
     mapClckT liftIO $
       do genNavBarLinks <- (cpsNavBarLinks <$> getPluginsSt plugins)
          NavBarLinks <$> sequenceA genNavBarLinks
+
+------------------------------------------------------------------------------
+-- rebac schema fragments
+------------------------------------------------------------------------------
+
+-- | Register a plugin's part of the rebac schema, normally from its
+-- 'pluginInit'.  Once every plugin is initialized the fragments are merged
+-- and become the stored schema, see 'Clckwrks.Rebac.Reconcile'.
+--
+-- A plugin owns the definitions in its fragment; other fragments may refer
+-- to them but not define them again.  Registering a second fragment under
+-- the same name is an error.
+addRebacFragment :: (MonadIO m) =>
+                    Plugins theme n hook config ClckPluginsSt
+                 -> PluginName
+                 -> SchemaFragment
+                 -> m ()
+addRebacFragment plugins name fragment =
+    do registered <- cpsRebacFragments <$> getPluginsSt plugins
+       when (Map.member name registered) $
+         liftIO $ ioError $ userError $ "addRebacFragment: a rebac schema fragment is already registered for " ++ T.unpack name
+       modifyPluginsSt plugins $ \cps -> cps { cpsRebacFragments = Map.insert name fragment (cpsRebacFragments cps) }
+
+getRebacFragments :: (MonadIO m) =>
+                     Plugins theme n hook config ClckPluginsSt
+                  -> m (Map PluginName SchemaFragment)
+getRebacFragments plugins = cpsRebacFragments <$> getPluginsSt plugins
 
 
 ------------------------------------------------------------------------------

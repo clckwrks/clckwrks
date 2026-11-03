@@ -13,7 +13,7 @@ import Data.List                   (mapAccumL, partition, union)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, contain, extension, safeGet, safePut)
-import Data.String.QQ              (s)
+import AccessControl.SchemaFragment (SchemaFragment(fragmentText), schemaFragment)
 import Data.Time.Clock             (UTCTime)
 import Data.Time.Clock.POSIX       (getCurrentTime)
 import Data.Text                   (Text)
@@ -426,15 +426,14 @@ makeAcidic ''RebacState
 
 
 -- * Initial REBAC schema and relations for clckwrks
---
--- It should perhaps be possible to pull in the initial schema in from
--- a static file? Or perhaps always get it from the file and never
--- from the database so that the schema updates can be tracked in a
--- revision control system?
 
-clckwrksSchema :: SchemaText
-clckwrksSchema = SchemaText
-  [s|
+-- | clckwrks' own part of the rebac schema, checked at compile time.  The
+-- clck plugin registers it with 'Clckwrks.Monad.addRebacFragment', and at
+-- startup it is merged with the other plugins' fragments to make the
+-- stored schema, see 'Clckwrks.Rebac.Reconcile'.
+clckwrksFragment :: SchemaFragment
+clckwrksFragment =
+  [schemaFragment|
          definition user {}
 
          definition platform {
@@ -494,6 +493,10 @@ clckwrksSchema = SchemaText
          }
 
  |]
+
+-- | the text of 'clckwrksFragment', the schema a new database starts with
+clckwrksSchema :: SchemaText
+clckwrksSchema = SchemaText (fragmentText clckwrksFragment)
 
     {-
          page:1#viewer@usergroup:subscribers#member

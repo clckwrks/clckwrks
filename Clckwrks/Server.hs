@@ -12,6 +12,7 @@ import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), calcBa
 import Clckwrks.ProfileData.Types   (Role(..))
 import Clckwrks.ProfileData.URL     (ProfileDataURL(..))
 import Clckwrks.Rebac.Acid          (clckwrksSchema)
+import Clckwrks.Rebac.Reconcile     (reconcileRebacSchema)
 import Clckwrks.Rebac.Types         (SchemaText(..))
 import Control.Arrow                (second)
 import Control.Concurrent           (forkIO, killThread)
@@ -87,6 +88,9 @@ simpleClckwrks cc =
          ~(Just clckShowFn) <- getPluginRouteFn p "clck"
          let showFn = \url params -> clckShowFn url []
          clckState'' <- execClckT showFn clckState' $ sequence_ hooks
+         -- every plugin has registered its rebac schema fragment by now;
+         -- make the stored schema their merge before serving anything
+         _ <- reconcileRebacSchema (acidRebac (acidState clckState'')) =<< getRebacFragments p
 
          mHttpsTID <-
              case clckTLS cc' of
