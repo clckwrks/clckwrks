@@ -9,7 +9,7 @@ import Control.Monad.Reader        (ask)
 import Control.Monad.State         (put, get)
 import Data.Acid                   (Query, Update, makeAcidic)
 import Data.Data                   (Data)
-import Data.List                   (mapAccumL, partition, union)
+import Data.List                   (mapAccumL, nub, partition, union)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, contain, extension, safeGet, safePut)
@@ -17,6 +17,7 @@ import AccessControl.SchemaFragment (SchemaFragment(fragmentText), schemaFragmen
 import Data.Time.Clock             (UTCTime)
 import Data.Time.Clock.POSIX       (getCurrentTime)
 import Data.Text                   (Text)
+import qualified Data.Text         as Text
 import Data.Typeable               (Typeable)
 import GHC.Generics                (Generic)
 import Text.PrettyPrint.HughesPJ (Doc, (<+>), ($$), ($+$))
@@ -245,24 +246,35 @@ data UpdateSchemaResult
 
 instance SafeCopy UpdateSchemaResult where version = 1 ; kind = base
 
+-- | Make a schema that 'checkNewSchema' accepted the current one, with the
+-- 'rsDefMap' it returned, recording it in the history and the log.  Returns
+-- its 'SchemaId'.  Shared by every event that changes the schema.
+applySchema :: UTCTime -> SchemaText -> Map Text RelPerm -> Text -> RebacState -> (SchemaId, RebacState)
+applySchema now newSchemaText newDefMap comment rs =
+  ( rsSchemaId rs
+  , rs { rsSchema        = newSchemaText
+       , rsSchemaHistory = Map.insert (rsSchemaId rs) newSchemaText (rsSchemaHistory rs)
+       , rsDefMap        = newDefMap
+       , rsLog           = rle : (rsLog rs)
+       , rsSchemaId      = succ (rsSchemaId rs)
+       }
+  )
+  where
+    rle = SchemaUpdate { rleSchemaUpdateTimestamp = now
+                       , rleSchemaId              = rsSchemaId rs
+                       , rleComment               = comment
+                       , rleSchemaFromTxId        = rsTxId rs
+                       }
+
 updateSchema :: UTCTime -> SchemaText -> Text -> Update RebacState UpdateSchemaResult
 updateSchema now newSchemaText comment =
   do rs <- get
      case checkNewSchema (rsTuples rs) newSchemaText of
        (Left err) -> pure (SchemaUpdateFailed err)
        (Right newDefMap) ->
-         do let rle = SchemaUpdate { rleSchemaUpdateTimestamp = now
-                                   , rleSchemaId              = (rsSchemaId rs)
-                                   , rleComment               = comment
-                                   , rleSchemaFromTxId        = rsTxId rs
-                                   }
-            put $ rs { rsSchema = newSchemaText
-                     , rsSchemaHistory = Map.insert (rsSchemaId rs) newSchemaText (rsSchemaHistory rs)
-                     , rsDefMap = newDefMap
-                     , rsLog    = rle : (rsLog rs)
-                     , rsSchemaId = succ (rsSchemaId rs)
-                     }
-            pure (SchemaUpdated (rsSchemaId rs))
+         do let (sid, rs') = applySchema now newSchemaText newDefMap comment rs
+            put rs'
+            pure (SchemaUpdated sid)
 
 checkSchema :: SchemaText -> Query RebacState (Maybe UpdateSchemaError)
 checkSchema newSchemaText =
@@ -407,9 +419,89 @@ getSchemaIdForTxId txId =
   do rs <- ask
      pure $ schemaIdForTxId txId (rsLog rs)
 
+-- * Reconciling with the plugins' schema fragments
+
+-- | Which seed tuples still need adding.  A seed tuple is added only if it
+-- has never been added or removed before, according to 'rsLog', so it is
+-- added once, and if it is removed later, for instance to make page 1
+-- private, it stays removed.  Each group keeps its label, and a tuple in
+-- more than one group is only added with the first.
+newSeedTuples :: RebacState -> [(Text, [RelationTuple])] -> [(Text, [RelationTuple])]
+newSeedTuples rs groups = snd (mapAccumL pick [] groups)
+  where
+    logged = [ rt | RelationLogEntry { rleRelationTuple = rt } <- rsLog rs ]
+    pick taken (label, seeds) =
+      let new = [ rt | rt <- nub seeds, rt `notElem` logged, rt `notElem` rsTuples rs, rt `notElem` taken ]
+      in (taken ++ new, (label, new))
+
+-- | Add groups of tuples as one transaction, each tuple logged with its
+-- group's label as the comment.
+applySeedTuples :: UTCTime -> [(Text, [RelationTuple])] -> RebacState -> RebacState
+applySeedTuples now groups rs
+  | null (concatMap snd groups) = rs
+  | otherwise =
+      rs { rsTuples = concatMap snd groups ++ rsTuples rs
+         , rsLog    = [ RelationLogEntry now rt RLEAdd label (rsTxId rs) | (label, rts) <- reverse groups, rt <- rts ] ++ rsLog rs
+         , rsTxId   = succRelationIxId (rsTxId rs)
+         }
+
+data ReconcileError
+  = ReconcileSchemaRejected UpdateSchemaError         -- ^ the merged schema was rejected, as 'UpdateSchema' would
+  | ReconcileSeedsInvalid Text [ValidationError]      -- ^ the seed tuples with this label are not valid under the merged schema
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy ReconcileError where version = 1 ; kind = base
+
+ppReconcileError :: ReconcileError -> Doc
+ppReconcileError (ReconcileSchemaRejected err) = ppUpdateSchemaError err
+ppReconcileError (ReconcileSeedsInvalid label errs) = PP.text ("Not valid: " ++ Text.unpack label) $+$ PP.nest 2 (PP.vcat (map ppValidationError errs))
+
+data ReconcileResult = ReconcileResult
+  { reconciledSchemaId :: Maybe SchemaId    -- ^ the new schema's id, if it changed
+  , reconciledSeeds    :: [RelationTuple]   -- ^ the seed tuples that were added
+  }
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy ReconcileResult where version = 1 ; kind = base
+
+-- | Make @newSchemaText@ the current schema, if it is not already, and add
+-- the seed tuples that have not been seen before (see 'newSeedTuples'), all
+-- in one transaction.  This is what 'Clckwrks.Rebac.Reconcile' does at
+-- startup with the plugins' merged fragments and their seed tuples.
+--
+-- Everything is checked before anything is changed: the schema as
+-- 'UpdateSchema' would check it, and the seed tuples against the new
+-- schema.  If anything is rejected nothing changes.
+reconcileSchema :: UTCTime
+                -> SchemaText                 -- ^ the merged schema
+                -> Text                       -- ^ comment for the schema update
+                -> [(Text, [RelationTuple])]  -- ^ seed tuples, in groups, each with a label used as their comment
+                -> Update RebacState (Either ReconcileError ReconcileResult)
+reconcileSchema now newSchemaText comment seedGroups =
+  do rs <- get
+     let schemaStep
+           | rsSchema rs == newSchemaText = Right (Nothing, rs)
+           | otherwise =
+               case checkNewSchema (rsTuples rs) newSchemaText of
+                 (Left err)        -> Left (ReconcileSchemaRejected err)
+                 (Right newDefMap) -> let (sid, rs') = applySchema now newSchemaText newDefMap comment rs in Right (Just sid, rs')
+     case schemaStep of
+       (Left err) -> pure (Left err)
+       (Right (mSid, rs')) ->
+         let groups = newSeedTuples rs' seedGroups
+             invalid = [ (label, errs) | (label, rts) <- groups
+                                       , let errs = [ e | NotValid e <- map (validate (rsDefMap rs')) rts ]
+                                       , not (null errs) ]
+         in case invalid of
+              ((label, errs) : _) -> pure (Left (ReconcileSeedsInvalid label errs))
+              [] ->
+                do put (applySeedTuples now groups rs')
+                   pure (Right (ReconcileResult mSid (concatMap snd groups)))
+
 makeAcidic ''RebacState
  [ 'addRelationTuple
  , 'addRelationTuples
+ , 'reconcileSchema
  , 'removeRelationTuple
  , 'removeRelationTuplesByTag
  , 'replaceRelationTuplesByTag

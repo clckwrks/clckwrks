@@ -69,6 +69,7 @@ import Clckwrks.ProfileData.Acid     (ProfileDataState, GetRoles(..), HasRole(..
 import Clckwrks.ProfileData.Types    (Role(..))
 import Clckwrks.Rebac.Acid           (RebacState(..), AddRelationTupleError(..), UpdateSchemaError(..), ppAddRelationTupleError, ppUpdateSchemaError)
 import AccessControl.SchemaFragment  (SchemaFragment)
+import Clckwrks.Rebac.Types          (RebacFragment(..))
 import Clckwrks.NavBar.Acid          (NavBarState)
 import Clckwrks.NavBar.Types         (NavBarLinks(..))
 import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
@@ -378,7 +379,7 @@ data ClckPluginsSt = ClckPluginsSt
     , cpsNavBarLinks        :: [ClckT ClckURL IO (String, [NamedLink])]
     , cpsAcid               :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
     , cpsExtraHeadTags      :: [(Text.Text, XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML])]
-    , cpsRebacFragments     :: Map PluginName SchemaFragment -- ^ each plugin's part of the rebac schema, see 'addRebacFragment'
+    , cpsRebacFragments     :: Map PluginName RebacFragment -- ^ each plugin's part of the rebac schema and its seed tuples, see 'addRebacFragment'
     }
 
 initialClckPluginsSt :: Acid -> ClckPluginsSt
@@ -769,9 +770,10 @@ getNavBarLinks plugins =
 -- rebac schema fragments
 ------------------------------------------------------------------------------
 
--- | Register a plugin's part of the rebac schema, normally from its
--- 'pluginInit'.  Once every plugin is initialized the fragments are merged
--- and become the stored schema, see 'Clckwrks.Rebac.Reconcile'.
+-- | Register a plugin's part of the rebac schema and the relation tuples it
+-- starts with, normally from its 'pluginInit'.  Once every plugin is
+-- initialized the fragments are merged and become the stored schema, and
+-- then the seed tuples are added, see 'Clckwrks.Rebac.Reconcile'.
 --
 -- A plugin owns the definitions in its fragment; other fragments may refer
 -- to them but not define them again.  Registering a second fragment under
@@ -780,16 +782,17 @@ addRebacFragment :: (MonadIO m) =>
                     Plugins theme n hook config ClckPluginsSt
                  -> PluginName
                  -> SchemaFragment
+                 -> [RelationTuple] -- ^ seed tuples, added once, see 'Clckwrks.Rebac.Acid.newSeedTuples'
                  -> m ()
-addRebacFragment plugins name fragment =
+addRebacFragment plugins name fragment seeds =
     do registered <- cpsRebacFragments <$> getPluginsSt plugins
        when (Map.member name registered) $
          liftIO $ ioError $ userError $ "addRebacFragment: a rebac schema fragment is already registered for " ++ T.unpack name
-       modifyPluginsSt plugins $ \cps -> cps { cpsRebacFragments = Map.insert name fragment (cpsRebacFragments cps) }
+       modifyPluginsSt plugins $ \cps -> cps { cpsRebacFragments = Map.insert name (RebacFragment fragment seeds) (cpsRebacFragments cps) }
 
 getRebacFragments :: (MonadIO m) =>
                      Plugins theme n hook config ClckPluginsSt
-                  -> m (Map PluginName SchemaFragment)
+                  -> m (Map PluginName RebacFragment)
 getRebacFragments plugins = cpsRebacFragments <$> getPluginsSt plugins
 
 

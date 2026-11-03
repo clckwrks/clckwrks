@@ -6,13 +6,14 @@ module Clckwrks.Rebac.Reconcile
   ( orderFragments
   , mergedSchema
   , reconcileRebacSchema
+  , ReconcileResult(..)
   ) where
 
 import AccessControl.Schema         (Definition(..), Schema(..), SchemaError(..), ppSchemaError)
 import AccessControl.SchemaFragment (SchemaFragment(..), mergeFragments)
-import Clckwrks.Rebac.Acid          (GetSchema(..), RebacState, UpdateSchema(..), UpdateSchemaResult(..), ppUpdateSchemaError)
-import Clckwrks.Rebac.Types         (SchemaId, SchemaText(..))
-import Data.Acid                    (AcidState, query, update)
+import Clckwrks.Rebac.Acid          (RebacState, ReconcileResult(..), ReconcileSchema(..), ppReconcileError)
+import Clckwrks.Rebac.Types         (RebacFragment(..), SchemaText(..))
+import Data.Acid                    (AcidState, update)
 import Data.Map                     (Map)
 import qualified Data.Map           as Map
 import Data.Text                    (Text)
@@ -52,28 +53,30 @@ mergedSchema frags =
         []    -> ""
         names -> "plugin " <> T.intercalate ", " names <> ": "
 
--- | Make the stored schema the one the registered fragments add up to,
--- through 'UpdateSchema', so it is checked like any other schema update and
--- recorded in the schema history.  Returns the new 'SchemaId' if the schema
--- changed.  Does nothing if no fragment is registered.
+-- | Make the stored schema the one the registered fragments add up to, and
+-- add each plugin's seed tuples that have not been seen before, in one
+-- 'ReconcileSchema' transaction: the schema is checked as 'UpdateSchema'
+-- would check it and recorded in the schema history, and the seed tuples are
+-- checked against it.  Returns the new 'SchemaId' if the schema changed, and
+-- the seed tuples that were added.  Does nothing if no fragment is
+-- registered.
 --
 -- Fails, so that the server does not start, if the fragments do not fit
--- together or the existing relation tuples are not valid under the result.
-reconcileRebacSchema :: AcidState RebacState -> Map PluginName SchemaFragment -> IO (Maybe SchemaId)
+-- together, the existing relation tuples are not valid under the result, or
+-- a seed tuple is not valid under it; then nothing has changed.
+reconcileRebacSchema :: AcidState RebacState -> Map PluginName RebacFragment -> IO ReconcileResult
 reconcileRebacSchema acid frags
-  | Map.null frags = pure Nothing
+  | Map.null frags = pure (ReconcileResult Nothing [])
   | otherwise =
-      case mergedSchema frags of
+      case mergedSchema (fmap rebacFragmentSchema frags) of
         (Left problems) ->
           ioError $ userError $ T.unpack $ T.unlines ("The plugins' rebac schema fragments do not fit together:" : problems)
         (Right (txt, names)) ->
-          do (SchemaText current) <- query acid GetSchema
-             if current == txt
-               then pure Nothing
-               else
-                 do now <- getCurrentTime
-                    r <- update acid (UpdateSchema now (SchemaText txt) ("schema fragments from plugins: " <> T.intercalate ", " names))
-                    case r of
-                      (SchemaUpdated sid) -> pure (Just sid)
-                      (SchemaUpdateFailed err) ->
-                        ioError $ userError $ "The rebac schema from the plugins' fragments was rejected:\n" ++ show (ppUpdateSchemaError err)
+          do now <- getCurrentTime
+             let comment = "schema fragments from plugins: " <> T.intercalate ", " names
+                 seeds   = [ ("seed tuples from plugin " <> name, rebacFragmentSeeds (frags Map.! name)) | name <- names ]
+             r <- update acid (ReconcileSchema now (SchemaText txt) comment seeds)
+             case r of
+               (Right result) -> pure result
+               (Left err) ->
+                 ioError $ userError $ "The rebac schema from the plugins' fragments was rejected, nothing was changed:\n" ++ show (ppReconcileError err)

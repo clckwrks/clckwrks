@@ -3,7 +3,8 @@ module Clckwrks.Rebac.Types where
 
 import AccessControl.Check    (Access(..))
 import AccessControl.Schema   (KnownPermission, Permission(..), ToPermission(..))
-import AccessControl.Relation (ToObject(..), Object(..), ObjectId(..), ObjectType(..),Relation(..), ToRelation(..) )
+import AccessControl.Relation (ToObject(..), Object(..), ObjectId(..), ObjectType(..),Relation(..), RelationTuple, ToRelation(..) )
+import AccessControl.SchemaFragment (SchemaFragment)
 import Data.Data              (Data, Typeable)
 import Data.SafeCopy          (SafeCopy(..), base, contain, safeGet, safePut)
 import Data.Text              (Text)
@@ -39,3 +40,10 @@ newtype SchemaId = SchemaId { unSchemaId :: Int }
 derivePathInfo ''SchemaId
 
 instance SafeCopy SchemaId where version = 1 ; kind = base
+
+-- | A plugin's part of the rebac schema and the relation tuples it starts
+-- with, as registered with 'Clckwrks.Monad.addRebacFragment'.
+data RebacFragment = RebacFragment
+  { rebacFragmentSchema :: SchemaFragment
+  , rebacFragmentSeeds  :: [RelationTuple] -- ^ added once, the first time they could be: see 'Clckwrks.Rebac.Acid.newSeedTuples'
+  }
