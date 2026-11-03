@@ -2,7 +2,8 @@
 module Clckwrks.Rebac.Acid where
 
 import AccessControl.Check         (Access, checkIndexed)
-import AccessControl.Relation      (Object, ObjectWildcard(NoWildcard), RelationTuple(..), Tag(..), hasTag, rels)
+import qualified AccessControl.Check as Check
+import AccessControl.Relation      (Object, ObjectType, ObjectWildcard(NoWildcard), RelationTuple(..), Tag(..), hasTag, rels)
 import AccessControl.Schema        (Permission, Schema(definitions), SchemaError, parseSchema, ppSchemaError, validateSchema)
 import AccessControl.TupleIndex    (TupleIndex, deleteTuple, elemTuple, fromTuples, insertTuple, toTuples)
 import AccessControl.Validate      (RelPerm(..), Valid(..), ValidationError(..), isValid, mkDefMap, ppValidationError, validate)
@@ -411,6 +412,14 @@ checkPermission res perm subj now =
   do rs <- ask
      pure $ checkIndexed (rsDefMap rs) (rsTuples rs) res perm subj now
 
+-- | The resources of a type on which the subject has a permission, such as
+-- every report a user can view, evaluated like 'checkPermission' against the
+-- stored tuples and schema.  See 'Check.lookupResources' for its cost.
+lookupResources :: ObjectType -> Permission -> Object 'NoWildcard -> Maybe POSIXTime -> Query RebacState [Object 'NoWildcard]
+lookupResources ty perm subj now =
+  do rs <- ask
+     pure $ Check.lookupResources (rsDefMap rs) (rsTuples rs) ty perm subj now
+
 -- | get all the 'RelationTuple' from the database, grouped by resource
 getRelationTuples :: Query RebacState [ RelationTuple ]
 getRelationTuples =
@@ -518,6 +527,7 @@ makeAcidic ''RebacState
  , 'getRelationTuples
  , 'getRelationLog
  , 'checkPermission
+ , 'lookupResources
  , 'getSchemaIdForTxId
  , 'getDefMap
  , 'getSchema
