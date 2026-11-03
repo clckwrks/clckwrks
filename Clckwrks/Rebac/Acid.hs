@@ -2,7 +2,7 @@
 module Clckwrks.Rebac.Acid where
 
 import AccessControl.Relation      (ObjectType(..), Relation(..), RelationTuple(..), Tag(..), hasTag, object, rels)
-import AccessControl.Schema        (Schema(definitions), parseSchema, schema)
+import AccessControl.Schema        (Schema(definitions), SchemaError, parseSchema, ppSchemaError, schema, validateSchema)
 import AccessControl.Validate      (RelPerm(..), Valid(..), ValidationError(..), isValid, mkDefMap, ppValidationError, validate)
 import Clckwrks.Rebac.Types        (SchemaId(..), SchemaText(..))
 import Control.Monad.Reader        (ask)
@@ -207,9 +207,12 @@ getSchemaById schemaId =
   do sh <- rsSchemaHistory <$> ask
      pure $ Map.lookup schemaId sh
 
+-- | Only ever returned from an event or used in memory, never stored in
+-- 'RebacState', so adding a constructor does not need a migration.
 data UpdateSchemaError
   = SchemaDoesNotAllowRelations [ValidationError]
   | SchemaParseError String
+  | SchemaInconsistent [SchemaError] -- ^ the schema is not consistent with itself, see 'validateSchema'
   deriving (Eq, Ord, Read, Show, Generic)
 
 instance SafeCopy UpdateSchemaError where version = 1 ; kind = base
@@ -217,6 +220,23 @@ instance SafeCopy UpdateSchemaError where version = 1 ; kind = base
 ppUpdateSchemaError :: UpdateSchemaError -> Doc
 ppUpdateSchemaError (SchemaDoesNotAllowRelations vErrors) = PP.text "Schema does not allow the following relations. " $+$ (PP.nest 2 (PP.vcat $ map ppValidationError vErrors))
 ppUpdateSchemaError (SchemaParseError errStr) = (PP.text "Schema parse error") <+> (PP.vcat $ map PP.text (lines errStr))
+ppUpdateSchemaError (SchemaInconsistent errs) = PP.text "Schema is not consistent." $+$ (PP.nest 2 (PP.vcat $ map ppSchemaError errs))
+
+-- | Parse a new schema, check that it is consistent with itself, and check
+-- that every existing tuple is valid under it.  On success, the 'rsDefMap'
+-- for the new schema.
+checkNewSchema :: [RelationTuple] -> SchemaText -> Either UpdateSchemaError (Map Text RelPerm)
+checkNewSchema tuples (SchemaText schemaText) =
+  case parseSchema schemaText of
+    (Left e) -> Left (SchemaParseError e)
+    (Right newSchema) ->
+      case validateSchema newSchema of
+        errs@(_ : _) -> Left (SchemaInconsistent errs)
+        [] ->
+          let newDefMap = mkDefMap (definitions newSchema)
+          in case partition isValid (map (validate newDefMap) tuples) of
+               (_, [])       -> Right newDefMap
+               (_, rejected) -> Left (SchemaDoesNotAllowRelations [ e | NotValid e <- rejected ])
 
 data UpdateSchemaResult
   = SchemaUpdated SchemaId
@@ -226,40 +246,28 @@ data UpdateSchemaResult
 instance SafeCopy UpdateSchemaResult where version = 1 ; kind = base
 
 updateSchema :: UTCTime -> SchemaText -> Text -> Update RebacState UpdateSchemaResult
-updateSchema now newSchemaText@(SchemaText schemaText) comment =
-  do case parseSchema schemaText of
-       (Left e) -> pure (SchemaUpdateFailed (SchemaParseError e))
-       (Right newSchema) ->
-         do rs <- get
-            let newDefMap = mkDefMap (definitions newSchema)
-            case partition isValid (map (validate newDefMap) (rsTuples rs)) of
-              (_, []) ->
-                do let rle = SchemaUpdate { rleSchemaUpdateTimestamp = now
-                                          , rleSchemaId              = (rsSchemaId rs)
-                                          , rleComment               = comment
-                                          , rleSchemaFromTxId        = rsTxId rs
-                                          }
-                   put $ rs { rsSchema = newSchemaText
-                            , rsSchemaHistory = Map.insert (rsSchemaId rs) newSchemaText (rsSchemaHistory rs)
-                            , rsDefMap = newDefMap
-                            , rsLog    = rle : (rsLog rs)
-                            , rsSchemaId = succ (rsSchemaId rs)
-                            }
-                   pure (SchemaUpdated (rsSchemaId rs))
-              (_, rejected) ->
-                pure (SchemaUpdateFailed (SchemaDoesNotAllowRelations (map (\(NotValid a) -> a) rejected)))
+updateSchema now newSchemaText comment =
+  do rs <- get
+     case checkNewSchema (rsTuples rs) newSchemaText of
+       (Left err) -> pure (SchemaUpdateFailed err)
+       (Right newDefMap) ->
+         do let rle = SchemaUpdate { rleSchemaUpdateTimestamp = now
+                                   , rleSchemaId              = (rsSchemaId rs)
+                                   , rleComment               = comment
+                                   , rleSchemaFromTxId        = rsTxId rs
+                                   }
+            put $ rs { rsSchema = newSchemaText
+                     , rsSchemaHistory = Map.insert (rsSchemaId rs) newSchemaText (rsSchemaHistory rs)
+                     , rsDefMap = newDefMap
+                     , rsLog    = rle : (rsLog rs)
+                     , rsSchemaId = succ (rsSchemaId rs)
+                     }
+            pure (SchemaUpdated (rsSchemaId rs))
 
 checkSchema :: SchemaText -> Query RebacState (Maybe UpdateSchemaError)
-checkSchema newSchemaText@(SchemaText schemaText) =
-  case parseSchema schemaText of
-    (Left e) -> pure (Just (SchemaParseError e))
-    (Right newSchema) ->
-      do rs <- ask
-         let newDefMap = mkDefMap (definitions newSchema)
-         case partition isValid (map (validate newDefMap) (rsTuples rs)) of
-           (_, []) -> pure Nothing
-           (_, rejected) ->
-             pure (Just (SchemaDoesNotAllowRelations (map (\(NotValid a) -> a) rejected)))
+checkSchema newSchemaText =
+  do rs <- ask
+     pure $ either Just (const Nothing) (checkNewSchema (rsTuples rs) newSchemaText)
 
 
 getDefMap :: Query RebacState (Map Text RelPerm)
