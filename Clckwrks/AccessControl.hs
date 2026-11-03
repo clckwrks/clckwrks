@@ -1,12 +1,12 @@
 {-# LANGUAGE CPP, DeriveDataTypeable, DeriveGeneric, GeneralizedNewtypeDeriving, MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, FlexibleContexts, TypeFamilies, RankNTypes, RecordWildCards, ScopedTypeVariables, UndecidableInstances, OverloadedStrings, TemplateHaskell #-}
 module Clckwrks.AccessControl where
 
-import AccessControl.Check           (Access(..), check)
+import AccessControl.Check           (Access(..))
 import AccessControl.Schema          (KnownPermission, Permission(..), ToPermission(..), ppPermission)
 import AccessControl.Relation        ( Relation(..), ToRelation(..), ToObject(..), Object(..), ObjectId(..), ObjectType(..), ppObject)
 import Clckwrks.Authenticate.Plugin  (getUserId)
 import Clckwrks.Monad
-import Clckwrks.Rebac.Acid           (RebacState, GetDefMap(..), GetRelationTuples(..), GetSchema(..))
+import Clckwrks.Rebac.Acid           (CheckPermission(..))
 import Control.Monad.State           (get)
 import Control.Monad.Trans           (MonadIO(..))
 import Clckwrks.Types
@@ -38,10 +38,7 @@ emptyAccessList = AccessList False [] []
 checkAccess :: (KnownPermission resource permission (Maybe UserId), Happstack m, MonadIO m) => resource -> permission -> Maybe POSIXTime -> ClckT url m Access
 checkAccess res perm now =
   do mu <- getUserId
-     rts <- query GetRelationTuples
-     scm <- query GetDefMap
-     pure $ check scm rts (toObject res) (toPermission perm) (toObject mu) now
---     query (Check (toObject res) (toPermission perm) (toObject mu))
+     query (CheckPermission (toObject res) (toPermission perm) (toObject mu) now)
 {-
      case mu of
        Nothing ->

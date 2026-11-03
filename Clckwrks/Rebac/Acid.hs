@@ -1,21 +1,23 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE DataKinds, DeriveDataTypeable, DeriveGeneric, FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
 module Clckwrks.Rebac.Acid where
 
-import AccessControl.Relation      (ObjectType(..), Relation(..), RelationTuple(..), Tag(..), hasTag, object, rels)
-import AccessControl.Schema        (Schema(definitions), SchemaError, parseSchema, ppSchemaError, schema, validateSchema)
+import AccessControl.Check         (Access, checkIndexed)
+import AccessControl.Relation      (Object, ObjectWildcard(NoWildcard), RelationTuple(..), Tag(..), hasTag, rels)
+import AccessControl.Schema        (Permission, Schema(definitions), SchemaError, parseSchema, ppSchemaError, validateSchema)
+import AccessControl.TupleIndex    (TupleIndex, deleteTuple, elemTuple, fromTuples, insertTuple, toTuples)
 import AccessControl.Validate      (RelPerm(..), Valid(..), ValidationError(..), isValid, mkDefMap, ppValidationError, validate)
 import Clckwrks.Rebac.Types        (SchemaId(..), SchemaText(..))
 import Control.Monad.Reader        (ask)
 import Control.Monad.State         (put, get)
 import Data.Acid                   (Query, Update, makeAcidic)
 import Data.Data                   (Data)
-import Data.List                   (mapAccumL, nub, partition, union)
+import Data.List                   (mapAccumL, nub, partition)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, contain, extension, safeGet, safePut)
 import AccessControl.SchemaFragment (SchemaFragment(fragmentText), schemaFragment)
 import Data.Time.Clock             (UTCTime)
-import Data.Time.Clock.POSIX       (getCurrentTime)
+import Data.Time.Clock.POSIX       (POSIXTime, getCurrentTime)
 import Data.Text                   (Text)
 import qualified Data.Text         as Text
 import Data.Typeable               (Typeable)
@@ -144,7 +146,7 @@ data RebacState = RebacState
   { rsSchema        :: SchemaText           -- currently active schema
   , rsSchemaHistory :: Map SchemaId SchemaText
   , rsDefMap        :: Map Text RelPerm     -- derived from Schema.
-  , rsTuples        :: [ RelationTuple ]    -- currently important tuples
+  , rsTuples        :: TupleIndex           -- currently important tuples, indexed; stored as the plain list it was in v2
   , rsLog           :: [ RelationLogEntry ] -- how did we get here
   , rsTxId          :: RelationTxId         -- next unassigned TxId
   , rsSchemaId      :: SchemaId             -- next unassigned SchemaId
@@ -161,7 +163,7 @@ instance Migrate RebacState where
       { rsSchema        = rsSchema_v1 rs
       , rsSchemaHistory = rsSchemaHistory_v1 rs
       , rsDefMap        = rsDefMap_v1 rs
-      , rsTuples        = rsTuples_v1 rs
+      , rsTuples        = fromTuples (rsTuples_v1 rs)
       , rsLog           = migrateRelationLog_v1 (rsLog_v1 rs)
       , rsTxId          = rsTxId_v1 rs
       , rsSchemaId      = rsSchemaId_v1 rs
@@ -269,7 +271,7 @@ applySchema now newSchemaText newDefMap comment rs =
 updateSchema :: UTCTime -> SchemaText -> Text -> Update RebacState UpdateSchemaResult
 updateSchema now newSchemaText comment =
   do rs <- get
-     case checkNewSchema (rsTuples rs) newSchemaText of
+     case checkNewSchema (toTuples (rsTuples rs)) newSchemaText of
        (Left err) -> pure (SchemaUpdateFailed err)
        (Right newDefMap) ->
          do let (sid, rs') = applySchema now newSchemaText newDefMap comment rs
@@ -279,7 +281,7 @@ updateSchema now newSchemaText comment =
 checkSchema :: SchemaText -> Query RebacState (Maybe UpdateSchemaError)
 checkSchema newSchemaText =
   do rs <- ask
-     pure $ either Just (const Nothing) (checkNewSchema (rsTuples rs) newSchemaText)
+     pure $ either Just (const Nothing) (checkNewSchema (toTuples (rsTuples rs)) newSchemaText)
 
 
 getDefMap :: Query RebacState (Map Text RelPerm)
@@ -315,7 +317,7 @@ addRelationTuple rt now comment =
                                          , rleComment       = comment
                                          , rleTxId          = rsTxId rs
                                          })
-            put $ rs { rsTuples = if rt `elem` (rsTuples rs) then (rsTuples rs) else (rt : (rsTuples rs))  -- don't insert into rsTuples cache if it already exists
+            put $ rs { rsTuples = if rt `elemTuple` (rsTuples rs) then (rsTuples rs) else insertTuple rt (rsTuples rs)  -- don't insert into rsTuples cache if it already exists
                      , rsLog = rle : (rsLog rs)
                      , rsTxId = succRelationIxId (rsTxId rs)
                      }
@@ -338,7 +340,7 @@ addRelationTuples rts now comment =
                                    , rleComment       = comment
                                    , rleTxId          = rsTxId rs
                                    } | rt <- rts ]
-     put $ rs { rsTuples = union rts (rsTuples rs)
+     put $ rs { rsTuples = foldl' (\idx rt -> if rt `elemTuple` idx then idx else insertTuple rt idx) (rsTuples rs) rts
               , rsLog = rles ++ (rsLog rs)
               , rsTxId = succRelationIxId (rsTxId rs)
               }
@@ -363,7 +365,7 @@ removeRelationTuple rt now comment =
                                  , rleComment       = comment
                                  , rleTxId          = rsTxId rs
                                  })
-     put $ rs { rsTuples = filter ((/=) rt) (rsTuples rs)
+     put $ rs { rsTuples = deleteTuple rt (rsTuples rs)
               , rsLog    = rle : (rsLog rs)
               , rsTxId   = succRelationIxId (rsTxId rs)
               }
@@ -375,14 +377,14 @@ removeRelationTuplesByTag :: Tag      -- ^ remove *any* tuple with this tag
                           -> Update RebacState [RelationLogEntry]
 removeRelationTuplesByTag tag now comment =
   do rs <- get
-     let (remove, keep) = partition (hasTag tag) (rsTuples rs)
+     let remove = filter (hasTag tag) (toTuples (rsTuples rs))
      let rles = [ RelationLogEntry { rleTimestamp     = now
                                    , rleRelationTuple = rt
                                    , rleAction        = RLERemove
                                    , rleComment       = comment
                                    , rleTxId          = rsTxId rs
                                    } | rt <- remove ]
-     put $ rs { rsTuples = keep
+     put $ rs { rsTuples = foldl' (flip deleteTuple) (rsTuples rs) remove
               , rsLog    = rles ++ (rsLog rs)
               , rsTxId   = succRelationIxId (rsTxId rs)
               }
@@ -401,11 +403,19 @@ replaceRelationTuplesByTag tag rts now comment =
      addedRLEs   <- addRelationTuples rts now comment
      pure (removedRLEs ++  addedRLEs)
 
--- | get all the 'RelationTuple' from the database
+-- | Can the subject do this to the resource?  Evaluated against the stored
+-- tuples and schema as one consistent snapshot, using the stored index,
+-- without copying the tuples out.
+checkPermission :: Object 'NoWildcard -> Permission -> Object 'NoWildcard -> Maybe POSIXTime -> Query RebacState Access
+checkPermission res perm subj now =
+  do rs <- ask
+     pure $ checkIndexed (rsDefMap rs) (rsTuples rs) res perm subj now
+
+-- | get all the 'RelationTuple' from the database, grouped by resource
 getRelationTuples :: Query RebacState [ RelationTuple ]
 getRelationTuples =
   do rs <- ask
-     pure $ rsTuples rs
+     pure $ toTuples (rsTuples rs)
 
 -- | get all the 'RelationTupleEntry' from the database
 getRelationLog :: Query RebacState [ RelationLogEntry ]
@@ -431,7 +441,7 @@ newSeedTuples rs groups = snd (mapAccumL pick [] groups)
   where
     logged = [ rt | RelationLogEntry { rleRelationTuple = rt } <- rsLog rs ]
     pick taken (label, seeds) =
-      let new = [ rt | rt <- nub seeds, rt `notElem` logged, rt `notElem` rsTuples rs, rt `notElem` taken ]
+      let new = [ rt | rt <- nub seeds, rt `notElem` logged, not (rt `elemTuple` rsTuples rs), rt `notElem` taken ]
       in (taken ++ new, (label, new))
 
 -- | Add groups of tuples as one transaction, each tuple logged with its
@@ -440,7 +450,7 @@ applySeedTuples :: UTCTime -> [(Text, [RelationTuple])] -> RebacState -> RebacSt
 applySeedTuples now groups rs
   | null (concatMap snd groups) = rs
   | otherwise =
-      rs { rsTuples = concatMap snd groups ++ rsTuples rs
+      rs { rsTuples = foldl' (flip insertTuple) (rsTuples rs) (concatMap snd groups)
          , rsLog    = [ RelationLogEntry now rt RLEAdd label (rsTxId rs) | (label, rts) <- reverse groups, rt <- rts ] ++ rsLog rs
          , rsTxId   = succRelationIxId (rsTxId rs)
          }
@@ -482,7 +492,7 @@ reconcileSchema now newSchemaText comment seedGroups =
      let schemaStep
            | rsSchema rs == newSchemaText = Right (Nothing, rs)
            | otherwise =
-               case checkNewSchema (rsTuples rs) newSchemaText of
+               case checkNewSchema (toTuples (rsTuples rs)) newSchemaText of
                  (Left err)        -> Left (ReconcileSchemaRejected err)
                  (Right newDefMap) -> let (sid, rs') = applySchema now newSchemaText newDefMap comment rs in Right (Just sid, rs')
      case schemaStep of
@@ -507,6 +517,7 @@ makeAcidic ''RebacState
  , 'replaceRelationTuplesByTag
  , 'getRelationTuples
  , 'getRelationLog
+ , 'checkPermission
  , 'getSchemaIdForTxId
  , 'getDefMap
  , 'getSchema
@@ -626,7 +637,7 @@ initialRebacState =
        , rsSchemaHistory = Map.singleton (SchemaId 1) clckwrksSchema
        , rsDefMap    = case parseSchema (unSchemaText clckwrksSchema) of
                          (Right s) -> mkDefMap (definitions s)
-       , rsTuples    = clckwrksRels
+       , rsTuples    = fromTuples clckwrksRels
        , rsLog       = (map (fakeLog now) clckwrksRels) ++ [SchemaUpdate now (SchemaId 1) "initial schema" (RelationTxId 0)]
        , rsTxId      = RelationTxId 1
        , rsSchemaId  = SchemaId 2
