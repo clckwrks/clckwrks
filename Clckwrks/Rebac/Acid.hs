@@ -468,24 +468,75 @@ setTaggedTuples :: Tag             -- ^ the tag that identifies the group of tup
                 -> Text            -- ^ a human readable comment, logged with each change
                 -> Update RebacState (Either [SetTaggedTuplesError] TaggedTuplesChange)
 setTaggedTuples tag rts now comment =
+  fmap (maybe (TaggedTuplesChange [] []) id . lookup tag) <$> setTaggedTuplesMany [(tag, rts)] now comment
+
+-- | 'setTaggedTuples' for many groups at once, as one transaction: every
+-- group is checked first, and if any tuple lacks its group's tag or is not
+-- valid nothing changes.  Returns the groups that changed and how.
+--
+-- The stored tuples of all the groups are found in one pass, rather than one
+-- per group, and a sync that changes nothing writes nothing, so this is the
+-- way to bring many groups into step at once, such as every report's tuples
+-- at startup.  Ask 'taggedGroupsOutOfStep' first and pass only the groups it
+-- names: an update event is written to the event log even when it changes
+-- nothing, and one with every group in it is large.
+--
+-- A tag listed more than once stands for all the tuples listed with it.
+setTaggedTuplesMany :: [(Tag, [RelationTuple])] -- ^ each group's tag, and what the group should be
+                    -> UTCTime                  -- ^ approximate wall time
+                    -> Text                     -- ^ a human readable comment, logged with each change
+                    -> Update RebacState (Either [SetTaggedTuplesError] [(Tag, TaggedTuplesChange)])
+setTaggedTuplesMany groups now comment =
   do rs <- get
-     let wanted   = nub rts
-         errs     = [ TupleLacksTag rt | rt <- wanted, not (hasTag tag rt) ] ++
-                    map TupleNotValid (invalidTuples rs (filter (hasTag tag) wanted))
-         current  = filter (hasTag tag) (toTuples (rsTuples rs))
-         removed  = [ rt | rt <- current, rt `notElem` wanted ]
-         added    = [ rt | rt <- wanted, rt `notElem` current ]
+     let wanted = wantedGroups groups
+         errs   = concat [ [ TupleLacksTag rt | rt <- rts, not (hasTag t rt) ] ++
+                           map TupleNotValid (invalidTuples rs (filter (hasTag t) rts))
+                         | (t, rts) <- wanted ]
+         changes = groupChanges rs wanted
          logEntry action rt = RelationLogEntry now rt action comment (rsTxId rs)
      case errs of
        (_ : _) -> pure (Left errs)
-       [] | null removed && null added -> pure (Right (TaggedTuplesChange [] []))
+       [] | null changes -> pure (Right [])
           | otherwise ->
-              do put $ rs { rsTuples = foldl' (flip insertTuple) (foldl' (flip deleteTuple) (rsTuples rs) removed) added
-                          -- newest first: the removals, then the additions
-                          , rsLog    = reverse (map (logEntry RLEAdd) added) ++ reverse (map (logEntry RLERemove) removed) ++ rsLog rs
+              do let removed = concatMap (taggedRemoved . snd) changes
+                     added   = concatMap (taggedAdded . snd) changes
+                 put $ rs { rsTuples = foldl' (flip insertTuple) (foldl' (flip deleteTuple) (rsTuples rs) removed) added
+                          -- newest first: for each group its removals, then its additions
+                          , rsLog    = reverse (concat [ map (logEntry RLERemove) (taggedRemoved c) ++ map (logEntry RLEAdd) (taggedAdded c) | (_, c) <- changes ]) ++ rsLog rs
                           , rsTxId   = succRelationIxId (rsTxId rs)
                           }
-                 pure (Right (TaggedTuplesChange removed added))
+                 pure (Right changes)
+
+-- | The tags whose stored tuples are not the ones given, in the order of
+-- 'setTaggedTuplesMany'.  A query, so unlike an update it is not written to
+-- the event log, and it finds the stored tuples of every group in one pass.
+-- A group with tuples that could not be stored (no tag, or not valid) is
+-- always out of step, so that syncing it reports why.
+taggedGroupsOutOfStep :: [(Tag, [RelationTuple])] -> Query RebacState [Tag]
+taggedGroupsOutOfStep groups =
+  do rs <- ask
+     pure (map fst (groupChanges rs (wantedGroups groups)))
+
+-- | each tag once, in order, with all the distinct tuples listed for it
+wantedGroups :: [(Tag, [RelationTuple])] -> [(Tag, [RelationTuple])]
+wantedGroups groups = Map.toList (nub <$> Map.fromListWith (flip (++)) groups)
+
+-- | for each group, what would have to be removed and added to make its
+-- stored tuples the wanted ones; groups already in step are left out
+groupChanges :: RebacState -> [(Tag, [RelationTuple])] -> [(Tag, TaggedTuplesChange)]
+groupChanges rs wanted =
+  [ (t, TaggedTuplesChange removed added)
+  | (t, rts) <- wanted
+  , let current = Map.findWithDefault [] t stored
+        removed = [ rt | rt <- current, rt `notElem` rts ]
+        added   = [ rt | rt <- rts, rt `notElem` current ]
+  , not (null removed && null added)
+  ]
+  where
+    tags   = Map.fromList [ (t, ()) | (t, _) <- wanted ]
+    -- one pass over the stored tuples, keeping those of the groups asked about
+    stored = Map.fromListWith (flip (++))
+               [ (t, [rt]) | rt@(RelationTuple _ _ _ _ (Just t) _) <- toTuples (rsTuples rs), Map.member t tags ]
 
 -- | Can the subject do this to the resource?  Evaluated against the stored
 -- tuples and schema as one consistent snapshot, using the stored index,
@@ -617,6 +668,8 @@ makeAcidic ''RebacState
  , 'removeRelationTuplesByTag
  , 'replaceRelationTuplesByTag
  , 'setTaggedTuples
+ , 'setTaggedTuplesMany
+ , 'taggedGroupsOutOfStep
  , 'getRelationTuples
  , 'getRelationLog
  , 'getRelationLogPage
