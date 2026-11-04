@@ -120,31 +120,46 @@ viewParams tf page =
 filterForm clear knownObjectTys knownRels tf =
   [hsx|
     <form method="get" action="" class="rebac-relations-filter">
-     <fieldset>
-      <legend>Filter</legend>
-      <label>Resource <% typeSelect "rtype" (tfResourceType tf) %></label>
-      <% textInput "rid" (tfResourceId tf) %>
-      <label>Relation <% relationSelect (tfRelation tf) %></label>
-      <label>Subject <% typeSelect "stype" (tfSubjectType tf) %></label>
-      <% textInput "sid" (tfSubjectId tf) %>
-      <label>Tag <% textInput "tag" (tfTag tf) %></label>
-      <input type="submit" value="Filter" />
-      <a href=clear>Clear</a>
-     </fieldset>
+     <div class="rebac-filter-field">
+      <label for="rebac-filter-rtype">Resource</label>
+      <div class="rebac-filter-inputs">
+       <% typeSelect "rtype" (tfResourceType tf) %>
+       <% textInput "rid" "id contains…" (tfResourceId tf) %>
+      </div>
+     </div>
+     <div class="rebac-filter-field">
+      <label for="rebac-filter-rel">Relation</label>
+      <div class="rebac-filter-inputs"><% relationSelect (tfRelation tf) %></div>
+     </div>
+     <div class="rebac-filter-field">
+      <label for="rebac-filter-stype">Subject</label>
+      <div class="rebac-filter-inputs">
+       <% typeSelect "stype" (tfSubjectType tf) %>
+       <% textInput "sid" "id contains…" (tfSubjectId tf) %>
+      </div>
+     </div>
+     <div class="rebac-filter-field">
+      <label for="rebac-filter-tag">Tag</label>
+      <div class="rebac-filter-inputs"><% textInput "tag" "contains…" (tfTag tf) %></div>
+     </div>
+     <div class="rebac-filter-actions">
+      <button type="submit" class="btn btn-primary">Filter</button>
+      <a class="btn" href=clear>Clear</a>
+     </div>
     </form>
   |]
   where
     typeSelect :: Text.Text -> Maybe ObjectType -> GenXML (Clck RebacURL)
     typeSelect name cur =
-      [hsx| <select name=name><% option "" "any" (cur == Nothing) : [ option t t (cur == Just ot) | ot@(ObjectType t) <- knownObjectTys ] %></select> |]
+      [hsx| <select name=name id=("rebac-filter-" <> name)><% option "" "any" (cur == Nothing) : [ option t t (cur == Just ot) | ot@(ObjectType t) <- knownObjectTys ] %></select> |]
     relationSelect :: Maybe Relation -> GenXML (Clck RebacURL)
     relationSelect cur =
-      [hsx| <select name="rel"><% option "" "any" (cur == Nothing) : [ option t t (cur == Just r) | r@(Relation t) <- knownRels ] %></select> |]
+      [hsx| <select name="rel" id="rebac-filter-rel"><% option "" "any" (cur == Nothing) : [ option t t (cur == Just r) | r@(Relation t) <- knownRels ] %></select> |]
     option :: Text.Text -> Text.Text -> Bool -> GenXML (Clck RebacURL)
     option v label True  = [hsx| <option value=v selected="selected"><% label %></option> |]
     option v label False = [hsx| <option value=v><% label %></option> |]
-    textInput :: Text.Text -> Maybe Text.Text -> GenXML (Clck RebacURL)
-    textInput name cur = [hsx| <input type="text" size="15" name=name value=(fromMaybe "" cur) /> |]
+    textInput :: Text.Text -> Text.Text -> Maybe Text.Text -> GenXML (Clck RebacURL)
+    textInput name hint cur = [hsx| <input type="text" name=name id=("rebac-filter-" <> name) placeholder=hint value=(fromMaybe "" cur) /> |]
 
 inputText' txt = inputText txt `setAttrs` [("size" := "15") :: Attr Text Text]
 
