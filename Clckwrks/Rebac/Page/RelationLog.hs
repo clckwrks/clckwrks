@@ -94,8 +94,8 @@ relationLogTable logEntries =
          <th>Object Type</th>
          <th>Object ID</th>
          <th>Subject Relation</th>
-         <th>Expiration</th>
          <th>Tag</th>
+         <th>Expiration</th>
         </tr>
        </thead>
        <tbody>
