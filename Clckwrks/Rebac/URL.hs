@@ -19,6 +19,7 @@ data RebacURL
   | ViewSchema SchemaId
   | RelationsPanel
   | RelationLogPanel
+  | CheckPanel
   deriving (Eq, Ord, Data, Typeable, Generic, Read, Show)
 
 derivePathInfo ''RebacURL
@@ -29,6 +30,7 @@ instance ToObject RebacURL where
           SchemaPanel    -> "schema_panel"
           RelationsPanel -> "relations_panel"
           RelationLogPanel -> "relation_log_panel"
+          CheckPanel       -> "check_panel"
           (ViewSchema _)   -> "view_schema"
     in Object (ObjectType "rebac_url") objId
 

@@ -5,6 +5,7 @@ import Clckwrks.AccessControl      (assertAccess, checkAccess)
 import Control.Applicative         ((<$>))
 import Control.Monad.Trans         (liftIO)
 import Clckwrks.Monad              (ClckT(..), plugins)
+import Clckwrks.Rebac.Page.Check     (checkPanel)
 import Clckwrks.Rebac.Page.Relations (relationsPanel)
 import Clckwrks.Rebac.Page.RelationLog (relationLogPanel)
 import Clckwrks.Rebac.Page.Schema    (schemaPanel)
@@ -32,6 +33,7 @@ routeRebac u' =
        (ViewSchema sid) -> viewSchema u sid
        RelationsPanel   -> relationsPanel u
        RelationLogPanel -> relationLogPanel u
+       CheckPanel       -> checkPanel u
 
 {-
      p <- plugins <$> get
@@ -63,5 +65,8 @@ checkAuth url =
          do assertAccess url RebacView (Just now)
             pure url
        RelationLogPanel    ->
+         do assertAccess url RebacView (Just now)
+            pure url
+       CheckPanel          ->
          do assertAccess url RebacView (Just now)
             pure url

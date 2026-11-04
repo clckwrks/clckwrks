@@ -167,3 +167,139 @@ form.rebac-relations-filter
     margin: 0.5em 0;
     color: #555;
 }
+
+/* the Check panel */
+
+.rebac-check-tabs
+{
+    margin: 1em 0 0 0;
+}
+
+.rebac-check-tab-current,
+.rebac-check-tab
+{
+    display: inline-block;
+    padding: 0.3em 1em;
+    margin-right: 0.3em;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+}
+
+.rebac-check-tab-current
+{
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+.rebac-check-every
+{
+    font-weight: normal !important;
+}
+
+.rebac-check-every input
+{
+    margin: 0 0.3em 0 0;
+}
+
+.rebac-check-verdict
+{
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 1em 0 0.5em 0;
+}
+
+.rebac-check-question
+{
+    font-weight: normal;
+}
+
+.rebac-check-views,
+.rebac-check-footer,
+.rebac-check-note
+{
+    color: #555;
+}
+
+.rebac-check-error
+{
+    color: #b94a48;
+}
+
+ul.rebac-check-tree,
+ul.rebac-check-tree ul
+{
+    list-style-type: none;
+    margin: 0 0 0 1.5em;
+    padding: 0;
+}
+
+ul.rebac-check-tree
+{
+    margin-left: 0;
+}
+
+ul.rebac-check-tree li
+{
+    margin: 0.15em 0;
+    border-left: 1px dotted #ccc;
+    padding-left: 0.6em;
+}
+
+.rebac-check-rule
+{
+    font-family: monospace;
+}
+
+li.rebac-allowed > .rebac-check-rule,
+li.rebac-allowed
+{
+    color: #3a7d34;
+}
+
+li.rebac-denied > .rebac-check-rule,
+li.rebac-denied
+{
+    color: #b94a48;
+}
+
+.rebac-check-verdict.rebac-allowed
+{
+    color: #3a7d34;
+}
+
+.rebac-check-verdict.rebac-denied
+{
+    color: #b94a48;
+}
+
+li.rebac-check-skipped
+{
+    color: #999;
+}
+
+.rebac-check-why
+{
+    color: #777;
+    font-style: italic;
+}
+
+.rebac-check-tuple code
+{
+    color: #333;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.rebac-check-added
+{
+    color: #888;
+    font-size: 0.85em;
+    margin-left: 0.6em;
+}
+
+ol.rebac-check-paths li
+{
+    margin-bottom: 0.6em;
+}

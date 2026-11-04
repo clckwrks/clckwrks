@@ -898,6 +898,7 @@ clckwrksRels =
          rebac_url:schema_panel#controller@platform:clckwrks
          rebac_url:relations_panel#controller@platform:clckwrks
          rebac_url:relation_log_panel#controller@platform:clckwrks
+         rebac_url:check_panel#controller@platform:clckwrks
   |]
 
 

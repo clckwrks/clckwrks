@@ -325,6 +325,11 @@ relationsTable back filterURL knownObjectTys knownRels knownSubjectRels tuples =
              -- subject or tag
              filterLink f label = do u <- XMLGenT (filterURL f)
                                      [hsx| <a href=u><% label %></a> |]
+             -- the same tuple asked of the Check panel: does the subject
+             -- have the relation, and why
+             checkLink = do u <- XMLGenT (showURLParams CheckPanel [ ("rtype", Just rt), ("rid", Just ri), ("perm", Just r)
+                                                                  , ("stype", Just st), ("sid", Just si) ])
+                            [hsx| <a href=u class="rebac-relations-check">check</a> |]
              tagCell = case mTag of
                          Nothing      -> [hsx| <span></span> |]
                          Just (Tag t) -> filterLink anyTuple { tfTag = Just t } t
@@ -338,7 +343,7 @@ relationsTable back filterURL knownObjectTys knownRels knownSubjectRels tuples =
                         <td><% sr %></td>
                         <td><% tagCell %></td>
                         <td><% maybe "" formatExpiration mExpiration %></td>
-                        <td><% delButton %></td>
+                        <td><% delButton %> <% checkLink %></td>
                     </tr>
                     |]
 {-

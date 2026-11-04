@@ -55,6 +55,7 @@ addClckAdminMenu =
                     , [ (Set.singleton Administrator, "Schema"       , clckShowURL (Rebac SchemaPanel)      [])
                       , (Set.singleton Administrator, "Relations"    , clckShowURL (Rebac RelationsPanel)   [])
                       , (Set.singleton Administrator, "Relation Log" , clckShowURL (Rebac RelationLogPanel) [])
+                      , (Set.singleton Administrator, "Check"        , clckShowURL (Rebac CheckPanel)       [])
                       ]
                     )
 
