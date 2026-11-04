@@ -4,6 +4,7 @@ module Clckwrks.Rebac.API
        , getRelationTuples
        , getRelationLog
        , getRelationLogPage
+       , getRelationTuplesPage
        , getSchema
        , addRelationTuple
        , removeRelationTuple
@@ -21,7 +22,7 @@ import Clckwrks.AccessControl       (checkAccess)
 import Clckwrks.Authenticate.Plugin (authenticatePlugin, authenticatePluginLoader)
 import Clckwrks.Authenticate.Monad  (AuthenticatePluginState(..))
 import Clckwrks.Monad               (Clck, ClckPlugins, ClckT, plugins, query, update)
-import Clckwrks.Rebac.Acid          (AddRelationTuple(..), AddRelationTupleError(..), CheckSchema(..), GetRelationLog(..), GetRelationLogPage(..), GetRelationTuples(..), GetSchema(..), RemoveRelationTuple(..), RelationLogEntry, UpdateSchema(..), UpdateSchemaError(..), UpdateSchemaResult(..))
+import Clckwrks.Rebac.Acid          (AddRelationTuple(..), AddRelationTupleError(..), CheckSchema(..), GetRelationLog(..), GetRelationLogPage(..), GetRelationTuples(..), GetRelationTuplesPage(..), TupleFilter, GetSchema(..), RemoveRelationTuple(..), RelationLogEntry, UpdateSchema(..), UpdateSchemaError(..), UpdateSchemaResult(..))
 import Clckwrks.Rebac.Types         (SchemaText(..))
 import Control.Concurrent.STM       (atomically)
 import Control.Concurrent.STM.TVar  (modifyTVar')
@@ -131,6 +132,20 @@ getRelationLogPage offset count =
      case a of
        Allowed ->
          Right <$> query (GetRelationLogPage offset count)
+       NotAllowed reasons ->
+         pure $ Left $ Text.pack $ show reasons
+
+-- | One page of the relation tuples that match a filter, and how many
+-- match in all; see 'GetRelationTuplesPage'.
+--
+-- Will fail if the 'UserId' making the request does not have 'get' permissions on 'RelationsR'
+getRelationTuplesPage :: (Happstack m, MonadIO m) => TupleFilter -> Int -> Int -> ClckT url m (Either Text (Int, [ RelationTuple ]))
+getRelationTuplesPage tf offset count =
+  do now <- liftIO getPOSIXTime
+     a <- checkAccess RelationsR (Permission "get") (Just now)
+     case a of
+       Allowed ->
+         Right <$> query (GetRelationTuplesPage tf offset count)
        NotAllowed reasons ->
          pure $ Left $ Text.pack $ show reasons
 

@@ -10,8 +10,8 @@ import Clckwrks.Admin.Template     (template)
 import Clckwrks.Authenticate.Plugin (authenticatePlugin)
 import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.ProfileData.Acid   (GetProfileData(..), SetProfileData(..))
-import Clckwrks.Rebac.Acid         (AddRelationTuple(..), RelationLogEntry(..), RemoveRelationTuple(..))
-import Clckwrks.Rebac.API          (RebacApi(..), addRelationTuple, removeRelationTuple, getRelationTuples, getSchema)
+import Clckwrks.Rebac.Acid         (AddRelationTuple(..), RelationLogEntry(..), RemoveRelationTuple(..), TupleFilter(..), anyTuple)
+import Clckwrks.Rebac.API          (RebacApi(..), addRelationTuple, removeRelationTuple, getRelationTuplesPage, getSchema)
 import Clckwrks.Rebac.Types        (SchemaText(..))
 import Clckwrks.Rebac.URL          (RebacURL(..))
 import Clckwrks.Unauthorized       (unauthorizedPage)
@@ -26,6 +26,7 @@ import Data.Time.Clock.POSIX       (getPOSIXTime)
 import Data.Maybe                  (fromMaybe)
 import Data.UserId                 (UserId)
 import Happstack.Authenticate.Core (Email(..), User(..))
+import Happstack.Server            (getDataFn, lookRead, lookText')
 import Happstack.Authenticate.Handlers (GetUserByUserId(..), UpdateUser(..))
 import Language.Haskell.HSX.QQ     (hsx)
 import Text.Reform                 ((++>), (<++), mapView, transformEither, transformEitherM)
@@ -34,14 +35,20 @@ import Text.Reform.Happstack       (reform)
 import HSP.XMLGenerator
 import HSP.XML
 import Web.Plugins.Core            (Plugin(..), getPluginState)
+import Web.Routes                  (showURLParams)
 
 -- FIXME: the input fields allow arbitrary text even though ids and other values are restricted in what can actually appear. See the pName parser in the rebac library.
 -- FIXME: this currently uses the admin template. Which is sort of right, and sort of not.
 
--- FIXME: should this call a varient of `getRelationTuples` where we see that the user is allowed to view them?
+-- | The relation tuples, a page at a time, filtered by the query string:
+-- @rtype@, @rid@, @rel@, @stype@, @sid@ and @tag@ (see 'TupleFilter'),
+-- and @page@, counting from 1.  The add and delete forms post to the same
+-- URL, so they see the view too and go back to it.
 relationsPanel :: RebacURL -> Clck RebacURL Response
 relationsPanel here =
-  do ets    <- getRelationTuples
+  do (tf, page) <- tupleView
+     let offset = (page - 1) * relationsPageSize
+     ets    <- getRelationTuplesPage tf offset relationsPageSize
      (knownObjectTys, knownRels, knownSubjectRels) <-
        do eSchemaText <- getSchema
           case eSchemaText of
@@ -51,12 +58,24 @@ relationsPanel here =
                 (Right s) -> pure (knownObjectTypes s, knownRelations s, [ Relation "member" ]) -- FIXME: should be calculated. Also it is called a subject relation, but it seems like it is a permission?
      now <- liftIO getPOSIXTime
      canMod <- checkAccess RelationsR (Permission "modify") (Just now)
-     action <- showURL here
      case ets of
-       (Right tuples) ->
-         do template "REBAC Relations"  () $ [hsx|
+       (Right (total, tuples)) ->
+         do let viewURL f p = showURLParams here (viewParams f p)
+            back  <- viewURL tf page
+            clear <- showURL here
+            prev  <- if page > 1 then Just <$> viewURL tf (page - 1) else pure Nothing
+            next  <- if offset + relationsPageSize < total then Just <$> viewURL tf (page + 1) else pure Nothing
+            let link (Just u) label = [hsx| <a href=u><% label %></a> |]
+                link Nothing  label = [hsx| <span><% label %></span> |]
+                range | null tuples = "no relations match"
+                      | otherwise = "relations " ++ show (offset + 1) ++ " to " ++ show (offset + length tuples) ++ " of " ++ show total
+                nav = [hsx| <p class="rebac-relations-pages"><% link prev ("« Previous" :: Text) %> · <% range %> · <% link next ("Next »" :: Text) %></p> |]
+            template "REBAC Relations"  () $ [hsx|
               <%>
-               <% relationsTable action knownObjectTys knownRels knownSubjectRels tuples %>
+               <% filterForm clear knownObjectTys knownRels tf %>
+               <% nav %>
+               <% relationsTable back (\f -> viewURL f 1) knownObjectTys knownRels knownSubjectRels tuples %>
+               <% nav %>
                <% show canMod %>
               </%>
                                               |]
@@ -65,6 +84,67 @@ relationsPanel here =
 --         ok $ toResponse $ show e
 
 --                <pre><code><% show $ ppRelationTuples tuples %></code></pre>
+
+-- | how many relations a page shows
+relationsPageSize :: Int
+relationsPageSize = 100
+
+-- | The filter and page from the query string.  Blank fields are left
+-- out of the filter; a missing or unreadable page is page 1.
+tupleView :: Clck RebacURL (TupleFilter, Int)
+tupleView =
+  do let param name = either (const Nothing) nonBlank <$> getDataFn (lookText' name)
+         nonBlank t = let t' = Text.strip t in if Text.null t' then Nothing else Just t'
+     tf <- TupleFilter <$> (fmap ObjectType <$> param "rtype")
+                       <*> param "rid"
+                       <*> (fmap Relation <$> param "rel")
+                       <*> (fmap ObjectType <$> param "stype")
+                       <*> param "sid"
+                       <*> param "tag"
+     page <- either (const 1) (max 1) <$> getDataFn (lookRead "page")
+     pure (tf, page)
+
+-- | The query string for a filter and page, the inverse of 'tupleView'.
+viewParams :: TupleFilter -> Int -> [(Text.Text, Maybe Text.Text)]
+viewParams tf page =
+  [ (name, Just v) | (name, Just v) <- [ ("rtype", unObjectType <$> tfResourceType tf)
+                                       , ("rid",   tfResourceId tf)
+                                       , ("rel",   unRelation <$> tfRelation tf)
+                                       , ("stype", unObjectType <$> tfSubjectType tf)
+                                       , ("sid",   tfSubjectId tf)
+                                       , ("tag",   tfTag tf) ] ] ++
+  [ ("page", Just (pack (show page))) | page > 1 ]
+
+-- | The filter, as a GET form, so that a filtered view is a URL that can
+-- be bookmarked and that the page links keep.
+filterForm clear knownObjectTys knownRels tf =
+  [hsx|
+    <form method="get" action="" class="rebac-relations-filter">
+     <fieldset>
+      <legend>Filter</legend>
+      <label>Resource <% typeSelect "rtype" (tfResourceType tf) %></label>
+      <% textInput "rid" (tfResourceId tf) %>
+      <label>Relation <% relationSelect (tfRelation tf) %></label>
+      <label>Subject <% typeSelect "stype" (tfSubjectType tf) %></label>
+      <% textInput "sid" (tfSubjectId tf) %>
+      <label>Tag <% textInput "tag" (tfTag tf) %></label>
+      <input type="submit" value="Filter" />
+      <a href=clear>Clear</a>
+     </fieldset>
+    </form>
+  |]
+  where
+    typeSelect :: Text.Text -> Maybe ObjectType -> GenXML (Clck RebacURL)
+    typeSelect name cur =
+      [hsx| <select name=name><% option "" "any" (cur == Nothing) : [ option t t (cur == Just ot) | ot@(ObjectType t) <- knownObjectTys ] %></select> |]
+    relationSelect :: Maybe Relation -> GenXML (Clck RebacURL)
+    relationSelect cur =
+      [hsx| <select name="rel"><% option "" "any" (cur == Nothing) : [ option t t (cur == Just r) | r@(Relation t) <- knownRels ] %></select> |]
+    option :: Text.Text -> Text.Text -> Bool -> GenXML (Clck RebacURL)
+    option v label True  = [hsx| <option value=v selected="selected"><% label %></option> |]
+    option v label False = [hsx| <option value=v><% label %></option> |]
+    textInput :: Text.Text -> Maybe Text.Text -> GenXML (Clck RebacURL)
+    textInput name cur = [hsx| <input type="text" size="15" name=name value=(fromMaybe "" cur) /> |]
 
 inputText' txt = inputText txt `setAttrs` [("size" := "15") :: Attr Text Text]
 
@@ -144,7 +224,7 @@ relationTupleFormlet knownObjectTys knownRels knownSubjectRels =
       divControlGroup = mapView (\xml -> [[hsx|<div class="control-group"><% xml %></div>|]])
       divControls     = mapView (\xml -> [[hsx|<div class="controls"><% xml %></div>|]])
 -}
-relationsTable action knownObjectTys knownRels knownSubjectRels tuples =
+relationsTable back filterURL knownObjectTys knownRels knownSubjectRels tuples =
   [hsx|
      <div>
       <table class="rebac-relations">
@@ -168,8 +248,8 @@ relationsTable action knownObjectTys knownRels knownSubjectRels tuples =
         </tr>
        </thead>
        <tbody>
-        <% mapM mkRow (zip [0..] tuples) %>
         <% reform (form ("" :: String)) "rebac" updated Nothing ((relationTupleFormlet knownObjectTys knownRels knownSubjectRels) `transformEitherM` tryUpdate) %>
+        <% mapM mkRow (zip [0..] tuples) %>
        </tbody>
       </table>
 
@@ -184,15 +264,16 @@ relationsTable action knownObjectTys knownRels knownSubjectRels tuples =
              (Right rle) -> pure (Right rle)
              (Left e)    -> pure (Left (AddRelationTupleError e))
 
+      -- back to the same filter and page
       updated :: RelationLogEntry -> Clck RebacURL Response
       updated rle =
-        seeOtherURL RelationsPanel
+        seeOther back (toResponse ())
 
       deleteAction (RemoveRT rt) =
         do -- liftIO $ putStrLn $ "RemoveRT - " ++ show (ppRelationTuple rt)
            userid <- whoami
            removeRelationTuple rt "Removed directly by admin"
-           seeOtherURL RelationsPanel
+           seeOther back (toResponse ())
 
 {-
       updated :: FormAction -> Clck RebacURL Response
@@ -225,15 +306,22 @@ relationsTable action knownObjectTys knownRels knownSubjectRels tuples =
              si = case wsi of
                Wildcard -> "*"
                (Specific (ObjectId i)) -> i
+             -- each links to the relations with the same resource,
+             -- subject or tag
+             filterLink f label = do u <- XMLGenT (filterURL f)
+                                     [hsx| <a href=u><% label %></a> |]
+             tagCell = case mTag of
+                         Nothing      -> [hsx| <span></span> |]
+                         Just (Tag t) -> filterLink anyTuple { tfTag = Just t } t
          in
              [hsx|
                     <tr><td><% rt  %></td>
-                        <td><% ri  %></td>
+                        <td><% filterLink anyTuple { tfResourceType = Just (ObjectType rt), tfResourceId = Just ri } ri %></td>
                         <td><% r   %></td>
                         <td><% st  %></td>
-                        <td><% si  %></td>
+                        <td><% filterLink anyTuple { tfSubjectType = Just (ObjectType st), tfSubjectId = Just si } si %></td>
                         <td><% sr %></td>
-                        <td><% maybe "" unTag mTag %></td>
+                        <td><% tagCell %></td>
                         <td><% maybe "" formatExpiration mExpiration %></td>
                         <td><% delButton %></td>
                     </tr>

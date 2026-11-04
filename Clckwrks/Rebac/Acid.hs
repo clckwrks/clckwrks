@@ -3,16 +3,16 @@ module Clckwrks.Rebac.Acid where
 
 import AccessControl.Check         (Access, checkIndexed)
 import qualified AccessControl.Check as Check
-import AccessControl.Relation      (Object, ObjectType, ObjectWildcard(NoWildcard), RelationTuple(..), Tag(..), hasTag, ppRelationTuple, rels)
+import AccessControl.Relation      (Object(..), ObjectId(..), ObjectType, ObjectWildcard(NoWildcard), Relation, RelationTuple(..), Tag(..), WildcardObjectId(..), hasTag, ppRelationTuple, rels)
 import AccessControl.Schema        (Permission, Schema(definitions), SchemaError, parseSchema, ppSchemaError, validateSchema)
-import AccessControl.TupleIndex    (TupleIndex, deleteTuple, elemTuple, fromTuples, insertTuple, toTuples)
+import AccessControl.TupleIndex    (TupleIndex, deleteTuple, elemTuple, fromTuples, insertTuple, resourcesOfType, toTuples, tuplesFor)
 import AccessControl.Validate      (RelPerm(..), Valid(..), ValidationError(..), isValid, mkDefMap, ppValidationError, validate)
 import Clckwrks.Rebac.Types        (SchemaId(..), SchemaText(..))
 import Control.Monad.Reader        (ask)
 import Control.Monad.State         (put, get)
 import Data.Acid                   (Query, Update, makeAcidic)
 import Data.Data                   (Data)
-import Data.List                   (mapAccumL, nub, partition)
+import Data.List                   (mapAccumL, nub, partition, sort)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, contain, extension, safeGet, safePut)
@@ -575,6 +575,57 @@ getRelationLogPage offset count =
   do rs <- ask
      pure (length (rsLog rs), take count (drop offset (rsLog rs)))
 
+-- | Which relation tuples to show, for pages that list them.  A field
+-- that is 'Nothing' matches every tuple.  Types and relations must be
+-- equal; ids and tags need only contain the text, ignoring case, so a
+-- few characters of a UUID are enough.  A wildcard subject's id is @*@.
+--
+-- This is only ever a query argument, never stored, so it can change
+-- without a migration.
+data TupleFilter = TupleFilter
+  { tfResourceType :: Maybe ObjectType
+  , tfResourceId   :: Maybe Text
+  , tfRelation     :: Maybe Relation
+  , tfSubjectType  :: Maybe ObjectType
+  , tfSubjectId    :: Maybe Text
+  , tfTag          :: Maybe Text
+  }
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy TupleFilter where version = 1 ; kind = base
+
+-- | the filter that matches every tuple
+anyTuple :: TupleFilter
+anyTuple = TupleFilter Nothing Nothing Nothing Nothing Nothing Nothing
+
+matchesFilter :: TupleFilter -> RelationTuple -> Bool
+matchesFilter tf (RelationTuple (Object rty (ObjectId rid)) rel (Object sty wsid) _ mTag _) =
+  maybe True (== rty) (tfResourceType tf) &&
+  maybe True (`contains` rid) (tfResourceId tf) &&
+  maybe True (== rel) (tfRelation tf) &&
+  maybe True (== sty) (tfSubjectType tf) &&
+  maybe True (`contains` sid) (tfSubjectId tf) &&
+  maybe True (\t -> maybe False (contains t . unTag) mTag) (tfTag tf)
+  where
+    sid = case wsid of
+            Wildcard -> "*"
+            Specific (ObjectId i) -> i
+    contains needle hay = Text.toCaseFold needle `Text.isInfixOf` Text.toCaseFold hay
+
+-- | One page of the tuples that match a filter, in order (by resource,
+-- then relation, then subject): @count@ tuples after skipping @offset@,
+-- and how many match in all.  Given a resource type, only the resources
+-- of that type are looked at.
+getRelationTuplesPage :: TupleFilter -> Int -> Int -> Query RebacState (Int, [ RelationTuple ])
+getRelationTuplesPage tf offset count =
+  do rs <- ask
+     let idx        = rsTuples rs
+         candidates = case tfResourceType tf of
+                        Just ty -> concatMap (`tuplesFor` idx) (resourcesOfType ty idx)
+                        Nothing -> toTuples idx
+         matching   = sort (filter (matchesFilter tf) candidates)
+     pure (length matching, take count (drop offset matching))
+
 -- | get the 'SchemaId' that was active when relation transaction 'txId' was performed
 getSchemaIdForTxId :: RelationTxId -> Query RebacState (Maybe SchemaId)
 getSchemaIdForTxId txId =
@@ -673,6 +724,7 @@ makeAcidic ''RebacState
  , 'getRelationTuples
  , 'getRelationLog
  , 'getRelationLogPage
+ , 'getRelationTuplesPage
  , 'checkPermission
  , 'lookupResources
  , 'getSchemaIdForTxId
