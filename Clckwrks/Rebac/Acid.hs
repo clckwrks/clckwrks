@@ -643,8 +643,10 @@ getRelationLogPage offset count =
 
 -- | Which relation tuples to show, for pages that list them.  A field
 -- that is 'Nothing' matches every tuple.  Types and relations must be
--- equal; ids and tags need only contain the text, ignoring case, so a
--- few characters of a UUID are enough.  A wildcard subject's id is @*@.
+-- equal.  Ids and tags must be equal too, ignoring case, unless the text
+-- has a @*@, which matches any run of characters: @12@ is user 12 only,
+-- @3f2a*@ any id starting @3f2a@, @*3f2a*@ any id containing it
+-- ('matchesPattern').  A wildcard subject's id is @*@.
 --
 -- This is only ever a query argument, never stored, so it can change
 -- without a migration.
@@ -667,16 +669,35 @@ anyTuple = TupleFilter Nothing Nothing Nothing Nothing Nothing Nothing
 matchesFilter :: TupleFilter -> RelationTuple -> Bool
 matchesFilter tf (RelationTuple (Object rty (ObjectId rid)) rel (Object sty wsid) _ mTag _) =
   maybe True (== rty) (tfResourceType tf) &&
-  maybe True (`contains` rid) (tfResourceId tf) &&
+  maybe True (`matchesPattern` rid) (tfResourceId tf) &&
   maybe True (== rel) (tfRelation tf) &&
   maybe True (== sty) (tfSubjectType tf) &&
-  maybe True (`contains` sid) (tfSubjectId tf) &&
-  maybe True (\t -> maybe False (contains t . unTag) mTag) (tfTag tf)
+  maybe True (`matchesPattern` sid) (tfSubjectId tf) &&
+  maybe True (\t -> maybe False (matchesPattern t . unTag) mTag) (tfTag tf)
   where
     sid = case wsid of
             Wildcard -> "*"
             Specific (ObjectId i) -> i
-    contains needle hay = Text.toCaseFold needle `Text.isInfixOf` Text.toCaseFold hay
+
+-- | Does the text match the pattern, ignoring case?  Without a @*@ the
+-- two must be equal; each @*@ matches any run of characters, none
+-- included.
+matchesPattern :: Text -> Text -> Bool
+matchesPattern pat txt =
+  case Text.splitOn "*" (Text.toCaseFold pat) of
+    [exact]          -> exact == hay
+    (first : pieces) -> Text.isPrefixOf first hay && rest pieces (Text.drop (Text.length first) hay)
+    []               -> False
+  where
+    hay = Text.toCaseFold txt
+    -- the last piece must end the text; the others are found in order
+    rest [lastPiece] h = Text.length lastPiece <= Text.length h && Text.isSuffixOf lastPiece h
+    rest (p : ps) h
+      | Text.null p = rest ps h
+      | otherwise   = case Text.breakOn p h of
+                        (_, found) | Text.null found -> False
+                                   | otherwise       -> rest ps (Text.drop (Text.length p) found)
+    rest [] _ = True
 
 -- | One page of the tuples that match a filter, in order (by resource,
 -- then relation, then subject): @count@ tuples after skipping @offset@,

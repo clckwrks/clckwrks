@@ -116,7 +116,8 @@ viewParams tf page =
   [ ("page", Just (pack (show page))) | page > 1 ]
 
 -- | The filter, as a GET form, so that a filtered view is a URL that can
--- be bookmarked and that the page links keep.
+-- be bookmarked and that the page links keep.  Ids and tags match
+-- exactly, or as a pattern with @*@; see 'TupleFilter'.
 filterForm clear knownObjectTys knownRels tf =
   [hsx|
     <form method="get" action="" class="rebac-relations-filter">
@@ -124,7 +125,7 @@ filterForm clear knownObjectTys knownRels tf =
       <label for="rebac-filter-rtype">Resource</label>
       <div class="rebac-filter-inputs">
        <% typeSelect "rtype" (tfResourceType tf) %>
-       <% textInput "rid" "id contains…" (tfResourceId tf) %>
+       <% textInput "rid" "id, or 3f2a*" (tfResourceId tf) %>
       </div>
      </div>
      <div class="rebac-filter-field">
@@ -135,12 +136,12 @@ filterForm clear knownObjectTys knownRels tf =
       <label for="rebac-filter-stype">Subject</label>
       <div class="rebac-filter-inputs">
        <% typeSelect "stype" (tfSubjectType tf) %>
-       <% textInput "sid" "id contains…" (tfSubjectId tf) %>
+       <% textInput "sid" "id, or 12*" (tfSubjectId tf) %>
       </div>
      </div>
      <div class="rebac-filter-field">
       <label for="rebac-filter-tag">Tag</label>
-      <div class="rebac-filter-inputs"><% textInput "tag" "contains…" (tfTag tf) %></div>
+      <div class="rebac-filter-inputs"><% textInput "tag" "tag, or report:*" (tfTag tf) %></div>
      </div>
      <div class="rebac-filter-actions">
       <button type="submit" class="btn btn-primary">Filter</button>
