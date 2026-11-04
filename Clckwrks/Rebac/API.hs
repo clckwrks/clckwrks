@@ -1,10 +1,12 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, FlexibleInstances, MultiParamTypeClasses, RecordWildCards, OverloadedStrings #-}
+{-# LANGUAGE DataKinds, DeriveDataTypeable, DeriveGeneric, FlexibleInstances, MultiParamTypeClasses, RecordWildCards, OverloadedStrings #-}
 module Clckwrks.Rebac.API
        ( checkSchema
        , getRelationTuples
        , getRelationLog
        , getRelationLogPage
        , getRelationTuplesPage
+       , explainPermission
+       , lookupResources
        , getSchema
        , addRelationTuple
        , removeRelationTuple
@@ -15,14 +17,14 @@ module Clckwrks.Rebac.API
        ) where
 
 import AccessControl.Check          (Access(..))
-import AccessControl.Relation       (Relation(..), RelationTuple(..), ToObject(..), Object(..), ObjectId(..), ToRelation(..), ObjectType(..))
+import AccessControl.Relation       (Relation(..), RelationTuple(..), ToObject(..), Object(..), ObjectId(..), ToRelation(..), ObjectType(..), ObjectWildcard(NoWildcard))
 import AccessControl.Schema         (KnownPermission, Permission(..), Schema(..), ToPermission(..), parseSchema)
 import AccessControl.Validate       (Valid(..), validate)
 import Clckwrks.AccessControl       (checkAccess)
 import Clckwrks.Authenticate.Plugin (authenticatePlugin, authenticatePluginLoader)
 import Clckwrks.Authenticate.Monad  (AuthenticatePluginState(..))
 import Clckwrks.Monad               (Clck, ClckPlugins, ClckT, plugins, query, update)
-import Clckwrks.Rebac.Acid          (AddRelationTuple(..), AddRelationTupleError(..), CheckSchema(..), GetRelationLog(..), GetRelationLogPage(..), GetRelationTuples(..), GetRelationTuplesPage(..), TupleFilter, GetSchema(..), RemoveRelationTuple(..), RelationLogEntry, UpdateSchema(..), UpdateSchemaError(..), UpdateSchemaResult(..))
+import Clckwrks.Rebac.Acid          (AddRelationTuple(..), AddRelationTupleError(..), CheckSchema(..), GetRelationLog(..), GetRelationLogPage(..), GetRelationTuples(..), GetRelationTuplesPage(..), TupleFilter, ExplainPermission(..), ExplainedCheck, LookupResources(..), GetSchema(..), RemoveRelationTuple(..), RelationLogEntry, UpdateSchema(..), UpdateSchemaError(..), UpdateSchemaResult(..))
 import Clckwrks.Rebac.Types         (SchemaText(..))
 import Control.Concurrent.STM       (atomically)
 import Control.Concurrent.STM.TVar  (modifyTVar')
@@ -49,6 +51,7 @@ data RebacApi
   = SchemaR
   | RelationsR
   | RelationLogR
+  | CheckR        -- ^ explaining checks and looking up resources, for the admin Check panel
   deriving (Eq, Ord, Read, Show, Data, Typeable, Generic)
 
 instance ToObject RebacApi where
@@ -58,6 +61,8 @@ instance ToObject RebacApi where
     Object (ObjectType "rebac_api") (ObjectId "relations")
   toObject RelationLogR =
     Object (ObjectType "rebac_api") (ObjectId "relation_log")
+  toObject CheckR =
+    Object (ObjectType "rebac_api") (ObjectId "check")
 
 instance KnownPermission RebacApi Permission (Maybe UserId)
 
@@ -149,6 +154,36 @@ getRelationTuplesPage tf offset count =
        NotAllowed reasons ->
          pure $ Left $ Text.pack $ show reasons
 
+
+-- | Explain whether a subject has a permission (or relation) on a
+-- resource; see 'ExplainPermission'.  The explanation shows other
+-- people's tuples, so this is for administrators.
+--
+-- Will fail if the 'UserId' making the request does not have 'get' permissions on 'CheckR'
+explainPermission :: (Happstack m, MonadIO m) => Bool -> Object NoWildcard -> Permission -> Object NoWildcard -> Maybe POSIXTime -> ClckT url m (Either Text ExplainedCheck)
+explainPermission everyPath res perm subj at =
+  do now <- liftIO getPOSIXTime
+     a <- checkAccess CheckR (Permission "get") (Just now)
+     case a of
+       Allowed ->
+         Right <$> query (ExplainPermission everyPath res perm subj at)
+       NotAllowed reasons ->
+         pure $ Left $ Text.pack $ show reasons
+
+-- | The resources of a type on which a subject has a permission; see
+-- 'LookupResources'.  This is about someone else's access, so it is for
+-- administrators.
+--
+-- Will fail if the 'UserId' making the request does not have 'get' permissions on 'CheckR'
+lookupResources :: (Happstack m, MonadIO m) => ObjectType -> Permission -> Object NoWildcard -> Maybe POSIXTime -> ClckT url m (Either Text [ Object NoWildcard ])
+lookupResources ty perm subj at =
+  do now <- liftIO getPOSIXTime
+     a <- checkAccess CheckR (Permission "get") (Just now)
+     case a of
+       Allowed ->
+         Right <$> query (LookupResources ty perm subj at)
+       NotAllowed reasons ->
+         pure $ Left $ Text.pack $ show reasons
 
 -- | Add a 'RelationTuple' to the relation database.
 --

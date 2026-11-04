@@ -2,6 +2,7 @@
 module Clckwrks.Rebac.Acid where
 
 import AccessControl.Check         (Access, checkIndexed)
+import AccessControl.Explain       (Explanation(..), ExprExplanation(..), ExprHow(..), How(..), RelationExplanation(..), deciding, explainIndexed)
 import qualified AccessControl.Check as Check
 import AccessControl.Relation      (Object(..), ObjectId(..), ObjectType, ObjectWildcard(NoWildcard), Relation, RelationTuple(..), Tag(..), WildcardObjectId(..), hasTag, ppRelationTuple, rels)
 import AccessControl.Schema        (Permission, Schema(definitions), SchemaError, parseSchema, ppSchemaError, validateSchema)
@@ -15,6 +16,8 @@ import Data.Data                   (Data)
 import Data.List                   (mapAccumL, nub, partition, sort)
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
+import           Data.Set          (Set)
+import qualified Data.Set          as Set
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, contain, extension, safeGet, safePut)
 import AccessControl.SchemaFragment (SchemaFragment(fragmentText), schemaFragment)
 import Data.Time.Clock             (UTCTime)
@@ -546,6 +549,69 @@ checkPermission res perm subj now =
   do rs <- ask
      pure $ checkIndexed (rsDefMap rs) (rsTuples rs) res perm subj now
 
+-- | A check explained, for the admin Check panel: the explanation, the
+-- schema it was evaluated under, and for each tuple it uses, the log entry
+-- that added it, all from one snapshot of the state.  Only ever returned
+-- from a query, never stored.
+data ExplainedCheck = ExplainedCheck
+  { ecSchemaId    :: Maybe SchemaId
+  , ecExplanation :: Explanation
+  , ecAdded       :: Map RelationTuple RelationLogEntry
+  }
+  deriving (Eq, Show, Generic)
+
+instance SafeCopy ExplainedCheck where version = 1 ; kind = base
+
+-- | Explain whether the subject has the permission (or relation) on the
+-- resource, evaluated like 'checkPermission'.  With @everyPath@ the whole
+-- explanation, every way the subject is allowed or every reason it is
+-- not; otherwise what the check evaluated to reach its answer
+-- ('AccessControl.Explain.deciding').
+explainPermission :: Bool -> Object 'NoWildcard -> Permission -> Object 'NoWildcard -> Maybe POSIXTime -> Query RebacState ExplainedCheck
+explainPermission everyPath res perm subj now =
+  do rs <- ask
+     let e     = explainIndexed (rsDefMap rs) (rsTuples rs) res perm subj now
+         shown = if everyPath then e else deciding e
+     pure ExplainedCheck
+       { ecSchemaId    = fst <$> Map.lookupMax (rsSchemaHistory rs)
+       , ecExplanation = shown
+       , ecAdded       = addedBy (Set.fromList (explanationTuples shown)) (rsLog rs)
+       }
+
+-- | The tuples an explanation uses or passes over: those that name the
+-- subject, the subject sets and arrows it follows, and the expired ones.
+-- Not the tuples that name someone else, which can be many.
+explanationTuples :: Explanation -> [ RelationTuple ]
+explanationTuples e =
+  case exHow e of
+    ByPermission x -> expr x
+    ByRelation r   -> relation' r
+    _              -> []
+  where
+    expr x =
+      case eeHow x of
+        ExUnion l r  -> expr l ++ expr r
+        ExRelation r -> relation' r
+        ExName e'    -> explanationTuples e'
+        ExArrow fs   -> followed fs
+        _            -> []
+    relation' r = reMatches r ++ reExpired r ++ followed (reSubjectSets r)
+    followed fs = concat [ rt : explanationTuples e' | (rt, e') <- fs ]
+
+-- | For each of these tuples, the newest log entry that added it.  The log
+-- is newest first; stop once every tuple is found.
+addedBy :: Set RelationTuple -> [ RelationLogEntry ] -> Map RelationTuple RelationLogEntry
+addedBy = go Map.empty
+  where
+    go found wanted entries
+      | Set.null wanted = found
+      | otherwise =
+          case entries of
+            [] -> found
+            (le@(RelationLogEntry { rleRelationTuple = rt, rleAction = RLEAdd }) : more)
+              | Set.member rt wanted -> go (Map.insert rt le found) (Set.delete rt wanted) more
+            (_ : more) -> go found wanted more
+
 -- | The resources of a type on which the subject has a permission, such as
 -- every report a user can view, evaluated like 'checkPermission' against the
 -- stored tuples and schema.  See 'Check.lookupResources' for its cost.
@@ -726,6 +792,7 @@ makeAcidic ''RebacState
  , 'getRelationLogPage
  , 'getRelationTuplesPage
  , 'checkPermission
+ , 'explainPermission
  , 'lookupResources
  , 'getSchemaIdForTxId
  , 'getDefMap
@@ -827,6 +894,7 @@ clckwrksRels =
          rebac_api:schema#controller@platform:clckwrks
          rebac_api:relations#controller@platform:clckwrks
          rebac_api:relation_log#controller@platform:clckwrks
+         rebac_api:check#controller@platform:clckwrks
          rebac_url:schema_panel#controller@platform:clckwrks
          rebac_url:relations_panel#controller@platform:clckwrks
          rebac_url:relation_log_panel#controller@platform:clckwrks
