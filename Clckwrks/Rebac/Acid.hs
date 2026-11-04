@@ -328,12 +328,28 @@ addRelationTuple rt now comment =
 
 
 
+-- | the problems with tuples the current schema does not allow
+invalidTuples :: RebacState -> [RelationTuple] -> [ValidationError]
+invalidTuples rs rts = [ ve | rt <- rts, NotValid ve <- [validate (rsDefMap rs) rt] ]
+
+-- | Add several 'RelationTuple's as one transaction.  Each must be valid
+-- under the current schema, as for 'addRelationTuple'; if any is not,
+-- nothing changes and the problems are returned.
 addRelationTuples :: [RelationTuple] -- ^ 'RelationTuple's to add
                   -> UTCTime         -- ^ approximate wall time this relation tuple was added
                   -> Text            -- ^ a human readable comment explaining how/why this relation got added
-                  -> Update RebacState [RelationLogEntry]
-addRelationTuples [] now comment = pure []
+                  -> Update RebacState (Either [ValidationError] [RelationLogEntry])
+addRelationTuples [] _now _comment = pure (Right [])
 addRelationTuples rts now comment =
+  do rs <- get
+     case invalidTuples rs rts of
+       errs@(_ : _) -> pure (Left errs)
+       [] -> Right <$> addValidRelationTuples rts now comment
+
+-- | 'addRelationTuples' for tuples already known to be valid.
+addValidRelationTuples :: [RelationTuple] -> UTCTime -> Text -> Update RebacState [RelationLogEntry]
+addValidRelationTuples [] _now _comment = pure []
+addValidRelationTuples rts now comment =
   do rs <- get
      let rles = [ RelationLogEntry { rleTimestamp     = now
                                    , rleRelationTuple = rt
@@ -393,16 +409,24 @@ removeRelationTuplesByTag tag now comment =
 
 -- | this provides an atomic way to remove all the tuples associated with a 'tag' and insert new tuples for that 'tag'.
 --
+-- The new tuples must be valid under the current schema; if any is not,
+-- nothing changes, not even the removal, and the problems are returned.
+-- Every tagged tuple is logged as removed and every new one as added, even
+-- when they are the same; 'setTaggedTuples' records only real changes.
+--
 -- NOTE: it is up to the caller to ensure that the new tuples have the same tag
 replaceRelationTuplesByTag :: Tag -- ^ remove *any* tuples with this tag
                            -> [RelationTuple] -- ^ add these new tuples. They *should* have the same tag, but that is not enforced
                            -> UTCTime -- ^ approximate wall time this operation was performed
                            -> Text -- ^ humman readable comment on why this happened
-                           -> Update RebacState [RelationLogEntry]
+                           -> Update RebacState (Either [ValidationError] [RelationLogEntry])
 replaceRelationTuplesByTag tag rts now comment =
-  do removedRLEs <- removeRelationTuplesByTag tag now comment
-     addedRLEs   <- addRelationTuples rts now comment
-     pure (removedRLEs ++  addedRLEs)
+  do rs <- get
+     case invalidTuples rs rts of
+       errs@(_ : _) -> pure (Left errs)
+       [] -> do removedRLEs <- removeRelationTuplesByTag tag now comment
+                addedRLEs   <- addValidRelationTuples rts now comment
+                pure (Right (removedRLEs ++  addedRLEs))
 
 -- | Why 'setTaggedTuples' refused, changing nothing.
 data SetTaggedTuplesError
@@ -447,7 +471,7 @@ setTaggedTuples tag rts now comment =
   do rs <- get
      let wanted   = nub rts
          errs     = [ TupleLacksTag rt | rt <- wanted, not (hasTag tag rt) ] ++
-                    [ TupleNotValid ve | rt <- wanted, hasTag tag rt, NotValid ve <- [validate (rsDefMap rs) rt] ]
+                    map TupleNotValid (invalidTuples rs (filter (hasTag tag) wanted))
          current  = filter (hasTag tag) (toTuples (rsTuples rs))
          removed  = [ rt | rt <- current, rt `notElem` wanted ]
          added    = [ rt | rt <- wanted, rt `notElem` current ]
