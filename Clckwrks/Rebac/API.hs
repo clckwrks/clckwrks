@@ -3,6 +3,7 @@ module Clckwrks.Rebac.API
        ( checkSchema
        , getRelationTuples
        , getRelationLog
+       , getRelationLogPage
        , getSchema
        , addRelationTuple
        , removeRelationTuple
@@ -20,7 +21,7 @@ import Clckwrks.AccessControl       (checkAccess)
 import Clckwrks.Authenticate.Plugin (authenticatePlugin, authenticatePluginLoader)
 import Clckwrks.Authenticate.Monad  (AuthenticatePluginState(..))
 import Clckwrks.Monad               (Clck, ClckPlugins, ClckT, plugins, query, update)
-import Clckwrks.Rebac.Acid          (AddRelationTuple(..), AddRelationTupleError(..), CheckSchema(..), GetRelationLog(..), GetRelationTuples(..), GetSchema(..), RemoveRelationTuple(..), RelationLogEntry, UpdateSchema(..), UpdateSchemaError(..), UpdateSchemaResult(..))
+import Clckwrks.Rebac.Acid          (AddRelationTuple(..), AddRelationTupleError(..), CheckSchema(..), GetRelationLog(..), GetRelationLogPage(..), GetRelationTuples(..), GetSchema(..), RemoveRelationTuple(..), RelationLogEntry, UpdateSchema(..), UpdateSchemaError(..), UpdateSchemaResult(..))
 import Clckwrks.Rebac.Types         (SchemaText(..))
 import Control.Concurrent.STM       (atomically)
 import Control.Concurrent.STM.TVar  (modifyTVar')
@@ -116,6 +117,20 @@ getRelationLog =
        Allowed ->
          do rl <- query GetRelationLog
             pure $ Right $ rl
+       NotAllowed reasons ->
+         pure $ Left $ Text.pack $ show reasons
+
+-- | one page of the relation log, newest first, and how many entries there
+-- are in all; see 'GetRelationLogPage'.
+--
+-- Will fail if the 'UserId' making the request does not have 'get' permissions on 'RelationLogR'
+getRelationLogPage :: (Happstack m, MonadIO m) => Int -> Int -> ClckT url m (Either Text (Int, [ RelationLogEntry ]))
+getRelationLogPage offset count =
+  do now <- liftIO getPOSIXTime
+     a <- checkAccess RelationLogR (Permission "get") (Just now)
+     case a of
+       Allowed ->
+         Right <$> query (GetRelationLogPage offset count)
        NotAllowed reasons ->
          pure $ Left $ Text.pack $ show reasons
 

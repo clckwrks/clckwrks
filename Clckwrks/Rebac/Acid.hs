@@ -515,6 +515,15 @@ getRelationLog =
   do rs <- ask
      pure $ rsLog rs
 
+-- | One page of the relation log, newest first: @count@ entries after
+-- skipping @offset@, and how many entries there are in all.  The log can
+-- grow large, so pages that show it should use this rather than
+-- 'getRelationLog'.
+getRelationLogPage :: Int -> Int -> Query RebacState (Int, [ RelationLogEntry ])
+getRelationLogPage offset count =
+  do rs <- ask
+     pure (length (rsLog rs), take count (drop offset (rsLog rs)))
+
 -- | get the 'SchemaId' that was active when relation transaction 'txId' was performed
 getSchemaIdForTxId :: RelationTxId -> Query RebacState (Maybe SchemaId)
 getSchemaIdForTxId txId =
@@ -610,6 +619,7 @@ makeAcidic ''RebacState
  , 'setTaggedTuples
  , 'getRelationTuples
  , 'getRelationLog
+ , 'getRelationLogPage
  , 'checkPermission
  , 'lookupResources
  , 'getSchemaIdForTxId

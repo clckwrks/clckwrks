@@ -11,7 +11,7 @@ import Clckwrks.Authenticate.Plugin (authenticatePlugin)
 import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.ProfileData.Acid   (GetProfileData(..), SetProfileData(..))
 import Clckwrks.Rebac.Acid         (RelationLogEntry(..), RLEAction(..), RelationTxId(..))
-import Clckwrks.Rebac.API          (RebacApi(..), addRelationTuple, removeRelationTuple, getRelationLog)
+import Clckwrks.Rebac.API          (RebacApi(..), addRelationTuple, removeRelationTuple, getRelationLogPage)
 import Clckwrks.Rebac.Types        (SchemaId(..))
 import Clckwrks.Rebac.URL          (RebacURL(..))
 import Clckwrks.Unauthorized       (unauthorizedPage)
@@ -25,6 +25,7 @@ import qualified Data.Text.Lazy    as TL
 import Data.Maybe                  (fromMaybe, maybe)
 import Data.UserId                 (UserId)
 import Happstack.Authenticate.Core (Email(..), User(..))
+import Happstack.Server            (getDataFn, lookRead)
 import Happstack.Authenticate.Handlers (GetUserByUserId(..), UpdateUser(..))
 import Language.Haskell.HSX.QQ     (hsx)
 import Text.Reform                 ((++>), mapView, transformEitherM)
@@ -33,21 +34,39 @@ import Text.Reform.Happstack       (reform)
 import HSP.XMLGenerator
 import HSP.XML
 import Web.Plugins.Core            (Plugin(..), getPluginState)
+import Web.Routes                  (showURLParams)
 
 -- FIXME: this currently uses the admin template. Which is sort of right, and sort of not.
 -- FIXME: should this call a varient of `getRelationTuples` where we see that the user is allowed to view them?
 relationLogPanel :: RebacURL -> Clck RebacURL Response
 relationLogPanel here =
-  do eLog    <- getRelationLog
+  do -- ?page=N counts from 1, the newest entries; anything else is page 1
+     page <- either (const 1) (max 1) <$> getDataFn (lookRead "page")
+     let offset = (page - 1) * logPageSize
+     eLog <- getRelationLogPage offset logPageSize
      case eLog of
-       (Right logEntries) ->
-         do template "REBAC Relation Log"  () $ [hsx|
+       (Right (total, logEntries)) ->
+         do let pageURL n = showURLParams here [("page", Just (pack (show n)))]
+            newer <- if page > 1 then Just <$> pageURL (page - 1) else pure Nothing
+            older <- if offset + logPageSize < total then Just <$> pageURL (page + 1) else pure Nothing
+            let link (Just u) label = [hsx| <a href=u><% label %></a> |]
+                link Nothing  label = [hsx| <span><% label %></span> |]
+                range | null logEntries = "no entries"
+                      | otherwise = "entries " ++ show (offset + 1) ++ " to " ++ show (offset + length logEntries) ++ " of " ++ show total ++ ", newest first"
+                nav = [hsx| <p class="rebac-log-pages"><% link newer ("« Newer" :: Text) %> · <% range %> · <% link older ("Older »" :: Text) %></p> |]
+            template "REBAC Relation Log"  () $ [hsx|
               <%>
+               <% nav %>
                <% relationLogTable logEntries %>
+               <% nav %>
               </%>
                                               |]
        (Left e) ->
          unauthorizedPage ("You do not have permission to view the relations log" :: Text)
+
+-- | how many entries a page of the relation log shows
+logPageSize :: Int
+logPageSize = 100
 
 -- relationLogTable :: [ RelationLogEntry ] -> Clck RebacURL Response
 relationLogTable logEntries =
