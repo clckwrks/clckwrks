@@ -3,7 +3,7 @@ module Clckwrks.Rebac.Acid where
 
 import AccessControl.Check         (Access, checkIndexed)
 import qualified AccessControl.Check as Check
-import AccessControl.Relation      (Object, ObjectType, ObjectWildcard(NoWildcard), RelationTuple(..), Tag(..), hasTag, rels)
+import AccessControl.Relation      (Object, ObjectType, ObjectWildcard(NoWildcard), RelationTuple(..), Tag(..), hasTag, ppRelationTuple, rels)
 import AccessControl.Schema        (Permission, Schema(definitions), SchemaError, parseSchema, ppSchemaError, validateSchema)
 import AccessControl.TupleIndex    (TupleIndex, deleteTuple, elemTuple, fromTuples, insertTuple, toTuples)
 import AccessControl.Validate      (RelPerm(..), Valid(..), ValidationError(..), isValid, mkDefMap, ppValidationError, validate)
@@ -404,6 +404,65 @@ replaceRelationTuplesByTag tag rts now comment =
      addedRLEs   <- addRelationTuples rts now comment
      pure (removedRLEs ++  addedRLEs)
 
+-- | Why 'setTaggedTuples' refused, changing nothing.
+data SetTaggedTuplesError
+  = TupleLacksTag RelationTuple          -- ^ a tuple without the tag, which a later call could not find to replace
+  | TupleNotValid ValidationError        -- ^ a tuple the current schema does not allow
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy SetTaggedTuplesError where version = 1 ; kind = base
+
+ppSetTaggedTuplesError :: SetTaggedTuplesError -> Doc
+ppSetTaggedTuplesError (TupleLacksTag rt) = PP.text "Tuple does not have the tag:" <+> ppRelationTuple rt
+ppSetTaggedTuplesError (TupleNotValid ve) = ppValidationError ve
+
+-- | What 'setTaggedTuples' changed.  Both empty when the tuples already
+-- were the ones given.
+data TaggedTuplesChange = TaggedTuplesChange
+  { taggedRemoved :: [RelationTuple]
+  , taggedAdded   :: [RelationTuple]
+  }
+  deriving (Eq, Ord, Read, Show, Generic)
+
+instance SafeCopy TaggedTuplesChange where version = 1 ; kind = base
+
+-- | Make the tuples with this tag exactly the ones given, recording only
+-- what actually changes: tagged tuples that are not given are removed, and
+-- given tuples that are not there yet are added, each logged once and all
+-- under one 'RelationTxId'.  If nothing changes, nothing is logged and the
+-- transaction id is not used, so calling this again with the same tuples is
+-- free; that makes it the way to keep a group of tuples in step with data
+-- held elsewhere, such as a report's access, by calling it whenever that
+-- data may have changed.
+--
+-- Unlike 'replaceRelationTuplesByTag', every tuple must have the tag, and
+-- must be valid under the current schema; otherwise nothing changes and the
+-- problems are returned.
+setTaggedTuples :: Tag             -- ^ the tag that identifies the group of tuples
+                -> [RelationTuple] -- ^ what the group should be; each must have the tag
+                -> UTCTime         -- ^ approximate wall time
+                -> Text            -- ^ a human readable comment, logged with each change
+                -> Update RebacState (Either [SetTaggedTuplesError] TaggedTuplesChange)
+setTaggedTuples tag rts now comment =
+  do rs <- get
+     let wanted   = nub rts
+         errs     = [ TupleLacksTag rt | rt <- wanted, not (hasTag tag rt) ] ++
+                    [ TupleNotValid ve | rt <- wanted, hasTag tag rt, NotValid ve <- [validate (rsDefMap rs) rt] ]
+         current  = filter (hasTag tag) (toTuples (rsTuples rs))
+         removed  = [ rt | rt <- current, rt `notElem` wanted ]
+         added    = [ rt | rt <- wanted, rt `notElem` current ]
+         logEntry action rt = RelationLogEntry now rt action comment (rsTxId rs)
+     case errs of
+       (_ : _) -> pure (Left errs)
+       [] | null removed && null added -> pure (Right (TaggedTuplesChange [] []))
+          | otherwise ->
+              do put $ rs { rsTuples = foldl' (flip insertTuple) (foldl' (flip deleteTuple) (rsTuples rs) removed) added
+                          -- newest first: the removals, then the additions
+                          , rsLog    = reverse (map (logEntry RLEAdd) added) ++ reverse (map (logEntry RLERemove) removed) ++ rsLog rs
+                          , rsTxId   = succRelationIxId (rsTxId rs)
+                          }
+                 pure (Right (TaggedTuplesChange removed added))
+
 -- | Can the subject do this to the resource?  Evaluated against the stored
 -- tuples and schema as one consistent snapshot, using the stored index,
 -- without copying the tuples out.
@@ -524,6 +583,7 @@ makeAcidic ''RebacState
  , 'removeRelationTuple
  , 'removeRelationTuplesByTag
  , 'replaceRelationTuplesByTag
+ , 'setTaggedTuples
  , 'getRelationTuples
  , 'getRelationLog
  , 'checkPermission
