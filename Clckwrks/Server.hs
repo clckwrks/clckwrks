@@ -91,6 +91,8 @@ simpleClckwrks cc =
          -- every plugin has registered its rebac schema fragment by now;
          -- make the stored schema their merge before serving anything
          _ <- reconcileRebacSchema (acidRebac (acidState clckState'')) =<< getRebacFragments p
+         -- then let each plugin bring its tuples in step with its data
+         mapM_ (\(_, sync) -> sync (acidRebac (acidState clckState''))) =<< getRebacSyncs p
 
          mHttpsTID <-
              case clckTLS cc' of

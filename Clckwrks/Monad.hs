@@ -37,6 +37,8 @@ module Clckwrks.Monad
     , addNavBarCallback
     , addRebacFragment
     , getRebacFragments
+    , addRebacSync
+    , getRebacSyncs
     , getExtraHeadTags
     , getPreProcessors
 --     , getPrefix
@@ -380,6 +382,7 @@ data ClckPluginsSt = ClckPluginsSt
     , cpsAcid               :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
     , cpsExtraHeadTags      :: [(Text.Text, XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML])]
     , cpsRebacFragments     :: Map PluginName RebacFragment -- ^ each plugin's part of the rebac schema and its seed tuples, see 'addRebacFragment'
+    , cpsRebacSyncs         :: [(PluginName, AcidState RebacState -> IO ())] -- ^ run once the schema is reconciled, in the order registered, see 'addRebacSync'
     }
 
 initialClckPluginsSt :: Acid -> ClckPluginsSt
@@ -389,6 +392,7 @@ initialClckPluginsSt acid = ClckPluginsSt
     , cpsAcid           = acid
     , cpsExtraHeadTags  = []
     , cpsRebacFragments = Map.empty
+    , cpsRebacSyncs     = []
     }
 
 -- | ClckPlugins
@@ -794,6 +798,28 @@ getRebacFragments :: (MonadIO m) =>
                      Plugins theme n hook config ClckPluginsSt
                   -> m (Map PluginName RebacFragment)
 getRebacFragments plugins = cpsRebacFragments <$> getPluginsSt plugins
+
+-- | Register an action that brings a plugin's relation tuples in step
+-- with its own data at startup.  It is run after the stored schema has
+-- been reconciled with the fragments (see 'addRebacFragment'), so the
+-- tuples it writes can use the plugin's definitions, and before the
+-- server answers any request.  If it throws, the server does not start.
+--
+-- acid-state logs every update event, even one that changes nothing, so
+-- the action should ask first and write only what differs, see
+-- 'Clckwrks.Rebac.Acid.TaggedGroupsOutOfStep'.
+addRebacSync :: (MonadIO m) =>
+                Plugins theme n hook config ClckPluginsSt
+             -> PluginName
+             -> (AcidState RebacState -> IO ())
+             -> m ()
+addRebacSync plugins name action =
+    modifyPluginsSt plugins $ \cps -> cps { cpsRebacSyncs = cpsRebacSyncs cps ++ [(name, action)] }
+
+getRebacSyncs :: (MonadIO m) =>
+                 Plugins theme n hook config ClckPluginsSt
+              -> m [(PluginName, AcidState RebacState -> IO ())]
+getRebacSyncs plugins = cpsRebacSyncs <$> getPluginsSt plugins
 
 
 ------------------------------------------------------------------------------
