@@ -11,9 +11,9 @@ module Clckwrks.Rebac.Reconcile
 
 import AccessControl.Schema         (Definition(..), Schema(..), SchemaError(..), ppSchemaError)
 import AccessControl.SchemaFragment (SchemaFragment(..), mergeFragments)
-import Clckwrks.Rebac.Acid          (RebacState, ReconcileResult(..), ReconcileSchema(..), ppReconcileError)
+import Clckwrks.Rebac.Acid          (RebacState, ReconcileNeeded(..), ReconcileResult(..), ReconcileSchema(..), ppReconcileError)
 import Clckwrks.Rebac.Types         (RebacFragment(..), SchemaText(..))
-import Data.Acid                    (AcidState, update)
+import Data.Acid                    (AcidState, query, update)
 import Data.Map                     (Map)
 import qualified Data.Map           as Map
 import Data.Text                    (Text)
@@ -59,7 +59,9 @@ mergedSchema frags =
 -- would check it and recorded in the schema history, and the seed tuples are
 -- checked against it.  Returns the new 'SchemaId' if the schema changed, and
 -- the seed tuples that were added.  Does nothing if no fragment is
--- registered.
+-- registered, or if nothing would change ('ReconcileNeeded'): the update
+-- is written to the event log even when it changes nothing, so asking
+-- first keeps a start that changes nothing from writing anything.
 --
 -- Fails, so that the server does not start, if the fragments do not fit
 -- together, the existing relation tuples are not valid under the result, or
@@ -72,11 +74,15 @@ reconcileRebacSchema acid frags
         (Left problems) ->
           ioError $ userError $ T.unpack $ T.unlines ("The plugins' rebac schema fragments do not fit together:" : problems)
         (Right (txt, names)) ->
-          do now <- getCurrentTime
-             let comment = "schema fragments from plugins: " <> T.intercalate ", " names
+          do let comment = "schema fragments from plugins: " <> T.intercalate ", " names
                  seeds   = [ ("seed tuples from plugin " <> name, rebacFragmentSeeds (frags Map.! name)) | name <- names ]
-             r <- update acid (ReconcileSchema now (SchemaText txt) comment seeds)
-             case r of
-               (Right result) -> pure result
-               (Left err) ->
-                 ioError $ userError $ "The rebac schema from the plugins' fragments was rejected, nothing was changed:\n" ++ show (ppReconcileError err)
+             needed <- query acid (ReconcileNeeded (SchemaText txt) seeds)
+             if not needed
+               then pure (ReconcileResult Nothing [])
+               else do
+                 now <- getCurrentTime
+                 r <- update acid (ReconcileSchema now (SchemaText txt) comment seeds)
+                 case r of
+                   (Right result) -> pure result
+                   (Left err) ->
+                     ioError $ userError $ "The rebac schema from the plugins' fragments was rejected, nothing was changed:\n" ++ show (ppReconcileError err)

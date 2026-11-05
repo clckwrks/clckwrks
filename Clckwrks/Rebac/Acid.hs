@@ -808,10 +808,26 @@ reconcileSchema now newSchemaText comment seedGroups =
                 do put (applySeedTuples now groups rs')
                    pure (Right (ReconcileResult mSid (concatMap snd groups)))
 
+-- | Would 'reconcileSchema' with this schema and these seed tuples change
+-- anything: is the schema not the stored one, or is any seed tuple new
+-- ('newSeedTuples')?  A query, so unlike the update it is not written to
+-- the event log; ask it first, and send 'ReconcileSchema' only when it
+-- says yes.  When it says no, the update would return
+-- @ReconcileResult Nothing []@.
+reconcileNeeded :: SchemaText                 -- ^ the merged schema
+                -> [(Text, [RelationTuple])]  -- ^ seed tuples, in groups, as for 'reconcileSchema'
+                -> Query RebacState Bool
+reconcileNeeded newSchemaText seedGroups =
+  do rs <- ask
+     -- changing the schema does not change which seeds are new: that
+     -- depends only on the tuples and their log
+     pure (rsSchema rs /= newSchemaText || any (not . null . snd) (newSeedTuples rs seedGroups))
+
 makeAcidic ''RebacState
  [ 'addRelationTuple
  , 'addRelationTuples
  , 'reconcileSchema
+ , 'reconcileNeeded
  , 'removeRelationTuple
  , 'removeRelationTuplesByTag
  , 'replaceRelationTuplesByTag
