@@ -11,9 +11,7 @@ import Clckwrks.Monad               (ClckwrksConfig(..), TLSSettings(..), calcBa
 -- import Clckwrks.Page.PreProcess     (pageCmd)
 import Clckwrks.ProfileData.Types   (Role(..))
 import Clckwrks.ProfileData.URL     (ProfileDataURL(..))
-import Clckwrks.Rebac.Acid          (clckwrksSchema)
 import Clckwrks.Rebac.Reconcile     (reconcileRebacSchema)
-import Clckwrks.Rebac.Types         (SchemaText(..))
 import Control.Arrow                (second)
 import Control.Concurrent           (forkIO, killThread)
 import Control.Concurrent.STM       (atomically, newTVar, readTVar)
@@ -54,16 +52,6 @@ withClckwrks cc action = do
   let top' = fmap (\top -> top </> "_state") (clckTopDir cc)
   withAcid top' $ \acid ->
     withPlugins cc (initialClckPluginsSt acid) $ \plugins -> do
-      clckwrksSchema' <- case clckRebacSchemaPath cc of
-        Nothing -> pure clckwrksSchema
-        (Just p) ->
-          do c <- Text.readFile p
-             pure (SchemaText c)
-{-
-             pure $ case parseSchema $ Text.decodeUtf8 $ c of
-                      (Left e)  -> error e
-                      (Right s) ->  (s
--}
       u <- atomically $ newTVar 0
       let clckState = ClckState { acidState           = acid
 --                                        , currentPage      = PageId 0

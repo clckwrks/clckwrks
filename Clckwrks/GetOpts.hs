@@ -39,7 +39,7 @@ clckwrksOpts def =
     , Option [] ["jqueryui-path"] (ReqArg setJQueryUIPath "path") ("path to jqueryui directory, default: " ++ show (clckJQueryUIPath def))
     , Option [] ["jstree-path"]   (ReqArg setJSTreePath   "path") ("path to jstree directory, default: " ++ show (clckJSTreePath def))
     , Option [] ["json2-path"]    (ReqArg setJSON2Path    "path") ("path to json2 directory, default: " ++ show (clckJSON2Path def))
-    , Option [] ["rebac-schema-path"] (ReqArg setRebacSchemaPath "path") ("path to REBAC schema, default: " ++ show (clckRebacSchemaPath def))
+    , Option [] ["rebac-schema-path"] (ReqArg setRebacSchemaPath "path") "ignored: the rebac schema comes from the plugins' schema fragments"
     , Option [] ["happstack-authenticate-client-path"] (ReqArg setHACPath    "path") ("path to happstack-authenticate-client, default: " ++ show (clckHappstackAuthenticateClientPath def))
     , Option [] ["top"]           (ReqArg setTopDir       "path") ("path to directory that holds the state directory, uploads, etc")
     , Option [] ["enable-analytics"] (NoArg setAnalytics)         "enable google analytics tracking"

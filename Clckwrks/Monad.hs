@@ -262,7 +262,7 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJSTreePath      :: FilePath       -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath       -- ^ path to @JSON2.js@ on disk
     , clckHappstackAuthenticateClientPath :: Maybe FilePath -- ^ path to @happstack-authenticate-client@
-    , clckRebacSchemaPath :: Maybe FilePath -- ^ path to rebac schema
+    , clckRebacSchemaPath :: Maybe FilePath -- ^ ignored: the rebac schema comes from the plugins' schema fragments ('addRebacFragment'); to be removed
     , clckTopDir          :: Maybe FilePath -- ^ path to top-level directory for all acid-state files/file uploads/etc
     , clckEnableAnalytics :: Bool           -- ^ enable google analytics
     , clckInitHook        :: T.Text -> ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
