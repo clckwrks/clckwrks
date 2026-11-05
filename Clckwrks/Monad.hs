@@ -35,6 +35,10 @@ module Clckwrks.Monad
     , appendRequestInit
     , getNavBarLinks
     , addNavBarCallback
+    , addRebacFragment
+    , getRebacFragments
+    , addRebacSync
+    , getRebacSyncs
     , getExtraHeadTags
     , getPreProcessors
 --     , getPrefix
@@ -58,10 +62,16 @@ module Clckwrks.Monad
     )
 where
 
+import AccessControl.Relation        (RelationTuple(..))
+import AccessControl.Schema          (Schema(..))
+import AccessControl.Validate        (RelPerm)
 import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), GetUACCT(..))
 import Clckwrks.ProfileData.Acid     (ProfileDataState, GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
+import Clckwrks.Rebac.Acid           (RebacState(..), AddRelationTupleError(..), UpdateSchemaError(..), ppAddRelationTupleError, ppUpdateSchemaError)
+import AccessControl.SchemaFragment  (SchemaFragment)
+import Clckwrks.Rebac.Types          (RebacFragment(..))
 import Clckwrks.NavBar.Acid          (NavBarState)
 import Clckwrks.NavBar.Types         (NavBarLinks(..))
 import Clckwrks.Types                (NamedLink(..), Prefix, Trust(Trusted))
@@ -71,7 +81,7 @@ import Control.Applicative           (Alternative, Applicative, (<$>), (<|>), ma
 #if MIN_VERSION_base (4,9,0) && !MIN_VERSION_base (4,13,0)
 import Control.Monad.Fail            (MonadFail)
 #endif
-import Control.Monad                 (MonadPlus, foldM)
+import Control.Monad                 (MonadPlus, foldM, when)
 import Control.Monad.State           (MonadState, StateT, evalStateT, execStateT, get, mapStateT, modify, put, runStateT)
 import Control.Monad.Reader          (MonadReader, ReaderT, mapReaderT)
 import Control.Monad.Trans           (MonadIO(liftIO), MonadTrans(lift))
@@ -126,7 +136,7 @@ import Text.Blaze.Html               (Html)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import Text.Reform                   (CommonFormError, Form, FormError(..))
 import Web.Routes                    (URL, MonadRoute(askRouteFn), RouteT(RouteT, unRouteT), mapRouteT, showURL, withRouteT)
-import Web.Plugins.Core              (Plugins, getConfig, getPluginsSt, modifyPluginsSt, getTheme)
+import Web.Plugins.Core              (PluginName, Plugins, getConfig, getPluginsSt, modifyPluginsSt, getTheme)
 import qualified Web.Routes          as R
 import Web.Routes.Happstack          (seeOtherURL) -- imported so that instances are scope even though we do not use them here
 import Web.Routes.XMLGenT            () -- imported so that instances are scope even though we do not use them here
@@ -252,6 +262,7 @@ data ClckwrksConfig = ClckwrksConfig
     , clckJSTreePath      :: FilePath       -- ^ path to @jstree.js@ on disk
     , clckJSON2Path       :: FilePath       -- ^ path to @JSON2.js@ on disk
     , clckHappstackAuthenticateClientPath :: Maybe FilePath -- ^ path to @happstack-authenticate-client@
+    , clckRebacSchemaPath :: Maybe FilePath -- ^ ignored: the rebac schema comes from the plugins' schema fragments ('addRebacFragment'); to be removed
     , clckTopDir          :: Maybe FilePath -- ^ path to top-level directory for all acid-state files/file uploads/etc
     , clckEnableAnalytics :: Bool           -- ^ enable google analytics
     , clckInitHook        :: T.Text -> ClckState -> ClckwrksConfig -> IO (ClckState, ClckwrksConfig) -- ^ init hook
@@ -276,6 +287,8 @@ calcTLSBaseURI c =
 
 data ClckState = ClckState
     { acidState        :: Acid
+--    , rebacSchema      :: Schema
+--    , rebacDefMap      :: Map T.Text RelPerm -- this is derived from rebacSchema and should be recalculated when rebacSchema is modified
     , uniqueId         :: TVar Integer -- only unique for this request
     , adminMenus       :: [(T.Text, [(Set Role, T.Text, T.Text)])]
     , enableAnalytics  :: Bool          -- ^ enable Google Analytics
@@ -344,6 +357,9 @@ data ClckFormError
     = ClckCFE (CommonFormError [Input])
     | EmptyUsername
     | InvalidDecimal T.Text
+    | InvalidISO8601Date T.Text
+    | AddRelationTupleError AddRelationTupleError
+    | UpdateSchemaError UpdateSchemaError
       deriving (Show)
 
 instance FormError ClckFormError where
@@ -365,14 +381,18 @@ data ClckPluginsSt = ClckPluginsSt
     , cpsNavBarLinks        :: [ClckT ClckURL IO (String, [NamedLink])]
     , cpsAcid               :: Acid  -- ^ this value is also in ClckState, but it is sometimes needed by plugins during initPlugin
     , cpsExtraHeadTags      :: [(Text.Text, XMLGenT (ClckT ClckURL (ServerPartT IO)) [XML])]
+    , cpsRebacFragments     :: Map PluginName RebacFragment -- ^ each plugin's part of the rebac schema and its seed tuples, see 'addRebacFragment'
+    , cpsRebacSyncs         :: [(PluginName, AcidState RebacState -> IO ())] -- ^ run once the schema is reconciled, in the order registered, see 'addRebacSync'
     }
 
 initialClckPluginsSt :: Acid -> ClckPluginsSt
 initialClckPluginsSt acid = ClckPluginsSt
-    { cpsPreProcessors = []
-    , cpsNavBarLinks   = []
-    , cpsAcid          = acid
-    , cpsExtraHeadTags = []
+    { cpsPreProcessors  = []
+    , cpsNavBarLinks    = []
+    , cpsAcid           = acid
+    , cpsExtraHeadTags  = []
+    , cpsRebacFragments = Map.empty
+    , cpsRebacSyncs     = []
     }
 
 -- | ClckPlugins
@@ -482,6 +502,9 @@ instance (Functor m, Monad m) => GetAcidState (ClckT url m) NavBarState where
 
 instance (Functor m, Monad m) => GetAcidState (ClckT url m) ProfileDataState where
     getAcidState = (acidProfileData . acidState) <$> get
+
+instance (Functor m, Monad m) => GetAcidState (ClckT url m) RebacState where
+    getAcidState = (acidRebac . acidState) <$> get
 
 -- * XMLGen / XMLGenerator instances for Clck
 
@@ -597,7 +620,17 @@ instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) Html where
     asChild = XMLGenT . return . (:[]) . ClckChild . cdata . renderHtml
 
 instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckFormError where
-    asChild formError = asChild (show formError)
+    asChild (ClckCFE formError) = asChild (show formError)
+    asChild EmptyUsername = asChild $ pcdata "Empty Username"
+    asChild (InvalidDecimal txt) = asChild $ pcdata $ "Could not parse as a decimal '" <> (TL.fromStrict txt) <> "'"
+    asChild (InvalidISO8601Date txt) = asChild $ pcdata $ "Could not parse as an ISO8601 date '" <> (TL.fromStrict txt) <> "'"
+    asChild (AddRelationTupleError rte) =
+      asChild $ genElement (toName ("pre" :: Text.Text)) [] $
+        [ asChild $ pcdata $ TL.pack $ show $ ppAddRelationTupleError rte ]
+    asChild (UpdateSchemaError use) =
+      asChild $ genElement (toName ("pre" :: Text.Text)) [] $
+        [ asChild $ pcdata $ TL.pack $ show $ ppUpdateSchemaError use ]
+
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where
     asChild () = return []
@@ -736,6 +769,57 @@ getNavBarLinks plugins =
     mapClckT liftIO $
       do genNavBarLinks <- (cpsNavBarLinks <$> getPluginsSt plugins)
          NavBarLinks <$> sequenceA genNavBarLinks
+
+------------------------------------------------------------------------------
+-- rebac schema fragments
+------------------------------------------------------------------------------
+
+-- | Register a plugin's part of the rebac schema and the relation tuples it
+-- starts with, normally from its 'pluginInit'.  Once every plugin is
+-- initialized the fragments are merged and become the stored schema, and
+-- then the seed tuples are added, see 'Clckwrks.Rebac.Reconcile'.
+--
+-- A plugin owns the definitions in its fragment; other fragments may refer
+-- to them but not define them again.  Registering a second fragment under
+-- the same name is an error.
+addRebacFragment :: (MonadIO m) =>
+                    Plugins theme n hook config ClckPluginsSt
+                 -> PluginName
+                 -> SchemaFragment
+                 -> [RelationTuple] -- ^ seed tuples, added once, see 'Clckwrks.Rebac.Acid.newSeedTuples'
+                 -> m ()
+addRebacFragment plugins name fragment seeds =
+    do registered <- cpsRebacFragments <$> getPluginsSt plugins
+       when (Map.member name registered) $
+         liftIO $ ioError $ userError $ "addRebacFragment: a rebac schema fragment is already registered for " ++ T.unpack name
+       modifyPluginsSt plugins $ \cps -> cps { cpsRebacFragments = Map.insert name (RebacFragment fragment seeds) (cpsRebacFragments cps) }
+
+getRebacFragments :: (MonadIO m) =>
+                     Plugins theme n hook config ClckPluginsSt
+                  -> m (Map PluginName RebacFragment)
+getRebacFragments plugins = cpsRebacFragments <$> getPluginsSt plugins
+
+-- | Register an action that brings a plugin's relation tuples in step
+-- with its own data at startup.  It is run after the stored schema has
+-- been reconciled with the fragments (see 'addRebacFragment'), so the
+-- tuples it writes can use the plugin's definitions, and before the
+-- server answers any request.  If it throws, the server does not start.
+--
+-- acid-state logs every update event, even one that changes nothing, so
+-- the action should ask first and write only what differs, see
+-- 'Clckwrks.Rebac.Acid.TaggedGroupsOutOfStep'.
+addRebacSync :: (MonadIO m) =>
+                Plugins theme n hook config ClckPluginsSt
+             -> PluginName
+             -> (AcidState RebacState -> IO ())
+             -> m ()
+addRebacSync plugins name action =
+    modifyPluginsSt plugins $ \cps -> cps { cpsRebacSyncs = cpsRebacSyncs cps ++ [(name, action)] }
+
+getRebacSyncs :: (MonadIO m) =>
+                 Plugins theme n hook config ClckPluginsSt
+              -> m [(PluginName, AcidState RebacState -> IO ())]
+getRebacSyncs plugins = cpsRebacSyncs <$> getPluginsSt plugins
 
 
 ------------------------------------------------------------------------------

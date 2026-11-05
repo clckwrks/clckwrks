@@ -11,7 +11,7 @@ module Clckwrks.Authenticate.API
 
 import Clckwrks.Authenticate.Plugin (authenticatePlugin, authenticatePluginLoader)
 import Clckwrks.Authenticate.Monad  (AuthenticatePluginState(..))
-import Clckwrks.Monad               (Clck, ClckPlugins, plugins)
+import Clckwrks.Monad               (ClckT, ClckPlugins, plugins)
 import Control.Concurrent.STM       (atomically)
 import Control.Concurrent.STM.TVar  (modifyTVar')
 import Control.Monad                (join)
@@ -24,11 +24,12 @@ import Data.Maybe                   (maybe)
 import Data.Monoid                  (mempty)
 import Data.Text                    (Text)
 import Data.UserId                  (UserId)
+import Happstack.Server             (Happstack)
 import Happstack.Authenticate.Core  (Email(..), User(..), Username(..))
 import Happstack.Authenticate.Handlers  (AuthenticateConfig(_createUserCallback), GetUserByUserId(..), UpdateUser(..))
 import Web.Plugins.Core             (Plugin(..), When(Always), addCleanup, addHandler, addPluginState, getConfig, getPluginRouteFn, getPluginState, getPluginsSt, initPlugin, modifyPluginState')
 
-getUser :: UserId -> Clck url (Maybe User)
+getUser :: (Happstack m) => UserId -> ClckT url m (Maybe User)
 getUser uid =
   do p <- plugins <$> get
      ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
@@ -38,18 +39,18 @@ getUser uid =
 --
 -- no security checks are performed to ensure that the caller is
 -- authorized to change data for the 'User'.
-insecureUpdateUser :: User -> Clck url ()
+insecureUpdateUser :: (Happstack m) => User -> ClckT url m ()
 insecureUpdateUser user =
   do p <- plugins <$> get
      ~(Just aps) <- getPluginState p (pluginName authenticatePlugin)
      liftIO $ Acid.update (acidStateAuthenticate aps) (UpdateUser user)
 
-getUsername :: UserId -> Clck url (Maybe Username)
+getUsername :: (Happstack m) => UserId -> ClckT url m (Maybe Username)
 getUsername uid =
   do mUser <- getUser uid
      pure $ _username <$> mUser
 
-getEmail :: UserId -> Clck url (Maybe Email)
+getEmail :: (Happstack m) => UserId -> ClckT url m (Maybe Email)
 getEmail uid =
   do mUser <- getUser uid
      pure $ join $ _email <$> mUser

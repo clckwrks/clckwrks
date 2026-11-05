@@ -1,8 +1,11 @@
 {-# LANGUAGE CPP, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
 module Clckwrks.Acid where
 
+import AccessControl.Relation      (ObjectType(..), Relation(..), RelationTuple(..), object, rels)
+import AccessControl.Schema        (schema)
 import Clckwrks.NavBar.Acid        (NavBarState       , initialNavBarState)
 import Clckwrks.ProfileData.Acid   (ProfileDataState, initialProfileDataState)
+import Clckwrks.Rebac.Acid         (RebacState, initialRebacState, clckwrksSchema)
 import Clckwrks.Types              (UUID)
 import Clckwrks.URL                (ClckURL)
 import Control.Applicative         ((<$>))
@@ -16,6 +19,7 @@ import Control.Monad.Reader        (ask)
 import Control.Monad.State         (modify, put)
 import Data.Acid                   (AcidState(closeAcidState), Query, Update, createArchive, makeAcidic)
 import Data.Acid.Local             (openLocalStateFrom, createCheckpointAndClose)
+import Data.Acid.Memory            (openMemoryState)
 #if MIN_VERSION_acid_state (0,16,0)
 import Data.Acid.Remote            (acidServerSockAddr, skipAuthenticationCheck, openRemoteStateSockAddr, skipAuthenticationPerform)
 import Data.Int                    (Int64)
@@ -32,6 +36,7 @@ import qualified Data.Text         as Text
 import Happstack.Authenticate.Core (SimpleAddress(..))
 import Happstack.Authenticate.Handlers (AuthenticateState)
 import Happstack.Authenticate.Password.Handlers (PasswordState)
+import GHC.Generics                (Generic)
 import Prelude                     hiding (catch)
 import System.Directory            (removeFile)
 import System.FilePath             ((</>))
@@ -301,23 +306,27 @@ data Acid = Acid
       acidProfileData  :: AcidState ProfileDataState
     , acidCore         :: AcidState CoreState
     , acidNavBar       :: AcidState NavBarState
+    , acidRebac        :: AcidState RebacState
     }
 
 class GetAcidState m st where
     getAcidState :: m (AcidState st)
 
 withAcid :: forall m a. (MonadIO m, MonadMask m) => Maybe FilePath -> (Acid -> m a) -> m a
-withAcid mBasePath f =
-    let basePath = fromMaybe "_state" mBasePath in
+withAcid mBasePath f =  do
+    let basePath = fromMaybe "_state" mBasePath
+    initialRebacState' <- liftIO initialRebacState
     -- open acid-state databases
     bracket (openLocalStateFrom (basePath </> "core")        initialCoreState)        (createArchiveCheckpointAndClose) $ \core ->
-    bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
-    bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
-    -- create sockets to allow `clckwrks-cli` to talk to the databases
-    bracket (openState (basePath </> "core_socket") core) closeState $ const $
-    bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
-    bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
-    f (Acid profileData core navBar)
+     bracket (openLocalStateFrom (basePath </> "profileData") initialProfileDataState) (createArchiveCheckpointAndClose) $ \profileData ->
+     bracket (openLocalStateFrom (basePath </> "navBar")      initialNavBarState)      (createArchiveCheckpointAndClose) $ \navBar ->
+     bracket (openLocalStateFrom (basePath </> "rebac")       initialRebacState')      (createArchiveCheckpointAndClose) $ \rebac ->
+     -- create sockets to allow `clckwrks-cli` to talk to the databases
+     bracket (openState (basePath </> "core_socket") core) closeState $ const $
+     bracket (openState (basePath </> "profileData_socket") profileData) closeState $ const $
+     bracket (openState (basePath </> "navBar_socket") navBar) closeState $ const $
+     bracket (openState (basePath </> "rebac_socket") rebac) closeState $ const $
+     f (Acid profileData core navBar rebac)
     where
 #if MIN_VERSION_acid_state (0,16,0)
       openState :: forall st. FilePath -> AcidState st -> m ThreadId
@@ -348,4 +357,5 @@ withAcidRemoteClient mBasePath f = do
     bracket (openRemote (basePath </> "core_socket")) closeRemote $ \core ->
       bracket (openRemote (basePath </> "profileData_socket")) closeRemote $ \profileData ->
       bracket (openRemote (basePath </> "navBar_socket")) closeRemote $ \navBar ->
-      (f (Acid profileData core navBar))
+      bracket (openRemote (basePath </> "rebac_socket")) closeRemote $ \rebac ->
+      (f (Acid profileData core navBar rebac))

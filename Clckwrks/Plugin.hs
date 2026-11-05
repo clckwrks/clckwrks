@@ -2,6 +2,8 @@
 module Clckwrks.Plugin where
 
 import Clckwrks
+import Clckwrks.Rebac.Acid         (clckwrksFragment, clckwrksRels)
+import Clckwrks.Rebac.URL          (RebacURL(..))
 import Clckwrks.Types              (NamedLink(..))
 import Clckwrks.Route              (routeClck)
 import Control.Monad.State         (get)
@@ -28,6 +30,7 @@ clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
     do ~(Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
+       addRebacFragment plugins (pluginName clckPlugin) clckwrksFragment clckwrksRels
        addNavBarCallback plugins clckMenuCallback
        addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing
@@ -46,6 +49,13 @@ addClckAdminMenu =
                       , (Set.singleton Administrator, "Edit Settings" , clckShowURL (Admin EditSettings) [])
                       , (Set.singleton Administrator, "Edit Nav Bar"  , clckShowURL (Admin EditNavBar)   [])
                       , (Set.singleton Administrator, "System Emails" , clckShowURL (Admin SystemEmails) [])
+                      ]
+                    )
+       addAdminMenu ( "Access Control"
+                    , [ (Set.singleton Administrator, "Schema"       , clckShowURL (Rebac SchemaPanel)      [])
+                      , (Set.singleton Administrator, "Relations"    , clckShowURL (Rebac RelationsPanel)   [])
+                      , (Set.singleton Administrator, "Relation Log" , clckShowURL (Rebac RelationLogPanel) [])
+                      , (Set.singleton Administrator, "Check"        , clckShowURL (Rebac CheckPanel)       [])
                       ]
                     )
 
