@@ -520,6 +520,16 @@ taggedGroupsOutOfStep groups =
   do rs <- ask
      pure (map fst (groupChanges rs (wantedGroups groups)))
 
+-- | The tags on the stored tuples that start with this text, each once,
+-- in order.  With 'setTaggedTuplesMany' this finds the groups whose
+-- source is gone, such as the tuples of a deleted report: list the tags
+-- under the source's prefix, and set those no longer wanted to @[]@.
+tagsWithPrefix :: Text -> Query RebacState [Tag]
+tagsWithPrefix prefix =
+  do rs <- ask
+     pure $ Set.toList $ Set.fromList
+       [ t | RelationTuple _ _ _ _ (Just t) _ <- toTuples (rsTuples rs), Text.isPrefixOf prefix (unTag t) ]
+
 -- | each tag once, in order, with all the distinct tuples listed for it
 wantedGroups :: [(Tag, [RelationTuple])] -> [(Tag, [RelationTuple])]
 wantedGroups groups = Map.toList (nub <$> Map.fromListWith (flip (++)) groups)
@@ -808,6 +818,7 @@ makeAcidic ''RebacState
  , 'setTaggedTuples
  , 'setTaggedTuplesMany
  , 'taggedGroupsOutOfStep
+ , 'tagsWithPrefix
  , 'getRelationTuples
  , 'getRelationLog
  , 'getRelationLogPage
