@@ -69,7 +69,7 @@ import Clckwrks.Admin.URL            (AdminURL(..))
 import Clckwrks.Acid                 (Acid(..), CoreState, GetAcidState(..), GetUACCT(..))
 import Clckwrks.ProfileData.Acid     (ProfileDataState, GetRoles(..), HasRole(..))
 import Clckwrks.ProfileData.Types    (Role(..))
-import Clckwrks.Rebac.Acid           (RebacState(..), AddRelationTupleError(..), UpdateSchemaError(..), ppAddRelationTupleError, ppUpdateSchemaError)
+import Clckwrks.Rebac.Acid           (RebacState(..), AddRelationTupleError(..), SetTaggedTuplesError, UpdateSchemaError(..), ppAddRelationTupleError, ppUpdateSchemaError)
 import AccessControl.SchemaFragment  (SchemaFragment)
 import Clckwrks.Rebac.Types          (RebacFragment(..))
 import Clckwrks.NavBar.Acid          (NavBarState)
@@ -360,6 +360,7 @@ data ClckFormError
     | InvalidISO8601Date T.Text
     | AddRelationTupleError AddRelationTupleError
     | UpdateSchemaError UpdateSchemaError
+    | AdministratorsNotSynced [SetTaggedTuplesError] -- ^ the roles changed, but rebac's administrators could not be made to follow
       deriving (Show)
 
 instance FormError ClckFormError where
@@ -630,6 +631,9 @@ instance (Functor m, MonadIO m, Happstack m) => EmbedAsChild (ClckT url m) ClckF
     asChild (UpdateSchemaError use) =
       asChild $ genElement (toName ("pre" :: Text.Text)) [] $
         [ asChild $ pcdata $ TL.pack $ show $ ppUpdateSchemaError use ]
+    asChild (AdministratorsNotSynced errs) =
+      asChild $ genElement (toName ("pre" :: Text.Text)) [] $
+        [ asChild $ pcdata $ TL.pack $ "The roles were saved, but rebac's administrators could not be updated: " <> show errs ]
 
 
 instance (Functor m, Monad m) => EmbedAsChild (ClckT url m) () where

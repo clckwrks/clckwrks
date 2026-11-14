@@ -4,6 +4,7 @@ module Clckwrks.ProfileData.EditProfileDataFor where
 import Clckwrks
 import Clckwrks.Admin.Template   (template)
 import Clckwrks.ProfileData.Acid (GetProfileData(..), SetProfileData(..))
+import Clckwrks.Rebac.Administrators (syncAdministrators)
 import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
 import Clckwrks.Authenticate.URL (AuthURL(ResetPassword))
 import Control.Monad.State       (get)
@@ -143,6 +144,9 @@ profileDataFormlet pd@ProfileData{..} =
         do let newPd = pd { roles    = Set.fromList roles'
                           }
            update (SetProfileData newPd)
-           pure (Right ())
+           -- rebac's platform administrators follow the Administrator role
+           acid <- acidState <$> get
+           r <- liftIO $ syncAdministrators (acidProfileData acid) (acidRebac acid) "roles changed on the Edit Profile Data page"
+           pure (either (Left . AdministratorsNotSynced) (const (Right ())) r)
 
 --       ((li $ labelText "roles:")            ++> ((li $ inputCheckboxes [ (r, show r) | r <- [minBound .. maxBound]] (\r -> Set.member r roles)) `setAttrs` (("class" := "form-check") :: Attr Text Text))

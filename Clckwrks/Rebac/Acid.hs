@@ -936,7 +936,6 @@ clckwrksRels :: [ RelationTuple ]
 clckwrksRels =
 --          page:admin#controller@platform:clckwrks                     # platform admins are also page admins
   [rels|
-         platform:clckwrks#administrator@user:1                      # security warning - the first account created automatically gets admin access
          clck:admin#controller@platform:clckwrks                     # platform admins are also clck admins
          page:1#viewer@user:*
          rebac_api:schema#controller@platform:clckwrks
