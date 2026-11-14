@@ -5,7 +5,9 @@
 --
 -- clckwrks makes nobody an administrator by itself: the role is given
 -- with clckwrks-cli, which calls 'syncAdministrators' after changing a
--- role, so the tuples follow.  The tuples it writes are tagged
+-- role, so the tuples follow; so does the Edit Profile Data page, and
+-- the server at startup ('Clckwrks.Plugin.clckInit'), which repairs a
+-- database the CLI has not.  The tuples it writes are tagged
 -- 'administratorsTag', and any other administrator tuple, such as the
 -- one clckwrks used to seed for user 1, is removed.
 --
