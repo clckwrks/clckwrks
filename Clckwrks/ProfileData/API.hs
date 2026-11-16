@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards, OverloadedStrings #-}
 module Clckwrks.ProfileData.API
     ( getDisplayName
+    , getName
     , getProfileData
     , getUserRoles
     , requiresRole
@@ -13,6 +14,7 @@ import Clckwrks.Acid  (Acid(..))
 import Clckwrks.Monad
 import Clckwrks.URL                 (ClckURL)
 import {-# SOURCE #-} Clckwrks.Authenticate.Plugin (getUserId)
+import {-# SOURCE #-} Clckwrks.Authenticate.API (getUsername)
 import Clckwrks.ProfileData.Acid
 import Clckwrks.ProfileData.Types
 import Clckwrks.Unauthorized        (unauthorizedPage)
@@ -22,9 +24,12 @@ import Control.Monad.Trans          (MonadIO)
 import           Data.Set           (Set)
 import qualified Data.Set           as Set
 import Data.Text                    (Text)
+import qualified Data.Text          as Text
 import qualified Data.Text.Lazy     as TL
 import Data.UserId                  (UserId(..))
-import Happstack.Authenticate.Core  (Username(..))
+import Happstack.Authenticate.Core    (User(..), Username(..))
+import Happstack.Authenticate.Core as Authenticate
+import Happstack.Authenticate.Handlers (GetUserByUserId(..))
 import Happstack.Server             (Happstack, askRq, escape, rqUri, rqQuery)
 import Web.Routes                   (RouteT(..))
 
@@ -33,6 +38,21 @@ getProfileData uid = query (GetProfileData uid)
 
 getDisplayName :: UserId -> Clck url (Maybe DisplayName)
 getDisplayName uid = displayName <$> query (GetProfileData uid)
+
+-- | get some sort of name for the user.
+--
+-- returns the 'DisplayName' if it is not empty, else the username if not empty, else the userid.
+getName :: UserId -> Clck url Text
+getName uid =
+  do mDisplayName <- getDisplayName uid
+     case mDisplayName of
+       (Just (DisplayName txt)) | not (Text.null (Text.strip txt)) -> pure txt
+       _ ->
+         do mUsername <- getUsername uid
+            case mUsername of
+              Nothing -> pure $ Text.pack $ show uid
+              (Just (Authenticate.Username txt)) ->
+                pure txt
 
 whoami :: Clck url (Maybe UserId)
 whoami = getUserId

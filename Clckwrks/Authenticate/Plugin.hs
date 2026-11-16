@@ -2,7 +2,7 @@
 module Clckwrks.Authenticate.Plugin where
 
 import Control.Concurrent.STM      (atomically)
-import Control.Concurrent.STM.TVar (TVar, newTVar)
+import Control.Concurrent.STM.TVar (TVar, newTVar, readTVar)
 import Clckwrks.Monad
 import Clckwrks.Acid               (GetAcidState(..), GetCoreState(..), GetEnableOpenId(..), acidCore, acidProfileData, coreFromAddress, coreLoginRedirect, coreSignupRedirect, coreReplyToAddress, coreSendmailPath, getAcidState)
 import Clckwrks.Authenticate.Monad (AuthenticatePluginState(..))
@@ -32,7 +32,7 @@ import qualified Data.Text.Lazy as TL
 import Data.UserId                  (UserId)
 import Happstack.Authenticate.Core  (tokenUser, userId)
 import Happstack.Authenticate.Handlers  (AuthenticateState, AuthenticateConfig(..), GetTurnstile(..), Turnstile(..), getToken, usernamePolicy)
-import Happstack.Authenticate.Route (initAuthentication)
+import Happstack.Authenticate.Route (initAuthentication, happstackAuthenticateClientHash)
 import Happstack.Authenticate.Password.Handlers (PasswordConfig(..), initialPasswordState)
 import Happstack.Authenticate.Password.Route (initPassword')
 -- import Happstack.Authenticate.OpenId.Route (initOpenId)
@@ -132,21 +132,27 @@ authenticatePluginLoader plugins =
      ~(Just aps) <- getPluginState plugins (pluginName authenticatePlugin)
      -- putStrLn $ "*** authenticatePluginLoader ***"
      let pluginURLs = apsSignupPluginURLs aps
+     -- embed a content-hash of the happstack-authenticate-client javascript
+     -- file as a query parameter so that a change in its content changes
+     -- the URL, forcing a fresh fetch even for clients whose browser
+     -- already cached the old URL (see 'happstackAuthenticateClientHash').
+     authenticateConfig <- atomically $ readTVar (apsAuthenticateConfigTV aps)
+     mClientHash <- happstackAuthenticateClientHash authenticateConfig
+     let clientURLParams = maybe [] (\h -> [("etag", Just (Text.pack h))]) mClientHash
      let script =
           [jmacro|
-            // console.log('xhr request start.');
+            // Load happstack-authenticate-client as a real <script src>
+            // rather than fetching it and running it with Function():
+            // that way document.currentScript is set, which the wasm build
+            // of the client needs to find its all.wasm, and devtools shows
+            // the code under its URL.
+            // once: only the page's own load event, never again (for
+            // instance when the inserted script itself finishes loading).
             window.addEventListener("load", function(event) {
-              var xhr = new XMLHttpRequest();
-              xhr.onreadystatechange = function ()
-              {
-                if ((xhr.status == 200) && (xhr.readyState == 4)) {
-                   var r = Function(xhr.responseText)();
-                }
-
-              };
-              xhr.open("GET", `authShowFn (Auth HappstackAuthenticateClient) []`);
-              xhr.send();
-            });
+              var s = document.createElement("script");
+              s.src = `authShowFn (Auth HappstackAuthenticateClient) clientURLParams`;
+              document.head.appendChild(s);
+            }, { once: true });
             |]
 
 

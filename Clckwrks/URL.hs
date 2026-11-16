@@ -8,6 +8,7 @@ module Clckwrks.URL
 
 import Clckwrks.Admin.URL          (AdminURL(..))
 import Clckwrks.ProfileData.URL    (ProfileDataURL(..))
+import Clckwrks.Rebac.URL          (RebacURL(..))
 import Control.Applicative         ((<$>), many)
 import Data.Data                   (Data, Typeable)
 import Data.SafeCopy               (Migrate(..), SafeCopy(..), base, deriveSafeCopy, extension)
@@ -32,6 +33,7 @@ data ClckURL
     | PluginData Text FilePath
     | Admin AdminURL
     | Profile ProfileDataURL
+    | Rebac RebacURL
       deriving (Eq, Ord, Data, Typeable, Read, Show)
 
 $(derivePathInfo ''ClckURL)

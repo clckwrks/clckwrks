@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, GeneralizedNewtypeDeriving, RecordWildCards, TemplateHaskell, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, GeneralizedNewtypeDeriving, RecordWildCards, TemplateHaskell, OverloadedStrings #-}
 module Clckwrks.Types
     ( UUID
     , Prefix(..)
@@ -10,12 +10,13 @@ import Control.Applicative ((<$>))
 import Data.Aeson    (ToJSON(..), (.=), object)
 import Data.Data     (Data, Typeable)
 import Data.SafeCopy (SafeCopy(..), base, deriveSafeCopy, safeGet, safePut, contain)
+import qualified Data.Text as T
 import Data.Text     (Text)
 import qualified Data.Text.Encoding as T
 import Data.UUID.Types (UUID)
 import Data.UUID.Orphans ()
+import Data.UserId (UserId(..))
 import HSP.Google.Analytics (UACCT)
-
 
 -- | 'SafeCopy' instances for some 3rd party types
 $(deriveSafeCopy 0 'base ''UACCT)

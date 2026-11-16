@@ -2,13 +2,16 @@
 module Clckwrks.Plugin where
 
 import Clckwrks
+import Clckwrks.Rebac.Acid         (clckwrksFragment, clckwrksRels)
+import Clckwrks.Rebac.Administrators (AdministratorsChange(..), syncAdministrators)
+import Clckwrks.Rebac.URL          (RebacURL(..))
 import Clckwrks.Types              (NamedLink(..))
 import Clckwrks.Route              (routeClck)
 import Control.Monad.State         (get)
 import Data.Text                   (Text)
 import qualified Data.Set          as Set
 import qualified Data.Text.Lazy as TL
-import Web.Plugins.Core            (Plugin(..), addHandler, getPluginRouteFn, initPlugin)
+import Web.Plugins.Core            (Plugin(..), addHandler, getPluginRouteFn, getPluginsSt, initPlugin)
 
 clckHandler :: (ClckURL -> [(Text, Maybe Text)] -> Text)
             -> ClckPlugins
@@ -28,6 +31,18 @@ clckInit :: ClckPlugins
          -> IO (Maybe Text)
 clckInit plugins =
     do ~(Just clckShowFn) <- getPluginRouteFn plugins (pluginName clckPlugin)
+       addRebacFragment plugins (pluginName clckPlugin) clckwrksFragment clckwrksRels
+       -- rebac's platform administrators are the Administrator role's;
+       -- clckwrks-cli keeps them so as roles change, this repairs any
+       -- database it has not, such as one from before the sync existed
+       acid <- cpsAcid <$> getPluginsSt plugins
+       addRebacSync plugins (pluginName clckPlugin) $ \rebac ->
+         syncAdministrators (acidProfileData acid) rebac "administrators at startup" >>= \r ->
+           case r of
+             Left errs -> ioError $ userError $ "rebac's administrators could not be made the Administrator role's: " ++ show errs
+             Right (AdministratorsChange [] []) -> pure ()
+             Right (AdministratorsChange added removed) ->
+               putStrLn $ "rebac administrators at startup: " ++ show (length added) ++ " added, " ++ show (length removed) ++ " removed"
        addNavBarCallback plugins clckMenuCallback
        addHandler plugins (pluginName clckPlugin) (clckHandler clckShowFn)
        return Nothing
@@ -46,6 +61,13 @@ addClckAdminMenu =
                       , (Set.singleton Administrator, "Edit Settings" , clckShowURL (Admin EditSettings) [])
                       , (Set.singleton Administrator, "Edit Nav Bar"  , clckShowURL (Admin EditNavBar)   [])
                       , (Set.singleton Administrator, "System Emails" , clckShowURL (Admin SystemEmails) [])
+                      ]
+                    )
+       addAdminMenu ( "Access Control"
+                    , [ (Set.singleton Administrator, "Schema"       , clckShowURL (Rebac SchemaPanel)      [])
+                      , (Set.singleton Administrator, "Relations"    , clckShowURL (Rebac RelationsPanel)   [])
+                      , (Set.singleton Administrator, "Relation Log" , clckShowURL (Rebac RelationLogPanel) [])
+                      , (Set.singleton Administrator, "Check"        , clckShowURL (Rebac CheckPanel)       [])
                       ]
                     )
 
