@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, DeriveDataTypeable, DeriveGeneric, FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE CPP, DataKinds, DeriveDataTypeable, DeriveGeneric, FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, QuasiQuotes, TemplateHaskell, TypeFamilies, OverloadedStrings #-}
 module Clckwrks.Rebac.Acid where
 
 import AccessControl.Check         (Access, checkIndexed)
@@ -14,6 +14,9 @@ import Control.Monad.State         (put, get)
 import Data.Acid                   (Query, Update, makeAcidic)
 import Data.Data                   (Data)
 import Data.List                   (mapAccumL, nub, partition, sort)
+#if !MIN_VERSION_base(4,20,0)
+import Data.List (foldl')
+#endif
 import           Data.Map          (Map)
 import qualified Data.Map          as Map
 import           Data.Set          (Set)
